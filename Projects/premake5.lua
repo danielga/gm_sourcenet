@@ -29,7 +29,11 @@ solution("gm_sourcenet4")
 
 	project("gmsv_sourcenet4")
 		kind("SharedLib")
-		defines({"GMMODULE", "SOURCENET_SERVER"})
+		defines({
+			"GMMODULE",
+			"SOURCENET_SERVER",
+			"SUPPRESS_INVALID_PARAMETER_NO_INFO"
+		})
 		includedirs({
 			SOURCE_FOLDER,
 			GARRYSMOD_MODULE_BASE_FOLDER .. "/include",
@@ -88,7 +92,11 @@ solution("gm_sourcenet4")
 
 	project("gmcl_sourcenet4")
 		kind("SharedLib")
-		defines({"GMMODULE", "SOURCENET_CLIENT"})
+		defines({
+			"GMMODULE",
+			"SOURCENET_CLIENT",
+			"SUPPRESS_INVALID_PARAMETER_NO_INFO"
+		})
 		includedirs({
 			SOURCE_FOLDER,
 			GARRYSMOD_MODULE_BASE_FOLDER .. "/include",
