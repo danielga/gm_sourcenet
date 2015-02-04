@@ -21,7 +21,7 @@
 #include <gl_inetworkstringtable.hpp>
 #include <gl_igameeventmanager2.hpp>
 #include <gl_igameevent.hpp>
-#include <SymbolFinder.hpp>
+#include <symbolfinder.hpp>
 
 // Platform definitions
 
