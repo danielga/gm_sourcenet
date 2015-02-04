@@ -7,9 +7,7 @@
 #include <gl_datafragments_t.hpp>
 #include <gl_bitbuf_write.hpp>
 #include <gl_netadr_t.hpp>
-
 #include <net.h>
-
 #include <inetmessage.h>
 
 META_ID( CNetChan, 3 );
@@ -736,17 +734,18 @@ META_FUNCTION( CNetChan, __eq )
 
 GLBL_FUNCTION( CNetChan )
 {
-	CNetChan *netchan = nullptr;
-	if( !LUA->IsClient( ) )
-	{
-		LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-		netchan = static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( static_cast<int>( LUA->GetNumber( 1 ) ) ) );	
-	}
-	else
-	{
-		netchan = static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) );
-	}
+#if defined SOURCENET_SERVER
+
+	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
+
+	CNetChan *netchan = static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( static_cast<int>( LUA->GetNumber( 1 ) ) ) );	
+
+#elif defined SOURCENET_CLIENT
+
+	CNetChan *netchan = static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) );
+
+#endif
 
 	if( netchan != nullptr )
 	{

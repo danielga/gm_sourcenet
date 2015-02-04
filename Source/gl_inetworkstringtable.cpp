@@ -1,5 +1,4 @@
 #include <gl_inetworkstringtable.hpp>
-
 #include <networkstringtabledefs.h>
 
 META_ID( INetworkStringTable, 11 );

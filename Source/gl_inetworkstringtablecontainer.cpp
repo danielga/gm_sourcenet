@@ -1,6 +1,5 @@
 #include <gl_inetworkstringtablecontainer.hpp>
 #include <gl_inetworkstringtable.hpp>
-
 #include <networkstringtabledefs.h>
 
 META_ID( INetworkStringTableContainer, 10 );
@@ -31,7 +30,20 @@ META_FUNCTION( INetworkStringTableContainer, GetTable )
 
 GLBL_FUNCTION( INetworkStringTableContainer )
 {
-	INetworkStringTableContainer *pContainer = static_cast<INetworkStringTableContainer *>( fnEngineFactory( LUA->IsClient( ) ? INTERFACENAME_NETWORKSTRINGTABLECLIENT : INTERFACENAME_NETWORKSTRINGTABLESERVER, nullptr ) );
+
+#if defined SOURCENET_SERVER
+
+	INetworkStringTableContainer *pContainer = static_cast<INetworkStringTableContainer *>(
+		fnEngineFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, nullptr )
+	);
+
+#elif defined SOURCENET_CLIENT
+
+	INetworkStringTableContainer *pContainer = static_cast<INetworkStringTableContainer *>(
+		fnEngineFactory( INTERFACENAME_NETWORKSTRINGTABLECLIENT, nullptr )
+	);
+
+#endif
 
 	PUSH_META( pContainer, INetworkStringTableContainer );
 

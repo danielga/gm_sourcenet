@@ -2,7 +2,7 @@ SDK_FOLDER = "E:/Programming/source-sdk-2013/mp/src"
 GARRYSMOD_MODULE_BASE_FOLDER = "../gmod-module-base"
 SCANNING_FOLDER = "../scanning"
 DETOURING_FOLDER = "../detouring"
-SOURCE_FOLDER = "../Source"
+SOURCE_FOLDER = "../source"
 PROJECT_FOLDER = os.get() .. "/" .. _ACTION
 
 solution("gm_sourcenet4")
@@ -19,13 +19,13 @@ solution("gm_sourcenet4")
 	filter("configurations:Release")
 		optimize("On")
 		vectorextensions("SSE2")
-		objdir(PROJECT_FOLDER .. "/Intermediate")
-		targetdir(PROJECT_FOLDER .. "/Release")
+		objdir(PROJECT_FOLDER .. "/intermediate")
+		targetdir(PROJECT_FOLDER .. "/release")
 
 	filter({"configurations:Debug"})
 		flags({"Symbols"})
-		objdir(PROJECT_FOLDER .. "/Intermediate")
-		targetdir(PROJECT_FOLDER .. "/Debug")
+		objdir(PROJECT_FOLDER .. "/intermediate")
+		targetdir(PROJECT_FOLDER .. "/debug")
 
 	project("gmsv_sourcenet4")
 		kind("SharedLib")
@@ -48,7 +48,7 @@ solution("gm_sourcenet4")
 			SOURCE_FOLDER .. "/*.h",
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
-			SCANNING_FOLDER .. "/SymbolFinder.cpp",
+			SCANNING_FOLDER .. "/symbolfinder.cpp",
 			DETOURING_FOLDER .. "/hde.cpp",
 			SDK_FOLDER .. "/public/tier0/memoverride.cpp"
 		})
@@ -111,7 +111,7 @@ solution("gm_sourcenet4")
 			SOURCE_FOLDER .. "/*.h",
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
-			SCANNING_FOLDER .. "/SymbolFinder.cpp",
+			SCANNING_FOLDER .. "/symbolfinder.cpp",
 			DETOURING_FOLDER .. "/hde.cpp",
 			SDK_FOLDER .. "/public/tier0/memoverride.cpp"
 		})

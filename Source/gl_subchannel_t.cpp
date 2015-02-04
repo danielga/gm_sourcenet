@@ -1,5 +1,4 @@
 #include <gl_subchannel_t.hpp>
-
 #include <net.h>
 
 META_ID( subchannel_t, 4 );

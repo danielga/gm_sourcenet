@@ -3,19 +3,20 @@
 #define IVENGINECLIENT_INTERFACE
 #define ICVAR_INTERFACE
 
+#include <detours.h>
 #include <gl_hooks.hpp>
 #include <gl_cnetchan.hpp>
 #include <gl_inetchannelhandler.hpp>
 #include <gl_ucharptr.hpp>
 #include <gl_bitbuf_read.hpp>
 #include <gl_bitbuf_write.hpp>
-
 #include <vfnhook.h>
 #include <net.h>
 #include <protocol.h>
-
 #include <inetmessage.h>
 #include <inetmsghandler.h>
+#include <icvar.h>
+#include <convar.h>
 
 #define SIMPLE_VHOOK_BINDING( meta, name, offset ) \
 	MONITOR_HOOK( name ); \
@@ -44,96 +45,91 @@ DEFVFUNC_( CNetChan_SendDatagram_T, int, ( CNetChan *netchan, sn4_bf_write *data
 
 int VFUNC CNetChan_SendDatagram_H( CNetChan *netchan, sn4_bf_write *data )
 {
-	BEGIN_MULTISTATE_HOOK( "PreSendDatagram" );
-		
-	DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
+	INIT_HOOK( "PreSendDatagram" );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
 
-	if( !g_pEngineServer->IsDedicatedServer( ) )
-	{
-		DO_MULTISTATE_HOOK( PUSH_META( g_pEngineClient->GetNetChannelInfo( ), CNetChan ) );
-	}
-	else
-	{
-		DO_MULTISTATE_HOOK( LUA->PushNil( ) );
-	}
+		if( !g_pEngineServer->IsDedicatedServer( ) )
+		{
+			DO_HOOK( PUSH_META( g_pEngineClient->GetNetChannelInfo( ), CNetChan ) );
+		}
+		else
+		{
+			DO_HOOK( LUA->PushNil( ) );
+		}
 
-	DO_MULTISTATE_HOOK( PUSH_META( data, sn4_bf_write ) );
-	DO_MULTISTATE_HOOK( PUSH_META( &netchan->reliabledata, sn4_bf_write ) );
-	DO_MULTISTATE_HOOK( PUSH_META( &netchan->unreliabledata, sn4_bf_write ) );
-	DO_MULTISTATE_HOOK( PUSH_META( &netchan->voicedata, sn4_bf_write ) );
-
-	CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+		DO_HOOK( PUSH_META( data, sn4_bf_write ) );
+		DO_HOOK( PUSH_META( &netchan->reliabledata, sn4_bf_write ) );
+		DO_HOOK( PUSH_META( &netchan->unreliabledata, sn4_bf_write ) );
+		DO_HOOK( PUSH_META( &netchan->voicedata, sn4_bf_write ) );
+	CALL_HOOK( 0 );
 
 	int r = CNetChan_SendDatagram_T( netchan, data );
 
-	BEGIN_MULTISTATE_HOOK( "PostSendDatagram" );
-	
-	DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
-
-	CALL_MULTISTATE_HOOK( 0 );
-	
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "PostSendDatagram" );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
+	CALL_HOOK( 0 );
 
 	return r;
 }
 
-#ifdef _WIN32
+#if defined _WIN32
+
 SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_SendDatagram, 46 );
+
 #else
+
 SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_SendDatagram, 47 );
+
 #endif
 
 DEFVFUNC_( CNetChan_ProcessPacket_T, void, ( CNetChan *netchan, netpacket_t *packet, bool bHasHeader ) );
 
 void VFUNC CNetChan_ProcessPacket_H( CNetChan *netchan, netpacket_t *packet, bool bHasHeader )
 {
-	BEGIN_MULTISTATE_HOOK( "PreProcessPacket" );
-		DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
-
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK();
+	INIT_HOOK( "PreProcessPacket" );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
+	CALL_HOOK( 0 );
 
 	CNetChan_ProcessPacket_T( netchan, packet, bHasHeader );
 
-	BEGIN_MULTISTATE_HOOK( "PostProcessPacket" );
-		DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
-
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "PostProcessPacket" );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
+	CALL_HOOK( 0 );
 }
 
-#ifdef _WIN32
+#if defined _WIN32
+
 SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_ProcessPacket, 39 );
+
 #else
+
 SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_ProcessPacket, 40 ); // ?????
+
 #endif
 
 DEFVFUNC_( CNetChan_Shutdown_T, void, ( CNetChan *netchan, const char *reason ) );
 
 void VFUNC CNetChan_Shutdown_H( CNetChan *netchan, const char *reason )
 {
-	BEGIN_MULTISTATE_HOOK( "PreNetChannelShutdown" );
-		DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
+	INIT_HOOK( "PreNetChannelShutdown" );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
 		
 		// Fuck Linux
 		if( reason && reason != reinterpret_cast<const char *>( 0x02 ) )
 		{
-			DO_MULTISTATE_HOOK( LUA->PushString( reason ) );
+			DO_HOOK( LUA->PushString( reason ) );
 		}
 		else
 		{
-			DO_MULTISTATE_HOOK( LUA->PushNil( ) );
+			DO_HOOK( LUA->PushNil( ) );
 		}
 		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	CALL_HOOK( 0 );
 
 	CNetChan_Shutdown_T( netchan, reason );
 
-	BEGIN_MULTISTATE_HOOK( "PostNetChannelShutdown" );
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "PostNetChannelShutdown" );
+	CALL_HOOK( 0 );
 }
 
 SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_Shutdown, 36 );
@@ -142,12 +138,10 @@ DEFVFUNC_( INetChannelHandler_ConnectionStart_T, void, ( INetChannelHandler *han
 
 void VFUNC INetChannelHandler_ConnectionStart_H( INetChannelHandler *handler, CNetChan *netchan )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::ConnectionStart" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
-		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::ConnectionStart" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+		DO_HOOK( PUSH_META( netchan, CNetChan ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_ConnectionStart_T( handler, netchan );
 }
@@ -158,12 +152,10 @@ DEFVFUNC_( INetChannelHandler_ConnectionClosing_T, void, ( INetChannelHandler *h
 
 void VFUNC INetChannelHandler_ConnectionClosing_H( INetChannelHandler *handler, const char *reason )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::ConnectionClosing" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		DO_MULTISTATE_HOOK( LUA->PushString( reason ) );
-		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::ConnectionClosing" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+		DO_HOOK( LUA->PushString( reason ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_ConnectionClosing_T( handler, reason );
 }
@@ -174,12 +166,10 @@ DEFVFUNC_( INetChannelHandler_ConnectionCrashed_T, void, ( INetChannelHandler *h
 
 void VFUNC INetChannelHandler_ConnectionCrashed_H( INetChannelHandler *handler, const char *reason )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::ConnectionCrashed" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ) );
-		DO_MULTISTATE_HOOK( LUA->PushString( reason ) );
-		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::ConnectionCrashed" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ) );
+		DO_HOOK( LUA->PushString( reason ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_ConnectionCrashed_T( handler, reason );
 }
@@ -190,13 +180,11 @@ DEFVFUNC_( INetChannelHandler_PacketStart_T, void, ( INetChannelHandler *handler
 
 void VFUNC INetChannelHandler_PacketStart_H( INetChannelHandler *handler, int incoming_sequence, int outgoing_acknowledged )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::PacketStart" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ) );
-		DO_MULTISTATE_HOOK( LUA->PushNumber( incoming_sequence ) );
-		DO_MULTISTATE_HOOK( LUA->PushNumber( incoming_sequence ) );
-		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::PacketStart" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ) );
+		DO_HOOK( LUA->PushNumber( incoming_sequence ) );
+		DO_HOOK( LUA->PushNumber( incoming_sequence ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_PacketStart_T( handler, incoming_sequence, outgoing_acknowledged );
 }
@@ -207,124 +195,109 @@ DEFVFUNC_( INetChannelHandler_PacketEnd_T, void, ( INetChannelHandler *handler )
 
 void VFUNC INetChannelHandler_PacketEnd_H( INetChannelHandler *handler )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::PacketEnd" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::PacketEnd" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_PacketEnd_T( handler );
 }
 
 SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_PacketEnd, 5 );
 
-DEFVFUNC_( INetChannelHandler_FileRequested_T, void, ( INetChannelHandler *handler, const char *fileName, unsigned int transferID ) );
+DEFVFUNC_( INetChannelHandler_FileRequested_T, void, ( INetChannelHandler *handler, const char *fileName, uint32_t transferID ) );
 
-void VFUNC INetChannelHandler_FileRequested_H( INetChannelHandler *handler, const char *fileName, unsigned int transferID )
+void VFUNC INetChannelHandler_FileRequested_H( INetChannelHandler *handler, const char *fileName, uint32_t transferID )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::FileRequested" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		DO_MULTISTATE_HOOK( LUA->PushString( fileName ) );
-		DO_MULTISTATE_HOOK( LUA->PushNumber( transferID ) );
-
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::FileRequested" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+		DO_HOOK( LUA->PushString( fileName ) );
+		DO_HOOK( LUA->PushNumber( transferID ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_FileRequested_T( handler, fileName, transferID );
 }
 
 SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileRequested, 6 );
 
-DEFVFUNC_( INetChannelHandler_FileReceived_T, void, ( INetChannelHandler *handler, const char *fileName, unsigned int transferID ) );
+DEFVFUNC_( INetChannelHandler_FileReceived_T, void, ( INetChannelHandler *handler, const char *fileName, uint32_t transferID ) );
 
-void VFUNC INetChannelHandler_FileReceived_H( INetChannelHandler *handler, const char *fileName, unsigned int transferID )
+void VFUNC INetChannelHandler_FileReceived_H( INetChannelHandler *handler, const char *fileName, uint32_t transferID )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::FileReceived" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		DO_MULTISTATE_HOOK( LUA->PushString( fileName ) );
-		DO_MULTISTATE_HOOK( LUA->PushNumber( transferID ) );
-
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK();
+	INIT_HOOK( "INetChannelHandler::FileReceived" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+		DO_HOOK( LUA->PushString( fileName ) );
+		DO_HOOK( LUA->PushNumber( transferID ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_FileReceived_T( handler, fileName, transferID );
 }
 
 SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileReceived, 7 );
 
-DEFVFUNC_( INetChannelHandler_FileDenied_T, void, ( INetChannelHandler *handler, const char *fileName, unsigned int transferID ) );
+DEFVFUNC_( INetChannelHandler_FileDenied_T, void, ( INetChannelHandler *handler, const char *fileName, uint32_t transferID ) );
 
-void VFUNC INetChannelHandler_FileDenied_H( INetChannelHandler *handler, const char *fileName, unsigned int transferID )
+void VFUNC INetChannelHandler_FileDenied_H( INetChannelHandler *handler, const char *fileName, uint32_t transferID )
 {
-	BEGIN_MULTISTATE_HOOK( "INetChannelHandler::FileDenied" );
-		DO_MULTISTATE_HOOK( PUSH_META( handler, INetChannelHandler ); );
-		DO_MULTISTATE_HOOK( LUA->PushString( fileName ) );
-		DO_MULTISTATE_HOOK( LUA->PushNumber( transferID ) );
-
-		CALL_MULTISTATE_HOOK( 0 );
-	END_MULTISTATE_HOOK( );
+	INIT_HOOK( "INetChannelHandler::FileDenied" );
+		DO_HOOK( PUSH_META( handler, INetChannelHandler ); );
+		DO_HOOK( LUA->PushString( fileName ) );
+		DO_HOOK( LUA->PushNumber( transferID ) );
+	CALL_HOOK( 0 );
 
 	INetChannelHandler_FileDenied_T( handler, fileName, transferID );
 }
 
 SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileDenied, 8 );
 
-// Non-virtual
-
-#include <icvar.h>
-#include <convar.h>
-
-ConVar *net_showmsg = nullptr, *net_blockmsg = nullptr, *net_showpeaks = nullptr;
+static MologieDetours::Detour<CNetChan_ProcessMessages_T> *CNetChan_ProcessMessages_detour = nullptr;
+static ConVar *net_showmsg = nullptr, *net_blockmsg = nullptr, *net_showpeaks = nullptr;
 
 #if defined _WIN32
 
-bool __stdcall CNetChan_ProcessMessages_H( sn4_bf_read &buf )
+static bool __fastcall CNetChan_ProcessMessages_D( CNetChan *netchan, void *, sn4_bf_read &buf )
 
-#else
+#elif defined __linux || defined __APPLE__
 
-bool CNetChan_ProcessMessages_H( CNetChan *netchan, sn4_bf_read &buf )
+static bool CNetChan_ProcessMessages_D( CNetChan *netchan, sn4_bf_read &buf )
 
 #endif
 
 {
-#if defined _WIN32
-	CNetChan *netchan = nullptr;
-
-	__asm MOV netchan, ECX
-#endif
+	static uint8_t data[96000] = { 0 };
 	if( !buf.IsOverflowed( ) )
 	{
 		int bitsread = buf.GetNumBitsRead( );
 
-		uint8_t data[96000];
 		memcpy( data, buf.m_pData, BitByte( bitsread ) );
 
 		bf_write write( data, sizeof( data ) );
+		write.m_nDataBits = buf.m_nDataBits;
+		write.m_nDataBytes = buf.m_nDataBytes;
+		write.SeekToBit( bitsread );
 
-		BEGIN_MULTISTATE_HOOK( "PreProcessMessages" );
-			write.SeekToBit( bitsread );
-
-			DO_MULTISTATE_HOOK( PUSH_META( netchan, CNetChan ) );
-			DO_MULTISTATE_HOOK( PUSH_META( &buf, sn4_bf_read ) );
-			DO_MULTISTATE_HOOK( PUSH_META( &write, sn4_bf_write ) );
+		INIT_HOOK( "PreProcessMessages" );
+			DO_HOOK( PUSH_META( netchan, CNetChan ) );
+			DO_HOOK( PUSH_META( &buf, sn4_bf_read ) );
+			DO_HOOK( PUSH_META( &write, sn4_bf_write ) );
 
 			if( !g_pEngineServer->IsDedicatedServer( ) )
-				DO_MULTISTATE_HOOK( PUSH_META( g_pEngineClient->GetNetChannelInfo( ), CNetChan ) );
+				DO_HOOK( PUSH_META( g_pEngineClient->GetNetChannelInfo( ), CNetChan ) );
 
-			CALL_MULTISTATE_HOOK( 0 );
+		CALL_HOOK( 0 );
 
-			buf.StartReading( write.GetBasePointer( ), write.GetNumBytesWritten( ), bitsread );
-		END_MULTISTATE_HOOK( );
+		buf.StartReading( write.GetBasePointer( ), write.GetNumBytesWritten( ), bitsread, write.GetNumBitsWritten( ) );
 	}
 
-	const char *showmsg = net_showmsg->GetString( ); // ESP+14
-	const char *blockmsg = net_blockmsg->GetString( ); // ESP+18
+	return CNetChan_ProcessMessages_detour->GetOriginalFunction( )( netchan, buf );
+
+/*	const char *showmsg = net_showmsg->GetString( );
+	const char *blockmsg = net_blockmsg->GetString( );
 	
 	if( *showmsg == '0' )
-		showmsg = NULL;
+		showmsg = nullptr;
 
 	if( *blockmsg == '0' )
-		blockmsg = NULL;
+		blockmsg = nullptr;
 	
 	if( net_showpeaks->GetInt( ) && buf.GetNumBytesLeft( ) < net_showpeaks->GetInt( ) )
 		showmsg = "1";
@@ -340,9 +313,8 @@ bool CNetChan_ProcessMessages_H( CNetChan *netchan, sn4_bf_read &buf )
 		if( buf.GetNumBitsLeft( ) < NET_MESSAGE_BITS )
 			break;
 
-		unsigned char msg = buf.ReadUBitLong( NET_MESSAGE_BITS );
-
-		if ( msg <= net_LastControlMessage )
+		uint32_t msg = buf.ReadUBitLong( NET_MESSAGE_BITS );
+		if( msg <= net_LastControlMessage )
 		{
 			if ( !netchan->ProcessControlMessage( msg, buf ) )
 				return false;
@@ -366,10 +338,10 @@ bool CNetChan_ProcessMessages_H( CNetChan *netchan, sn4_bf_read &buf )
 
 		netchan->UpdateMessageStats( netmsg->GetGroup( ), buf.GetNumBitsRead( ) - oldpos );
 
-		if( showmsg && ( *showmsg == '1' || !V_strcasecmp( showmsg, netmsg->GetName( ) ) ) )
+		if( showmsg && ( *showmsg == '1' || V_strcasecmp( showmsg, netmsg->GetName( ) ) == 0 ) )
 			ConMsg( "Msg from %s: %s\n", netchan->remote_address.ToString( ), netmsg->ToString( ) );
 
-		if( blockmsg && ( *blockmsg == '1' || !V_strcasecmp( blockmsg, netmsg->GetName( ) ) ) )
+		if( blockmsg && ( *blockmsg == '1' || V_strcasecmp( blockmsg, netmsg->GetName( ) ) == 0 ) )
 		{
 			ConMsg( "Blocking message: %s\n", netmsg->ToString( ) );
 		}
@@ -398,57 +370,52 @@ bool CNetChan_ProcessMessages_H( CNetChan *netchan, sn4_bf_read &buf )
 		}
 	}
 
-	return true;
+	return true;*/
 }
-
-unsigned char oldbytes[1 + sizeof( DWORD )];
-unsigned char newbytes[1 + sizeof( DWORD )] = { 0xE9, 0x00, 0x00, 0x00, 0x00 };
 
 MONITOR_HOOK( CNetChan_ProcessMessages );
 
 GLBL_FUNCTION( Attach__CNetChan_ProcessMessages )
 {
-	if( CNetChan_ProcessMessages_T == nullptr )
+	if( CNetChan_ProcessMessages_O == nullptr )
 		LUA->ThrowError( "hooking to CNetChan::ProcessMessages is disabled as the signature scan failed" );
 
-	ICvar *g_pCVar = nullptr;
+#if defined SOURCENET_SERVER
 
-	if ( LUA->IsClient( ) )
-		g_pCVar = g_pCVarClient;
-	else
-		g_pCVar = g_pCVarServer;
+	ICvar *g_pCVar = g_pCVarServer;
+
+#elif defined SOURCENET_CLIENT
+
+	ICvar *g_pCVar = g_pCVarClient;
+
+#endif
 
 	if( !IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
 		net_showmsg = g_pCVar->FindVar( "net_showmsg" );
 		if( net_showmsg == nullptr )
 		{
-			Msg( "[gm_sourcenet3] net_showmsg not found\n" );
+			Msg( "[gm_sourcenet4] net_showmsg not found\n" );
 			return 0;
 		}
 
 		net_blockmsg = g_pCVar->FindVar( "net_blockmsg" );
 		if( net_blockmsg == nullptr )
 		{
-			Msg( "[gm_sourcenet3] net_blockmsg not found\n" );
+			Msg( "[gm_sourcenet4] net_blockmsg not found\n" );
 			return 0;
 		}
 
 		net_showpeaks = g_pCVar->FindVar( "net_showpeaks" );
 		if( net_showpeaks == nullptr )
 		{
-			Msg( "[gm_sourcenet3] net_showpeaks not found\n" );
+			Msg( "[gm_sourcenet4] net_showpeaks not found\n" );
 			return 0;
 		}
 
-		uintptr_t jmppos = reinterpret_cast<uintptr_t>( CNetChan_ProcessMessages_H ) - reinterpret_cast<uintptr_t>( CNetChan_ProcessMessages_T ) - 5;
-
-		memcpy( newbytes + 1, &jmppos, sizeof( uintptr_t ) );
-
-		BEGIN_MEMEDIT( CNetChan_ProcessMessages_T, sizeof( newbytes ) );
-			memcpy( oldbytes, CNetChan_ProcessMessages_T, sizeof( oldbytes ) );
-			memcpy( CNetChan_ProcessMessages_T, newbytes, sizeof( newbytes ) );
-		FINISH_MEMEDIT( CNetChan_ProcessMessages_T, sizeof( newbytes ) );
+		CNetChan_ProcessMessages_detour = new MologieDetours::Detour<CNetChan_ProcessMessages_T>(
+			CNetChan_ProcessMessages_O, reinterpret_cast<CNetChan_ProcessMessages_T>( CNetChan_ProcessMessages_D )
+		);
 
 		REGISTER_ATTACH( CNetChan_ProcessMessages );
 	}
@@ -460,9 +427,8 @@ GLBL_FUNCTION( Detach__CNetChan_ProcessMessages )
 {
 	if( IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
-		BEGIN_MEMEDIT( CNetChan_ProcessMessages_T, sizeof( oldbytes ) );
-			memcpy( CNetChan_ProcessMessages_T, oldbytes, sizeof( oldbytes ) );	
-		FINISH_MEMEDIT( CNetChan_ProcessMessages_T, sizeof( oldbytes ) );
+		delete CNetChan_ProcessMessages_detour;
+		CNetChan_ProcessMessages_detour = nullptr;
 
 		REGISTER_DETACH( CNetChan_ProcessMessages );
 	}

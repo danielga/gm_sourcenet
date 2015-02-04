@@ -1,5 +1,4 @@
 #include <gl_igameevent.hpp>
-
 #include <igameevents.h>
 
 META_ID( IGameEvent, 13 );

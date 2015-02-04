@@ -1,8 +1,6 @@
-#ifndef GL_DATAFRAGMENTS_T_H
-#define GL_DATAFRAGMENTS_T_H
+#pragma once
 
 #include <main.hpp>
-
 #include <net.h>
 
 typedef CNetChan::dataFragments_t dataFragments_t;
@@ -48,5 +46,3 @@ EXT_META_FUNCTION( dataFragments_t, SetNum );
 EXT_META_FUNCTION( dataFragments_t, Delete );
 
 EXT_GLBL_FUNCTION( dataFragments_t );
-
-#endif // GL_DATAFRAGMENTS_T_H

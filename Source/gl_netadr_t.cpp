@@ -1,5 +1,4 @@
 #include <gl_netadr_t.hpp>
-
 #include <netadr.h>
 
 META_ID( netadr_t, 8 );
@@ -43,7 +42,7 @@ META_FUNCTION( netadr_t, IsValid )
 
 	netadr_t *adr = GET_META( 1, netadr_t );
 
-	LUA->PushBool( adr->IsValid() );
+	LUA->PushBool( adr->IsValid( ) );
 
 	return 1;
 }
@@ -54,7 +53,7 @@ META_FUNCTION( netadr_t, GetIP )
 
 	netadr_t *adr = GET_META( 1, netadr_t );
 
-	LUA->PushNumber( adr->GetIPNetworkByteOrder( ) );
+	LUA->PushNumber( adr->GetIPHostByteOrder( ) );
 
 	return 1;
 }

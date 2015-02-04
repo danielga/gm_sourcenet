@@ -1,6 +1,5 @@
 #include <gl_bitbuf_write.hpp>
 #include <gl_ucharptr.hpp>
-
 #include <bitbuf.h>
 
 META_ID( sn4_bf_write, 1 );

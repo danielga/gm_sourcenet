@@ -6,20 +6,20 @@
 //
 //=============================================================================//
 
-#include "net.h"
-#include "protocol.h"
-#include "inetmsghandler.h"
-#include "inetmessage.h"
+#include <net.h>
+#include <protocol.h>
+#include <inetmsghandler.h>
+#include <inetmessage.h>
+#include <cstdint>
+#include <cctype>
 
-#include <ctype.h>
-
-bool COM_IsValidPath( const char *path )
+static bool COM_IsValidPath( const char *path )
 {
-	if ( path
+	if( path != nullptr
 		&& V_strlen( path ) > 0
-		&& !V_strstr( path, "\\\\" )
-		&& !V_strstr( path, ":" )
-		&& !V_strstr( path, ".." ) )
+		&& V_strstr( path, "\\\\" ) == nullptr
+		&& V_strstr( path, ":" ) == nullptr
+		&& V_strstr( path, ".." ) == nullptr )
 		  return true;
 
 	return false;
@@ -27,25 +27,23 @@ bool COM_IsValidPath( const char *path )
 
 bool CNetChan::IsValidForFileTransfer( const char *filename )
 {
-	if ( ( !filename || !*filename ) || !COM_IsValidPath( filename ) )
+	if( filename == nullptr || *filename == '\0' || !COM_IsValidPath( filename ) )
 		return false;
 
 	const char *ext = V_strrchr( filename, '.' );
-	
-	if ( !ext || V_strlen( ext ) - 3 > 1 ) // Extension has to be 2 or 3 chars (1 fails due to unsigned/size_t data type, probably not intentional?)
+	if( ext == nullptr || V_strlen( ext ) - 3 > 1 ) // Extension has to be 2 or 3 chars (1 fails due to unsigned/size_t data type, probably not intentional?)
 		return false;
 	
 	const char *p = ext;
-	
-	while ( *p )
+	while( *p != '\0' )
 	{
-		if ( isspace( *p ) ) // Ensure the extension has no spaces
+		if( isspace( *p ) ) // Ensure the extension has no spaces
 			return false;
 			
 		p++;
 	}
 
-	if ( !V_strcasecmp( ext, ".cfg" )
+	if( !V_strcasecmp( ext, ".cfg" )
 		|| !V_strcasecmp( ext, ".lst" )
 		|| !V_strcasecmp( ext, ".exe" )
 		|| !V_strcasecmp( ext, ".vbs" )
@@ -66,53 +64,50 @@ bool CNetChan::IsValidForFileTransfer( const char *filename )
 
 bool CNetChan::ProcessControlMessage( int cmd, bf_read &msg )
 {
-	switch ( cmd )
+	switch( cmd )
 	{
-	case net_NOP:
-		{
+		case net_NOP:
 			return true;
-		}
-	case net_Disconnect:
+
+		case net_Disconnect:
 		{
-			char reason[ 1024 ];
+			char reason[1024] = { 0 };
 			msg.ReadString( reason, 1024 );
 
 			msghandler->ConnectionClosing( reason );
 
 			return false;
 		}
-	case net_File:
-		{
-			int transferID = msg.ReadUBitLong( 32 );
 
-			char filename[ 1024 ];
+		case net_File:
+		{
+			uint32_t transferID = msg.ReadUBitLong( 32 );
+
+			char filename[1024] = { 0 };
 			msg.ReadString( filename, 1024 );
 
-			if ( msg.ReadOneBit() && IsValidForFileTransfer( filename ) )
+			if( msg.ReadOneBit( ) && IsValidForFileTransfer( filename ) )
 				msghandler->FileRequested( filename, transferID );
 			else
 				msghandler->FileDenied( filename, transferID );
 
 			return true;
 		}
-	default:
-		{
-			ConMsg( "Netchannel: received bad control cmd %i from %s.\n", cmd, remote_address.ToString() );
 
+		default:
+			ConMsg( "Netchannel: received bad control cmd %i from %s.\n", cmd, remote_address.ToString( ) );
 			return false;
-		}
 	}
 }
 
 INetMessage *CNetChan::FindMessage( int type )
 {
-	for ( int i = 0; i < netmessages.Count(); i++ )
+	for( int i = 0; i < netmessages.Count( ); ++i )
 	{
 		INetMessage *msg = netmessages.Element( i );
-
-		if ( msg->GetType() == type )
+		if( msg->GetType( ) == type )
 			return msg;
 	}
 
-	return NULL;
+	return nullptr;
 }

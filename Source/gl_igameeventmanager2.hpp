@@ -1,5 +1,4 @@
-#ifndef GL_IGAMEEVENTMANAGER2_H
-#define GL_IGAMEEVENTMANAGER2_H
+#pragma once
 
 #include <main.hpp>
 
@@ -10,5 +9,3 @@ EXT_META_FUNCTION( IGameEventManager2, SerializeEvent );
 EXT_META_FUNCTION( IGameEventManager2, UnserializeEvent );
 
 EXT_GLBL_FUNCTION( IGameEventManager2 );
-
-#endif // GL_IGAMEEVENTMANAGER2_H

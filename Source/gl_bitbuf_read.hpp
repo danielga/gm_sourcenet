@@ -1,8 +1,6 @@
-#ifndef GL_BITBUF_READ_H
-#define GL_BITBUF_READ_H
+#pragma once
 
 #include <main.hpp>
-
 #include <bitbuf.h>
 
 typedef bf_read sn4_bf_read;
@@ -40,5 +38,3 @@ EXT_META_FUNCTION( sn4_bf_read, TotalBytesAvailable );
 EXT_META_FUNCTION( sn4_bf_read, FinishReading );
 
 EXT_GLBL_FUNCTION( sn4_bf_read );
-
-#endif // GL_BITBUF_READ_H

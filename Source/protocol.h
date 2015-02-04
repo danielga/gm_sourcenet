@@ -6,12 +6,8 @@
 //
 //=============================================================================//
 // protocol.h -- communications protocols
-#ifndef PROTOCOL_H
-#define PROTOCOL_H
 
-#ifdef _WIN32
 #pragma once
-#endif
 
 // Used to classify entity update types in DeltaPacketEntities.
 enum UpdateType
@@ -178,5 +174,3 @@ enum
 #define SIGNONSTATE_SPAWN		5	// ready to receive entity packets
 #define SIGNONSTATE_FULL		6	// we are fully connected, first non-delta packet received
 #define SIGNONSTATE_CHANGELEVEL	7	// server is changing level, please wait
-
-#endif // PROTOCOL_H

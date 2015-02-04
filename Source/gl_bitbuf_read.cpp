@@ -1,6 +1,5 @@
 #include <gl_bitbuf_read.hpp>
 #include <gl_ucharptr.hpp>
-
 #include <bitbuf.h>
 
 META_ID( sn4_bf_read, 2 );
@@ -102,7 +101,7 @@ META_FUNCTION( sn4_bf_read, ReadBits )
 	uint8_t *data = new uint8_t[static_cast<int>( LUA->GetNumber( 2 ) )];
 	if( data == nullptr )
 	{
-		Msg( "[gm_sourcenet3][sn4_bf_read::ReadBits] Failed allocating %i bytes\n", BitByte( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+		Msg( "[gm_sourcenet4][sn4_bf_read::ReadBits] Failed allocating %i bytes\n", BitByte( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
 		LUA->ThrowError( "fatal error" );
 
 		// Prevent further reading of the buffer
@@ -157,7 +156,7 @@ META_FUNCTION( sn4_bf_read, ReadBytes )
 	uint8_t *data = new uint8_t[static_cast<int>( LUA->GetNumber( 2 ) )];
 	if( data == nullptr )
 	{
-		Msg( "[gm_sourcenet3][sn4_bf_read::ReadBytes] Failed allocating %i bytes\n", static_cast<int>( LUA->GetNumber( 2 ) ) );
+		Msg( "[gm_sourcenet4][sn4_bf_read::ReadBytes] Failed allocating %i bytes\n", static_cast<int>( LUA->GetNumber( 2 ) ) );
 		LUA->ThrowError( "fatal error" );
 
 		// Prevent further reading of the buffer

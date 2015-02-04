@@ -1,5 +1,4 @@
-#ifndef GL_INETWORKSTRINGTABLECONTAINER_H
-#define GL_INETWORKSTRINGTABLECONTAINER_H
+#pragma once
 
 #include <main.hpp>
 
@@ -9,5 +8,3 @@ EXT_META_FUNCTION( INetworkStringTableContainer, FindTable );
 EXT_META_FUNCTION( INetworkStringTableContainer, GetTable );
 
 EXT_GLBL_FUNCTION( INetworkStringTableContainer );
-
-#endif // GL_INETWORKSTRINGTABLECONTAINER_H

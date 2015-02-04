@@ -1,5 +1,4 @@
-#ifndef GL_NETADR_T
-#define GL_NETADR_T
+#pragma once
 
 #include <main.hpp>
 
@@ -15,5 +14,3 @@ EXT_META_FUNCTION( netadr_t, GetPort );
 EXT_META_FUNCTION( netadr_t, GetType );
 
 EXT_META_FUNCTION( netadr_t, ToString );
-
-#endif // GL_NETADR_T

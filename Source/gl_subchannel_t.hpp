@@ -1,5 +1,4 @@
-#ifndef GL_SUBCHANNEL_T_H
-#define GL_SUBCHANNEL_T_H
+#pragma once
 
 #include <main.hpp>
 
@@ -19,5 +18,3 @@ EXT_META_FUNCTION( subchannel_t, SetState );
 
 EXT_META_FUNCTION( subchannel_t, GetIndex );
 EXT_META_FUNCTION( subchannel_t, SetIndex );
-
-#endif // GL_SUBCHANNEL_T_H

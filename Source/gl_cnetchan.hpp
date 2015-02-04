@@ -1,5 +1,4 @@
-#ifndef GL_CNETCHAN_H
-#define GL_CNETCHAN_H
+#pragma once
 
 #include <main.hpp>
 
@@ -80,5 +79,3 @@ EXT_META_FUNCTION( CNetChan, SetMaxRoutablePayloadSize );
 EXT_META_FUNCTION( CNetChan, __eq );
 
 EXT_GLBL_FUNCTION( CNetChan );
-
-#endif // GL_CNETCHAN_H

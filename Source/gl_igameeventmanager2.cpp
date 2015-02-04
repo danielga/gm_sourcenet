@@ -2,7 +2,6 @@
 #include <gl_igameevent.hpp>
 #include <gl_bitbuf_read.hpp>
 #include <gl_bitbuf_write.hpp>
-
 #include <igameevents.h>
 
 META_ID( IGameEventManager2, 12 );
@@ -56,7 +55,9 @@ META_FUNCTION( IGameEventManager2, UnserializeEvent )
 
 GLBL_FUNCTION( IGameEventManager2 )
 {
-	IGameEventManager2 *pGameEventListener = static_cast<IGameEventManager2 *>( fnEngineFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr ) );
+	IGameEventManager2 *pGameEventListener = static_cast<IGameEventManager2 *>(
+		fnEngineFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr )
+	);
 
 	PUSH_META( pGameEventListener, IGameEventManager2 );
 

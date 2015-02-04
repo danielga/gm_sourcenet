@@ -1,8 +1,6 @@
-#ifndef GL_BITBUF_WRITE_H
-#define GL_BITBUF_WRITE_H
+#pragma once
 
 #include <main.hpp>
-
 #include <bitbuf.h>
 
 typedef bf_write sn4_bf_write;
@@ -38,5 +36,3 @@ EXT_META_FUNCTION( sn4_bf_write, WriteWord );
 EXT_META_FUNCTION( sn4_bf_write, FinishWriting );
 
 EXT_GLBL_FUNCTION( sn4_bf_write );
-
-#endif // GL_BITBUF_WRITE_H

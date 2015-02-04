@@ -1,5 +1,4 @@
-#ifndef GL_IGAMEEVENT_H
-#define GL_IGAMEEVENT_H
+#pragma once
 
 #include <main.hpp>
 
@@ -22,5 +21,3 @@ EXT_META_FUNCTION( IGameEvent, SetFloat );
 EXT_META_FUNCTION( IGameEvent, SetString );
 
 EXT_META_FUNCTION( IGameEvent, Delete );
-
-#endif // GL_IGAMEEVENT_H

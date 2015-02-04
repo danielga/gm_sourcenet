@@ -21,7 +21,13 @@ META_FUNCTION( dataFragments_t, SetFileHandle )
 
 	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
-	CopyUserDataOrNull( 2, FileHandle_t, fragments->hfile, FileHandle_t );
+	int arg___t = LUA->GetType( 2 );
+	if( arg___t == GET_META_ID( FileHandle_t ) )
+		fragments->hfile = static_cast<FileHandle_t>( GET_META( 2, FileHandle_t ) );
+	else if( arg___t == GarrysMod::Lua::Type::NUMBER && static_cast<int>( LUA->GetNumber( 2 ) ) == 0 )
+		fragments->hfile = static_cast<FileHandle_t>( nullptr );
+	else
+		TypeError( state, GET_META_NAME( FileHandle_t ), 2 );
 
 	return 0;
 }
@@ -91,11 +97,11 @@ META_FUNCTION( dataFragments_t, SetBuffer )
 
 	int arg___t = LUA->GetType( 2 );
 	if( arg___t == GET_META_ID( UCHARPTR ) )
-		fragments->buffer = static_cast<UCHARPTR>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
-	else if ( arg___t == GarrysMod::Lua::Type::NUMBER && static_cast<int>( LUA->GetNumber( 2 ) ) == 0 )
+		fragments->buffer = static_cast<UCHARPTR>( GET_META( 2, uint8_t ) );
+	else if( arg___t == GarrysMod::Lua::Type::NUMBER && static_cast<int>( LUA->GetNumber( 2 ) ) == 0 )
 		fragments->buffer = static_cast<UCHARPTR>( nullptr );
 	else
-		LUA->TypeError( GET_META_NAME( UCHARPTR ), 2 );
+		TypeError( state, GET_META_NAME( UCHARPTR ), 2 );
 		
 	return 0;
 }

@@ -1,5 +1,4 @@
-#ifndef NET_H
-#define NET_H
+#pragma once
 
 #include <bitbuf.h>
 #include <netadr.h>
@@ -347,26 +346,3 @@ public:
 	// a
 	int splitsequence;
 };
-
-class CQueuedPacketSender : public CThread
-{
-
-public:
-
-	virtual ~CQueuedPacketSender( );
-
-	virtual bool	Start( unsigned nBytesStack = 0 );
-	virtual int		Run( );
-
-	virtual void	Setup( );
-	virtual void	Shutdown( );
-	virtual bool	IsRunning( );
-	virtual void	ClearQueuedPacketsForChannel( INetChannel *netchan );
-	virtual void	QueuePacket( INetChannel *netchan, int, const char *, int, const sockaddr *, int, unsigned int );
-	virtual bool	HasQueuedPackets( const INetChannel *netchan ) const;
-
-};
-
-extern CQueuedPacketSender *g_pQueuedPacketSender;
-
-#endif // NET_H

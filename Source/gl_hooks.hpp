@@ -1,7 +1,26 @@
-#ifndef GL_HOOKS_H
-#define GL_HOOKS_H
+#pragma once
 
 #include <main.hpp>
+
+#define INIT_HOOK( name ) \
+{ \
+	lua_State *state = global_state; \
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB ); \
+	LUA->GetField( -1, "hook" ); \
+	LUA->Remove( -2 ); \
+	LUA->GetField( -1, "Call" ); \
+	LUA->Remove( -2 ); \
+	LUA->PushString( name ); \
+	LUA->PushNil( ); \
+	int argc = 0
+
+#define DO_HOOK( code ) \
+	code; \
+	++argc
+
+#define CALL_HOOK( returns ) \
+	LUA->Call( 2 + argc, returns ); \
+}
 
 #define EXT_MONITOR_HOOK( name ) \
 	extern bool attach_status__##name
@@ -55,9 +74,17 @@ EXT_GLBL_FUNCTION( Detach__INetChannelHandler_FileReceived );
 EXT_GLBL_FUNCTION( Attach__INetChannelHandler_FileDenied );
 EXT_GLBL_FUNCTION( Detach__INetChannelHandler_FileDenied );
 
-extern void *CNetChan_ProcessMessages_T;
+#if defined _WIN32
+
+typedef bool ( __thiscall *CNetChan_ProcessMessages_T )( class CNetChan *netchan, class bf_read &buf );
+
+#elif defined __linux || defined __APPLE__
+
+typedef bool ( *CNetChan_ProcessMessages_T )( class CNetChan *netchan, class bf_read &buf );
+
+#endif
+
+extern CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O;
 
 EXT_GLBL_FUNCTION( Attach__CNetChan_ProcessMessages );
 EXT_GLBL_FUNCTION( Detach__CNetChan_ProcessMessages );
-
-#endif // GL_HOOKS_H
