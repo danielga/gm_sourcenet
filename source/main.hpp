@@ -7,9 +7,6 @@
 
 extern lua_State *global_state;
 
-// Enable/disable SendDatagram hooking
-extern bool g_bPatchedNetChunk;
-
 // Source interfaces
 
 extern CreateInterfaceFn fnEngineFactory;
@@ -27,15 +24,6 @@ extern IVEngineServer *g_pEngineServer;
 #include <cdll_int.h>
 
 extern IVEngineClient *g_pEngineClient;
-
-#endif
-
-#if defined ICVAR_INTERFACE
-
-#include <icvar.h>
-
-extern ICvar *g_pCVarClient;
-extern ICvar *g_pCVarServer;
 
 #endif
 

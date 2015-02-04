@@ -137,18 +137,12 @@ static size_t netchunk_siglen = 0;
 
 lua_State *global_state = nullptr;
 
-// Enable/disable SendDatagram hooking
-bool g_bPatchedNetChunk = false;
-
 // Interfaces
 static CDllDemandLoader engine_loader( engine_lib );
 CreateInterfaceFn fnEngineFactory = nullptr;
 
 IVEngineServer *g_pEngineServer = nullptr;
 IVEngineClient *g_pEngineClient = nullptr;
-
-ICvar *g_pCVarClient = nullptr;
-ICvar *g_pCVarServer = nullptr;
 
 // CNetChan::ProcessMessages function pointer
 CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
@@ -169,8 +163,6 @@ GLBL_FUNCTION( sourcenet_isDedicatedServer )
 GMOD_MODULE_OPEN( )
 {
 	global_state = state;
-
-	SymbolFinder symfinder;
 	
 	fnEngineFactory = engine_loader.GetFactory( );
 	if( fnEngineFactory == nullptr )
@@ -185,28 +177,29 @@ GMOD_MODULE_OPEN( )
 		g_pEngineClient = static_cast<IVEngineClient *>( fnEngineFactory( "VEngineClient015", nullptr ) );
 		if( g_pEngineClient == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
-
-		ICvar **cvar = static_cast<ICvar **>( symfinder.ResolveOnBinary( client_lib, "@cvar" ) );
-		if( cvar == nullptr )
-			LUA->ThrowError( "failed to retrieve client cvar interface (1)" );
-
-		g_pCVarClient = *cvar;
-		if( g_pCVarClient == nullptr )
-			LUA->ThrowError( "failed to retrieve client cvar interface (2)" );
 	}
 
-#if defined SOURCENET_SERVER
+	SymbolFinder symfinder;
+
+	CNetChan_ProcessMessages_O = static_cast<CNetChan_ProcessMessages_T>(
+		symfinder.ResolveOnBinary( engine_lib, CNetChan_ProcessMessages_sig, CNetChan_ProcessMessages_siglen )
+	);
+	if( CNetChan_ProcessMessages_O == nullptr )
+		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages, report this!" );
 	
-	if( g_pEngineServer->IsDedicatedServer( ) )
-	{
-		ICvar **cvar = static_cast<ICvar **>( symfinder.ResolveOnBinary( server_lib, "@cvar" ) );
-		if( cvar == nullptr )
-			LUA->ThrowError( "failed to retrieve server cvar interface (1)" );
+#if defined SOURCENET_SERVER
 
-		g_pCVarServer = *cvar;
-		if( g_pCVarServer == nullptr )
-			LUA->ThrowError( "failed to retrieve server cvar interface (2)" );
-	}
+	// Disables per-client threads (hacky fix for SendDatagram hooking)
+
+	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
+	if( ulNetThreadChunk == nullptr )
+		LUA->ThrowError( "failed to locate net thread chunk, report this!" );
+
+	ulNetThreadChunk += netchunk_sig_offset;
+
+	BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
+		memcpy( ulNetThreadChunk, netpatch_new, netpatch_len );
+	FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
 
 #endif
 
@@ -614,39 +607,6 @@ GMOD_MODULE_OPEN( )
 
 	REG_GLBL_FUNCTION( sourcenet_isDedicatedServer );
 
-	if( !IS_ATTACHED( CNetChan_ProcessMessages ) )
-	{
-		CNetChan_ProcessMessages_O = static_cast<CNetChan_ProcessMessages_T>(
-			symfinder.ResolveOnBinary( engine_lib, CNetChan_ProcessMessages_sig, CNetChan_ProcessMessages_siglen )
-		);
-		if( CNetChan_ProcessMessages_O == nullptr )
-			LUA->ThrowError( "failed to locate CNetChan::ProcessMessages, report this!" );
-	}
-	
-#if defined SOURCENET_SERVER
-
-	// Disables per-client threads (hacky fix for SendDatagram hooking)
-
-	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
-	if( ulNetThreadChunk != nullptr )
-	{
-		ulNetThreadChunk += netchunk_sig_offset;
-
-		BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
-			memcpy( ulNetThreadChunk, netpatch_new, netpatch_len );
-		FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
-
-		g_bPatchedNetChunk = true;
-	}
-	else
-	{
-		g_bPatchedNetChunk = false;
-
-		LUA->ThrowError( "failed to locate net thread chunk, report this!" );
-	}
-
-#endif
-
 	return 0;
 }
 
@@ -656,19 +616,16 @@ GMOD_MODULE_CLOSE( )
 
 #if defined SOURCENET_SERVER
 
-	if( g_bPatchedNetChunk )
+	SymbolFinder symfinder;
+
+	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
+	if( ulNetThreadChunk != nullptr )
 	{
-		SymbolFinder symfinder;
+		ulNetThreadChunk += netchunk_sig_offset;
 
-		uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
-		if( ulNetThreadChunk != nullptr )
-		{
-			ulNetThreadChunk += netchunk_sig_offset;
-
-			BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
-				memcpy( ulNetThreadChunk, netpatch_old, netpatch_len );
-			FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
-		}
+		BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
+			memcpy( ulNetThreadChunk, netpatch_old, netpatch_len );
+		FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
 	}
 
 #endif

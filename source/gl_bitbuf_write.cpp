@@ -236,7 +236,7 @@ META_FUNCTION( sn4_bf_write, WriteSBitLong )
 
 	sn4_bf_write *buf = GET_META( 1, sn4_bf_write );
 
-	buf->WriteSBitLong( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 2 ) ) );
+	buf->WriteSBitLong( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ) );
 
 	return 0;
 }
@@ -249,7 +249,7 @@ META_FUNCTION( sn4_bf_write, WriteUBitLong )
 
 	sn4_bf_write *buf = GET_META( 1, sn4_bf_write );
 
-	buf->WriteUBitLong( static_cast<uint32_t>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 2 ) ) );
+	buf->WriteUBitLong( static_cast<uint32_t>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ) );
 
 	return 0;
 }
