@@ -97,23 +97,26 @@ enum
 #define net_Tick			3			// send last world tick
 #define net_StringCmd		4			// a string command
 #define net_SetConVar		5			// sends one/multiple convar settings
-#define	net_SignonState		6			// signals current signon state
+#define net_SignonState		6			// signals current signon state
 
 //
 // server to client
 //
 
-#define	svc_Print			7		// print text to console
-#define	svc_ServerInfo		8		// first message from server about game, map etc
+#define svc_Print			7		// print text to console
+
+#define svc_ServerInfo		8		// first message from server about game, map etc
 #define svc_SendTable		9		// sends a sendtable description for a game class
 #define svc_ClassInfo		10		// Info about classes (first byte is a CLASSINFO_ define).							
-#define	svc_SetPause		11		// tells client if server paused or unpaused
+#define svc_SetPause		11		// tells client if server paused or unpaused
 
 #define	svc_CreateStringTable	12	// inits shared string tables
 #define	svc_UpdateStringTable	13	// updates a string table
 
 #define svc_VoiceInit		14		// inits used voice codecs & quality
 #define svc_VoiceData		15		// Voicestream data from the server
+
+// #define svc_HLTV			16		// HLTV control messages
 
 #define	svc_Sounds			17		// starts playing sound
 
@@ -124,6 +127,8 @@ enum
 #define	svc_BSPDecal		21		// add a static decal to the world BSP
 
 #define	svc_SplitScreen		22		// split screen style message
+// NOTE: This is now unused!
+//#define	svc_TerrainMod		22		// modification to the terrain/displacement
 
 // Message from server side to client side entity
 #define svc_UserMessage		23	// a game specific message 
@@ -145,7 +150,9 @@ enum
 #define svc_CmdKeyValues	32	// Server submits KeyValues command for the client
 
 #define svc_GMod_ServerToClient 33
-#define SVC_LASTMSG			33	// last known server message
+
+#define svc_blank35			35
+#define SVC_LASTMSG			35	// last known server message
 
 //
 // client to server
@@ -174,3 +181,17 @@ enum
 #define SIGNONSTATE_SPAWN		5	// ready to receive entity packets
 #define SIGNONSTATE_FULL		6	// we are fully connected, first non-delta packet received
 #define SIGNONSTATE_CHANGELEVEL	7	// server is changing level, please wait
+
+//
+// matchmaking
+//
+
+#define mm_Heartbeat		16		// send a mm_Heartbeat
+#define mm_ClientInfo		17		// information about a player
+#define mm_JoinResponse		18		// response to a matchmaking join request
+#define mm_RegisterResponse	19		// response to a matchmaking join request
+#define mm_Migrate			20		// tell a client to migrate
+#define mm_Mutelist			21		// send mutelist info to other clients
+#define mm_Checkpoint		22		// game state checkpoints (start, connect, etc)
+
+#define MM_LASTMSG			22		// last known matchmaking message

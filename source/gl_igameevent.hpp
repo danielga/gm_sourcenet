@@ -2,7 +2,18 @@
 
 #include <main.hpp>
 
+class IGameEventManager2;
+class IGameEvent;
+
+void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *manager );
+
+IGameEvent *Get_IGameEvent( lua_State *state, int32_t index, IGameEventManager2 **manager = nullptr, bool cleanup = false );
+
 EXT_META_ID( IGameEvent, 13 );
+
+EXT_META_FUNCTION( IGameEvent, __gc );
+EXT_META_FUNCTION( IGameEvent, __eq );
+EXT_META_FUNCTION( IGameEvent, __tostring );
 
 EXT_META_FUNCTION( IGameEvent, GetName );
 
@@ -19,5 +30,3 @@ EXT_META_FUNCTION( IGameEvent, SetBool );
 EXT_META_FUNCTION( IGameEvent, SetInt );
 EXT_META_FUNCTION( IGameEvent, SetFloat );
 EXT_META_FUNCTION( IGameEvent, SetString );
-
-EXT_META_FUNCTION( IGameEvent, Delete );

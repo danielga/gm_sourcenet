@@ -4,62 +4,91 @@
 #include <gl_bitbuf_write.hpp>
 #include <igameevents.h>
 
+struct IGameEventManager2_userdata
+{
+	IGameEventManager2 *manager;
+	uint8_t type;
+};
+
+static void Push_IGameEventManager2( lua_State *state, IGameEventManager2 *manager )
+{
+	IGameEventManager2_userdata *userdata = static_cast<IGameEventManager2_userdata *>( LUA->NewUserdata( sizeof( IGameEventManager2_userdata ) ) );
+	userdata->type = GET_META_ID( IGameEventManager2 );
+	userdata->manager = manager;
+
+	LUA->CreateMetaTableType( GET_META_NAME( IGameEventManager2 ), GET_META_ID( IGameEventManager2 ) );
+	LUA->SetMetaTable( -2 );
+}
+
+static IGameEventManager2 *Get_IGameEventManager2( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GET_META_ID( IGameEventManager2 ) );
+	return static_cast<IGameEventManager2_userdata *>( LUA->GetUserdata( index ) )->manager;
+}
+
 META_ID( IGameEventManager2, 12 );
+
+META_FUNCTION( IGameEventManager2, __eq )
+{
+	LUA->CheckType( 1, GET_META_ID( IGameEventManager2 ) );
+	LUA->CheckType( 2, GET_META_ID( IGameEventManager2 ) );
+
+	LUA->PushBool( true );
+
+	return 1;
+}
+
+META_FUNCTION( IGameEventManager2, __tostring )
+{
+	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( IGameEventManager2 ), manager );
+
+	return 1;
+}
 
 META_FUNCTION( IGameEventManager2, CreateEvent )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEventManager2 ) );
+	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	IGameEventManager2 *pGameEventListener = GET_META( 1, IGameEventManager2 );
+	IGameEvent *event = manager->CreateEvent( LUA->GetString( 2 ), true );
 
-	IGameEvent *event = pGameEventListener->CreateEvent( LUA->GetString( 2 ), true );
-
-	PUSH_META( event, IGameEvent );
+	Push_IGameEvent( state, event, manager );
 
 	return 1;
 }
 
 META_FUNCTION( IGameEventManager2, SerializeEvent )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEventManager2 ) );
-	LUA->CheckType( 2, GET_META_ID( IGameEvent ) );
-	LUA->CheckType( 3, GET_META_ID( sn4_bf_write ) );
+	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
+	IGameEvent *event = Get_IGameEvent( state, 2 );
+	sn4_bf_write *buf = Get_sn4_bf_write( state, 3 );
 
-	IGameEventManager2 *pGameEventListener = GET_META( 1, IGameEventManager2 );
-
-	IGameEvent *event = GET_META( 2, IGameEvent );
-
-	sn4_bf_write *buf = GET_META( 3, sn4_bf_write );
-
-	LUA->PushBool( pGameEventListener->SerializeEvent( event, buf ) );
+	LUA->PushBool( manager->SerializeEvent( event, buf ) );
 
 	return 1;
 }
 
 META_FUNCTION( IGameEventManager2, UnserializeEvent )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEventManager2 ) );
-	LUA->CheckType( 2, GET_META_ID( sn4_bf_read ) );
+	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 2 );
 
-	IGameEventManager2 *pGameEventListener = GET_META( 1, IGameEventManager2 );
+	IGameEvent *event = manager->UnserializeEvent( buf );
 
-	sn4_bf_read *buf = GET_META( 2, sn4_bf_read );
-
-	IGameEvent *event = pGameEventListener->UnserializeEvent( buf );
-
-	PUSH_META( event, IGameEvent );
+	Push_IGameEvent( state, event, manager );
 
 	return 1;
 }
 
 GLBL_FUNCTION( IGameEventManager2 )
 {
-	IGameEventManager2 *pGameEventListener = static_cast<IGameEventManager2 *>(
+	IGameEventManager2 *manager = static_cast<IGameEventManager2 *>(
 		fnEngineFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr )
 	);
 
-	PUSH_META( pGameEventListener, IGameEventManager2 );
+	Push_IGameEventManager2( state, manager );
 
 	return 1;
 }

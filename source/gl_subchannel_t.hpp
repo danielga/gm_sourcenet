@@ -2,7 +2,17 @@
 
 #include <main.hpp>
 
+typedef struct subchannel_s subchannel_t;
+class CNetChan;
+
+void Push_subchannel( lua_State *state, subchannel_t *subchan, CNetChan *netchan );
+
 EXT_META_ID( subchannel_t, 4 );
+
+EXT_META_FUNCTION( subchannel_t, __eq );
+EXT_META_FUNCTION( subchannel_t, __tostring );
+
+EXT_META_FUNCTION( subchannel_t, IsValid );
 
 EXT_META_FUNCTION( subchannel_t, GetFragmentOffset );
 EXT_META_FUNCTION( subchannel_t, SetFragmentOffset );

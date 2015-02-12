@@ -62,7 +62,7 @@ bool CNetChan::IsValidForFileTransfer( const char *filename )
 	return true;
 }
 
-bool CNetChan::ProcessControlMessage( int cmd, bf_read &msg )
+bool CNetChan::ProcessControlMessage( int32_t cmd, bf_read &msg )
 {
 	switch( cmd )
 	{
@@ -100,9 +100,9 @@ bool CNetChan::ProcessControlMessage( int cmd, bf_read &msg )
 	}
 }
 
-INetMessage *CNetChan::FindMessage( int type )
+INetMessage *CNetChan::FindMessage( int32_t type )
 {
-	for( int i = 0; i < netmessages.Count( ); ++i )
+	for( int32_t i = 0; i < netmessages.Count( ); ++i )
 	{
 		INetMessage *msg = netmessages.Element( i );
 		if( msg->GetType( ) == type )

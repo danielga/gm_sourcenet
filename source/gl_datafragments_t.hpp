@@ -5,7 +5,17 @@
 
 typedef CNetChan::dataFragments_t dataFragments_t;
 
+void Push_dataFragments( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan = nullptr );
+
+dataFragments_t *Get_dataFragments( lua_State *state, int32_t index, CNetChan **netchan = nullptr, bool cleanup = false );
+
 EXT_META_ID( dataFragments_t, 5 );
+
+EXT_META_FUNCTION( dataFragments_t, __gc );
+EXT_META_FUNCTION( dataFragments_t, __eq );
+EXT_META_FUNCTION( dataFragments_t, __tostring );
+
+EXT_META_FUNCTION( dataFragments_t, IsValid );
 
 EXT_META_FUNCTION( dataFragments_t, GetFileHandle );
 EXT_META_FUNCTION( dataFragments_t, SetFileHandle );
@@ -42,7 +52,5 @@ EXT_META_FUNCTION( dataFragments_t, SetProgress );
 
 EXT_META_FUNCTION( dataFragments_t, GetNum );
 EXT_META_FUNCTION( dataFragments_t, SetNum );
-
-EXT_META_FUNCTION( dataFragments_t, Delete );
 
 EXT_GLBL_FUNCTION( dataFragments_t );

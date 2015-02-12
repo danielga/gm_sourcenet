@@ -2,107 +2,106 @@ require("sourcenet4")
 
 MENU = LocalPlayer == nil
 
-NET_HOOKS = NET_HOOKS || { attach = {}, detach = {} }
+NET_HOOKS = NET_HOOKS or {attach = {}, detach = {}}
 
 NET_ATTACHED = false
 
-function HookNetChannel( ... )
-	local args = { ... }
+function HookNetChannel(...)
+	local args = {...}
 
-	for k, v in pairs( args ) do
-		local name = v.name:gsub( "::", "_" )
+	for k, v in pairs(args) do
+		local name = v.name:gsub("::", "_")
 
 		local exists = false
 		
-		for k, v in pairs( NET_HOOKS.attach ) do
-			if ( v.name == name ) then
+		for k, v in pairs(NET_HOOKS.attach) do
+			if v.name == name then
 				exists = true
-
 				break
 			end
 		end
 		
-		if ( !exists ) then
-			table.insert( NET_HOOKS.attach, { name = name, hook = _G[ "Attach__" .. name ], func = v.func, args = v.args, nochan = v.nochan } )
-			table.insert( NET_HOOKS.detach, { name = name, hook = _G[ "Detach__" .. name ], func = v.func, args = v.args, nochan = v.nochan } )
+		if not exists then
+			table.insert(NET_HOOKS.attach, {name = name, hook = _G["Attach__" .. name], func = v.func, args = v.args, nochan = v.nochan})
+			table.insert(NET_HOOKS.detach, {name = name, hook = _G["Detach__" .. name], func = v.func, args = v.args, nochan = v.nochan})
 		end
 	end
 	
-	local function StandardNetHook( netchan, nethook )
+	local function StandardNetHook(netchan, nethook)
 		local args = {}
 
-		if ( nethook.func ) then
-			table.insert( args, nethook.func( netchan ) )
-		elseif ( !nethook.nochan ) then
-			table.insert( args, netchan )
+		if nethook.func then
+			table.insert(args, nethook.func(netchan))
+		elseif not nethook.nochan then
+			table.insert(args, netchan)
 		end
 		
-		if ( nethook.args ) then
-			for k, v in pairs( nethook.args ) do
-				table.insert( args, v )
+		if nethook.args then
+			for k, v in pairs(nethook.args) do
+				table.insert(args, v)
 			end
 		end
 
-		nethook.hook( unpack( args ) )
+		nethook.hook(unpack(args))
 	end
 
-	local function AttachNetChannel( netchan )
-		if ( NET_ATTACHED ) then return false end
-		if ( !netchan ) then return false end
+	local function AttachNetChannel(netchan)
+		if NET_ATTACHED then return false end
+		if not netchan then return false end
 
-		Attach__CNetChan_Shutdown( netchan )
+		Attach__CNetChan_Shutdown(netchan)
 		
 		NET_ATTACHED = true
 
-		for k, v in pairs( NET_HOOKS.attach ) do
-			StandardNetHook( netchan, v )
+		for k, v in pairs(NET_HOOKS.attach) do
+			StandardNetHook(netchan, v)
 		end
 		
 		return true
 	end
 
-	local function DetachNetChannel( netchan )
-		if ( !NET_ATTACHED ) then return false end
-		if ( !netchan ) then return false end
+	local function DetachNetChannel(netchan)
+		if not NET_ATTACHED then return false end
+		if not netchan then return false end
 
-		Detach__CNetChan_Shutdown( netchan )
+		Detach__CNetChan_Shutdown(netchan)
 		
 		NET_ATTACHED = false
 
-		for k, v in pairs( NET_HOOKS.detach ) do
-			StandardNetHook( netchan, v )
+		for k, v in pairs(NET_HOOKS.detach) do
+			StandardNetHook(netchan, v)
 		end
 
 		return true
 	end
 
-	if ( !AttachNetChannel( CNetChan() ) ) then
-		hook.Add( "Think", "CreateNetChannel", function() -- Wait until channel is created
-			if ( CNetChan() ) then
-				if ( AttachNetChannel( CNetChan() ) ) then
-					hook.Remove( "Think", "CreateNetChannel" )
+	if not AttachNetChannel(CNetChan()) then
+		hook.Add("Think", "CreateNetChannel", function() -- Wait until channel is created
+			if CNetChan() then
+				if AttachNetChannel(CNetChan()) then
+					hook.Remove("Think", "CreateNetChannel")
 				end
 			end
 		end )
 	end
 
-	hook.Add( "PreNetChannelShutdown", "DetachHooks", function( netchan, reason )
-		--print( "[gm_sourcenet4] PreNetChannelShutdown called, netchan=" .. tostring( netchan ) .. ", reason=" .. reason )
+	hook.Add("PreNetChannelShutdown", "DetachHooks", function(netchan, reason)
+		--print("[gm_sourcenet4] PreNetChannelShutdown called, netchan=" .. tostring(netchan) .. ", reason=" .. reason)
 
-		DetachNetChannel( netchan )
+		DetachNetChannel(netchan)
 
-		--[[if ( DetachNetChannel( netchan ) ) then
-			if ( MENU ) then
-				NET_HOOKS = NET_HOOKS || { attach = {}, detach = {} }
+		--[[if DetachNetChannel(netchan) then
+			if MENU then
+				NET_HOOKS = NET_HOOKS or {attach = {}, detach = {}}
 
-				hook.Add( "Think", "DestroyNetChannel", function() -- Ensure the current channel is destroyed before waiting for a new one
-					if ( !CNetChan() ) then
-						HookNetChannel( unpack( args ) )
+				hook.Add("Think", "DestroyNetChannel", function() -- Ensure the current channel is destroyed before waiting for a new one
+					if not CNetChan() then
+						HookNetChannel(unpack(args))
 						
-						hook.Remove( "Think", "DestroyNetChannel" )
+						hook.Remove("Think", "DestroyNetChannel")
 					end
-				end )
+				end)
 			end
 		end--]]
-	end )
+	end)
 end

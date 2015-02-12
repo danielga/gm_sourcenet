@@ -23,7 +23,48 @@
 #include <gl_igameevent.hpp>
 #include <symbolfinder.hpp>
 
-// Platform definitions
+#define BEGIN_META_REGISTRATION( name ) \
+	{ \
+		LUA->CreateMetaTableType( GET_META_NAME( name ), GET_META_ID( name ) )
+
+#define REG_META_FUNCTION( meta, name ) \
+	LUA->PushCFunction( meta##__##name ); \
+	LUA->SetField( -2, #name )
+
+#define REG_META_CALLBACK( meta, name ) \
+	LUA->PushCFunction( meta##__##name ); \
+	LUA->SetField( -2, #name )
+
+#define END_META_REGISTRATION( ) \
+		LUA->Push( -1 ); \
+		LUA->SetField( -1, "__index" ); \
+		LUA->Pop( 1 ); \
+	}
+
+#define BEGIN_ENUM_REGISTRATION( name ) \
+	{ \
+		const char *__name = #name; \
+		LUA->CreateTable( )
+
+#define REG_ENUM( name, value ) \
+	LUA->PushNumber( static_cast<double>( value ) ); \
+	LUA->SetField( -2, #name )
+
+#define END_ENUM_REGISTRATION( ) \
+		LUA->SetField( -2, __name ); \
+	}
+
+#define REG_GLBL_FUNCTION( name ) \
+	LUA->PushCFunction( _G__##name ); \
+	LUA->SetField( -2, #name )
+
+#define REG_GLBL_NUMBER( name ) \
+	LUA->PushNumber( static_cast<double>( name ) ); \
+	LUA->SetField( -2, #name )
+
+#define REG_GLBL_STRING( name ) \
+	LUA->PushString( static_cast<const char *>( name ) ); \
+	LUA->SetField( -2, #name )
 
 #if defined _WIN32
 
@@ -31,9 +72,11 @@
 
 #include <windows.h>
 
+#undef CreateEvent
+
 #define BEGIN_MEMEDIT( addr, size ) \
 { \
-	DWORD previous; \
+	DWORD previous = 0; \
 	VirtualProtect( addr, \
 			size, \
 			PAGE_EXECUTE_READWRITE, \
@@ -53,6 +96,9 @@ static const char *server_lib = "server.dll";
 static const char *CNetChan_ProcessMessages_sig = "\x55\x8B\xEC\x83\xEC\x2C\x53\x89\x4D\xFC";
 static size_t CNetChan_ProcessMessages_siglen = 10;
 
+static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
+static size_t IServer_siglen = 16;
+
 static size_t netpatch_len = 6;
 static const char *netpatch_old = "\x0F\x84\xC0\x00\x00\x00";
 static const char *netpatch_new = "\xE9\xC1\x00\x00\x00\x90";
@@ -68,7 +114,7 @@ static size_t netchunk_siglen = 16;
 
 inline uint8_t *PageAlign( uint8_t *addr, long page )
 {
-	return addr - ( (DWORD)addr % page );
+	return addr - ( static_cast<uintptr_t>( addr ) % page );
 }
 
 #define BEGIN_MEMEDIT( addr, size ) \ 
@@ -88,6 +134,9 @@ static const char *server_lib = "server.so";
 
 static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
 static size_t CNetChan_ProcessMessages_siglen = 0;
+
+static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x7D\x88\xC7\x85\x78\xFF";
+static size_t IServer_siglen = 16;
 
 static size_t netpatch_len = 6;
 static const char *netpatch_old = "\x0F\x85\xC9\x00\x00\x00";
@@ -125,13 +174,16 @@ static const char *server_lib = "server.dylib";
 static const char *CNetChan_ProcessMessages_sig = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
 static size_t CNetChan_ProcessMessages_siglen = 0;
 
-static size_t netpatch_len = 0;
-static const char *netpatch_old = "";
-static const char *netpatch_new = "";
+static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
+static size_t IServer_siglen = 16;
 
-static size_t netchunk_sig_offset = 0;
-static const char *netchunk_sig = "";
-static size_t netchunk_siglen = 0;
+static size_t netpatch_len = 6;
+static const char *netpatch_old = "\x0F\x85\xC9\x00\x00\x00";
+static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
+
+static size_t netchunk_sig_offset = 8;
+static const char *netchunk_sig = "\x85\xFF\x8D\x04\x91\x89\x46\x10";
+static size_t netchunk_siglen = 8;
 
 #endif
 
@@ -143,27 +195,21 @@ CreateInterfaceFn fnEngineFactory = nullptr;
 
 IVEngineServer *g_pEngineServer = nullptr;
 IVEngineClient *g_pEngineClient = nullptr;
+IServer *g_pServer = nullptr;
 
 // CNetChan::ProcessMessages function pointer
 CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
 
-void TypeError( lua_State *state, const char *name, int index )
+void TypeError( lua_State *state, const char *name, int32_t index )
 {
 	static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->TypeError( name, index );
-}
-
-// Checks if the server is dedicated
-GLBL_FUNCTION( sourcenet_isDedicatedServer )
-{
-	LUA->PushBool( g_pEngineServer->IsDedicatedServer( ) );
-	return 1;
 }
 
 // Module load
 GMOD_MODULE_OPEN( )
 {
 	global_state = state;
-	
+
 	fnEngineFactory = engine_loader.GetFactory( );
 	if( fnEngineFactory == nullptr )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
@@ -181,11 +227,19 @@ GMOD_MODULE_OPEN( )
 
 	SymbolFinder symfinder;
 
+	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary( engine_lib, IServer_sig, IServer_siglen ) );
+	if( pserver == nullptr )
+		LUA->ThrowError( "failed to locate IServer pointer" );
+
+	g_pServer = *pserver;
+	if( g_pServer == nullptr )
+		LUA->ThrowError( "failed to locate IServer" );
+
 	CNetChan_ProcessMessages_O = static_cast<CNetChan_ProcessMessages_T>(
 		symfinder.ResolveOnBinary( engine_lib, CNetChan_ProcessMessages_sig, CNetChan_ProcessMessages_siglen )
 	);
 	if( CNetChan_ProcessMessages_O == nullptr )
-		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages, report this!" );
+		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 	
 #if defined SOURCENET_SERVER
 
@@ -193,7 +247,7 @@ GMOD_MODULE_OPEN( )
 
 	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
 	if( ulNetThreadChunk == nullptr )
-		LUA->ThrowError( "failed to locate net thread chunk, report this!" );
+		LUA->ThrowError( "failed to locate net thread chunk" );
 
 	ulNetThreadChunk += netchunk_sig_offset;
 
@@ -306,6 +360,12 @@ GMOD_MODULE_OPEN( )
 	REG_GLBL_NUMBER( MAX_CUSTOM_FILES );
 
 	BEGIN_META_REGISTRATION( sn4_bf_write );
+		REG_META_FUNCTION( sn4_bf_write, __gc );
+		REG_META_FUNCTION( sn4_bf_write, __eq );
+		REG_META_FUNCTION( sn4_bf_write, __tostring );
+
+		REG_META_FUNCTION( sn4_bf_write, IsValid );
+
 		REG_META_FUNCTION( sn4_bf_write, GetBasePointer );
 		REG_META_FUNCTION( sn4_bf_write, GetMaxNumBits );
 		REG_META_FUNCTION( sn4_bf_write, GetNumBitsWritten );
@@ -318,61 +378,81 @@ GMOD_MODULE_OPEN( )
 		REG_META_FUNCTION( sn4_bf_write, Seek );
 
 		REG_META_FUNCTION( sn4_bf_write, WriteBitAngle );
+		REG_META_FUNCTION( sn4_bf_write, WriteAngle );
 		REG_META_FUNCTION( sn4_bf_write, WriteBits );
-		REG_META_FUNCTION( sn4_bf_write, WriteBitVec3Coord );
+		REG_META_FUNCTION( sn4_bf_write, WriteVector );
+		REG_META_FUNCTION( sn4_bf_write, WriteNormal );
 		REG_META_FUNCTION( sn4_bf_write, WriteByte );
 		REG_META_FUNCTION( sn4_bf_write, WriteBytes );
 		REG_META_FUNCTION( sn4_bf_write, WriteChar );
 		REG_META_FUNCTION( sn4_bf_write, WriteFloat );
+		REG_META_FUNCTION( sn4_bf_write, WriteDouble );
 		REG_META_FUNCTION( sn4_bf_write, WriteLong );
-		REG_META_FUNCTION( sn4_bf_write, WriteOneBit );
+		REG_META_FUNCTION( sn4_bf_write, WriteLongLong );
+		REG_META_FUNCTION( sn4_bf_write, WriteBit );
 		REG_META_FUNCTION( sn4_bf_write, WriteShort );
 		REG_META_FUNCTION( sn4_bf_write, WriteString );
-		REG_META_FUNCTION( sn4_bf_write, WriteSBitLong );
-		REG_META_FUNCTION( sn4_bf_write, WriteUBitLong );
+		REG_META_FUNCTION( sn4_bf_write, WriteInt );
+		REG_META_FUNCTION( sn4_bf_write, WriteUInt );
 		REG_META_FUNCTION( sn4_bf_write, WriteWord );
-
-		REG_META_FUNCTION( sn4_bf_write, FinishWriting );
+		REG_META_FUNCTION( sn4_bf_write, WriteSignedVarInt32 );
+		REG_META_FUNCTION( sn4_bf_write, WriteVarInt32 );
+		REG_META_FUNCTION( sn4_bf_write, WriteSignedVarInt64 );
+		REG_META_FUNCTION( sn4_bf_write, WriteVarInt64 );
 	END_META_REGISTRATION( );
 
 	REG_GLBL_FUNCTION( sn4_bf_write );
 
 	BEGIN_META_REGISTRATION( sn4_bf_read );
+		REG_META_FUNCTION( sn4_bf_read, __gc );
+		REG_META_FUNCTION( sn4_bf_read, __eq );
+		REG_META_FUNCTION( sn4_bf_read, __tostring );
+
+		REG_META_FUNCTION( sn4_bf_read, IsValid );
+
 		REG_META_FUNCTION( sn4_bf_read, GetBasePointer );
+		REG_META_FUNCTION( sn4_bf_read, TotalBytesAvailable );
 		REG_META_FUNCTION( sn4_bf_read, GetNumBitsLeft );
 		REG_META_FUNCTION( sn4_bf_read, GetNumBytesLeft );
 		REG_META_FUNCTION( sn4_bf_read, GetNumBitsRead );
+		REG_META_FUNCTION( sn4_bf_read, GetNumBytesRead );
 
 		REG_META_FUNCTION( sn4_bf_read, IsOverflowed );
-
-		REG_META_FUNCTION( sn4_bf_read, ReadBitAngle );
-		REG_META_FUNCTION( sn4_bf_read, ReadBitAngles );
-		REG_META_FUNCTION( sn4_bf_read, ReadBits );
-		REG_META_FUNCTION( sn4_bf_read, ReadBitVec3Coord );
-		REG_META_FUNCTION( sn4_bf_read, ReadByte );
-		REG_META_FUNCTION( sn4_bf_read, ReadBytes );
-		REG_META_FUNCTION( sn4_bf_read, ReadChar );
-		REG_META_FUNCTION( sn4_bf_read, ReadFloat );
-		REG_META_FUNCTION( sn4_bf_read, ReadLong );
-		REG_META_FUNCTION( sn4_bf_read, ReadOneBit );
-		REG_META_FUNCTION( sn4_bf_read, ReadShort );
-		REG_META_FUNCTION( sn4_bf_read, ReadString );
-		REG_META_FUNCTION( sn4_bf_read, ReadSBitLong );
-		REG_META_FUNCTION( sn4_bf_read, ReadUBitLong );
-		REG_META_FUNCTION( sn4_bf_read, ReadWord );
 
 		REG_META_FUNCTION( sn4_bf_read, Seek );
 		REG_META_FUNCTION( sn4_bf_read, SeekRelative );
 
-		REG_META_FUNCTION( sn4_bf_read, TotalBytesAvailable );
-
-		REG_META_FUNCTION( sn4_bf_read, FinishReading );
+		REG_META_FUNCTION( sn4_bf_read, ReadBitAngle );
+		REG_META_FUNCTION( sn4_bf_read, ReadAngle );
+		REG_META_FUNCTION( sn4_bf_read, ReadBits );
+		REG_META_FUNCTION( sn4_bf_read, ReadVector );
+		REG_META_FUNCTION( sn4_bf_read, ReadNormal );
+		REG_META_FUNCTION( sn4_bf_read, ReadByte );
+		REG_META_FUNCTION( sn4_bf_read, ReadBytes );
+		REG_META_FUNCTION( sn4_bf_read, ReadChar );
+		REG_META_FUNCTION( sn4_bf_read, ReadFloat );
+		REG_META_FUNCTION( sn4_bf_read, ReadDouble );
+		REG_META_FUNCTION( sn4_bf_read, ReadLong );
+		REG_META_FUNCTION( sn4_bf_read, ReadLongLong );
+		REG_META_FUNCTION( sn4_bf_read, ReadBit );
+		REG_META_FUNCTION( sn4_bf_read, ReadShort );
+		REG_META_FUNCTION( sn4_bf_read, ReadString );
+		REG_META_FUNCTION( sn4_bf_read, ReadInt );
+		REG_META_FUNCTION( sn4_bf_read, ReadUInt );
+		REG_META_FUNCTION( sn4_bf_read, ReadWord );
+		REG_META_FUNCTION( sn4_bf_read, ReadSignedVarInt32 );
+		REG_META_FUNCTION( sn4_bf_read, ReadVarInt32 );
+		REG_META_FUNCTION( sn4_bf_read, ReadSignedVarInt64 );
+		REG_META_FUNCTION( sn4_bf_read, ReadVarInt64 );
 	END_META_REGISTRATION( );
 
 	REG_GLBL_FUNCTION( sn4_bf_read );
 
 	BEGIN_META_REGISTRATION( CNetChan );
-		REG_META_CALLBACK( CNetChan, __eq );
+		REG_META_FUNCTION( CNetChan, __eq );
+		REG_META_FUNCTION( CNetChan, __tostring );
+
+		REG_META_FUNCTION( CNetChan, IsValid );
 
 		REG_META_FUNCTION( CNetChan, DumpMessages );
 
@@ -450,6 +530,11 @@ GMOD_MODULE_OPEN( )
 	REG_GLBL_FUNCTION( CNetChan );
 
 	BEGIN_META_REGISTRATION( subchannel_t );
+		REG_META_FUNCTION( subchannel_t, __eq );
+		REG_META_FUNCTION( subchannel_t, __tostring );
+
+		REG_META_FUNCTION( subchannel_t, IsValid );
+
 		REG_META_FUNCTION( subchannel_t, GetFragmentOffset );
 		REG_META_FUNCTION( subchannel_t, SetFragmentOffset );
 
@@ -467,6 +552,12 @@ GMOD_MODULE_OPEN( )
 	END_META_REGISTRATION( );
 
 	BEGIN_META_REGISTRATION( dataFragments_t );
+		REG_META_FUNCTION( dataFragments_t, __gc );
+		REG_META_FUNCTION( dataFragments_t, __eq );
+		REG_META_FUNCTION( dataFragments_t, __tostring );
+
+		REG_META_FUNCTION( dataFragments_t, IsValid );
+
 		REG_META_FUNCTION( dataFragments_t, GetFileHandle );
 		REG_META_FUNCTION( dataFragments_t, SetFileHandle );
 
@@ -502,22 +593,31 @@ GMOD_MODULE_OPEN( )
 
 		REG_META_FUNCTION( dataFragments_t, GetNum );
 		REG_META_FUNCTION( dataFragments_t, SetNum );
-
-		REG_META_FUNCTION( dataFragments_t, Delete );
 	END_META_REGISTRATION( );
 
 	REG_GLBL_FUNCTION( dataFragments_t );
 
 	BEGIN_META_REGISTRATION( FileHandle_t );
+		REG_META_FUNCTION( FileHandle_t, __eq );
+		REG_META_FUNCTION( FileHandle_t, __tostring );
 	END_META_REGISTRATION( );
 
 	BEGIN_META_REGISTRATION( UCHARPTR );
-		REG_META_FUNCTION( UCHARPTR, Delete );
+		REG_META_FUNCTION( UCHARPTR, __gc );
+		REG_META_FUNCTION( UCHARPTR, __eq );
+		REG_META_FUNCTION( UCHARPTR, __tostring );
+
+		REG_META_FUNCTION( UCHARPTR, IsValid );
+
+		REG_META_FUNCTION( UCHARPTR, Size );
 	END_META_REGISTRATION( );
 
 	REG_GLBL_FUNCTION( UCHARPTR );
 
 	BEGIN_META_REGISTRATION( netadr_t );
+		REG_META_FUNCTION( netadr_t, __eq );
+		REG_META_FUNCTION( netadr_t, __tostring );
+
 		REG_META_FUNCTION( netadr_t, IsLocalhost );
 		REG_META_FUNCTION( netadr_t, IsLoopback );
 		REG_META_FUNCTION( netadr_t, IsReservedAdr );
@@ -526,11 +626,12 @@ GMOD_MODULE_OPEN( )
 		REG_META_FUNCTION( netadr_t, GetIP );
 		REG_META_FUNCTION( netadr_t, GetPort );
 		REG_META_FUNCTION( netadr_t, GetType );
-
-		REG_META_FUNCTION( netadr_t, ToString );
 	END_META_REGISTRATION( );
 
 	BEGIN_META_REGISTRATION( INetworkStringTableContainer );
+		REG_META_FUNCTION( INetworkStringTableContainer, __eq );
+		REG_META_FUNCTION( INetworkStringTableContainer, __tostring );
+
 		REG_META_FUNCTION( INetworkStringTableContainer, FindTable );
 		REG_META_FUNCTION( INetworkStringTableContainer, GetTable );
 	END_META_REGISTRATION( );
@@ -538,10 +639,17 @@ GMOD_MODULE_OPEN( )
 	REG_GLBL_FUNCTION( INetworkStringTableContainer );
 
 	BEGIN_META_REGISTRATION( INetworkStringTable );
+		REG_META_FUNCTION( INetworkStringTable, __eq );
+		REG_META_FUNCTION( INetworkStringTable, __tostring );
+
+		REG_META_FUNCTION( INetworkStringTable, FindStringIndex );
 		REG_META_FUNCTION( INetworkStringTable, GetString );
 	END_META_REGISTRATION( );
 
 	BEGIN_META_REGISTRATION( IGameEventManager2 );
+		REG_META_FUNCTION( IGameEventManager2, __eq );
+		REG_META_FUNCTION( IGameEventManager2, __tostring );
+
 		REG_META_FUNCTION( IGameEventManager2, CreateEvent );
 		REG_META_FUNCTION( IGameEventManager2, SerializeEvent );
 		REG_META_FUNCTION( IGameEventManager2, UnserializeEvent );
@@ -550,6 +658,10 @@ GMOD_MODULE_OPEN( )
 	REG_GLBL_FUNCTION( IGameEventManager2 );
 
 	BEGIN_META_REGISTRATION( IGameEvent );
+		REG_META_FUNCTION( IGameEvent, __gc );
+		REG_META_FUNCTION( IGameEvent, __eq );
+		REG_META_FUNCTION( IGameEvent, __tostring );
+
 		REG_META_FUNCTION( IGameEvent, GetName );
 
 		REG_META_FUNCTION( IGameEvent, IsReliable );
@@ -565,8 +677,6 @@ GMOD_MODULE_OPEN( )
 		REG_META_FUNCTION( IGameEvent, SetInt );
 		REG_META_FUNCTION( IGameEvent, SetFloat );
 		REG_META_FUNCTION( IGameEvent, SetString );
-
-		REG_META_FUNCTION( IGameEvent, Delete );
 	END_META_REGISTRATION( );
 
 	REG_GLBL_FUNCTION( Attach__CNetChan_ProcessPacket );
@@ -604,8 +714,6 @@ GMOD_MODULE_OPEN( )
 
 	REG_GLBL_FUNCTION( Attach__CNetChan_ProcessMessages );
 	REG_GLBL_FUNCTION( Detach__CNetChan_ProcessMessages );
-
-	REG_GLBL_FUNCTION( sourcenet_isDedicatedServer );
 
 	return 0;
 }

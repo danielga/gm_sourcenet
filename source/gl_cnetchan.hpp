@@ -2,7 +2,20 @@
 
 #include <main.hpp>
 
+class CNetChan;
+
+bool IsValid_CNetChan( CNetChan *netchan );
+
+void Push_CNetChan( lua_State *state, CNetChan *netchan );
+
+CNetChan *Get_CNetChan( lua_State *state, int32_t index );
+
 EXT_META_ID( CNetChan, 3 );
+
+EXT_META_FUNCTION( CNetChan, __eq );
+EXT_META_FUNCTION( CNetChan, __tostring );
+
+EXT_META_FUNCTION( CNetChan, IsValid );
 
 EXT_META_FUNCTION( CNetChan, DumpMessages );
 
@@ -75,7 +88,5 @@ EXT_META_FUNCTION( CNetChan, SetCompressionMode );
 
 EXT_META_FUNCTION( CNetChan, GetMaxRoutablePayloadSize );
 EXT_META_FUNCTION( CNetChan, SetMaxRoutablePayloadSize );
-
-EXT_META_FUNCTION( CNetChan, __eq );
 
 EXT_GLBL_FUNCTION( CNetChan );

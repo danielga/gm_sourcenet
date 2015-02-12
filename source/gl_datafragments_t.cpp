@@ -1,31 +1,118 @@
 #include <gl_datafragments_t.hpp>
 #include <gl_filehandle_t.hpp>
 #include <gl_ucharptr.hpp>
+#include <gl_cnetchan.hpp>
+
+struct dataFragments_userdata
+{
+	dataFragments_t *datafrag;
+	uint8_t type;
+	CNetChan *netchan;
+};
+
+static bool IsValid_dataFragments( dataFragments_t *datafrag, CNetChan *netchan )
+{
+	return datafrag != nullptr && ( netchan == nullptr || IsValid_CNetChan( netchan ) );
+}
+
+void Push_dataFragments( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
+{
+	if( datafrag == nullptr )
+	{
+		LUA->PushNil( );
+		return;
+	}
+
+	dataFragments_userdata *userdata = static_cast<dataFragments_userdata *>( LUA->NewUserdata( sizeof( dataFragments_userdata ) ) );
+	userdata->type = GET_META_ID( dataFragments_t );
+	userdata->datafrag = datafrag;
+	userdata->netchan = netchan;
+
+	LUA->CreateMetaTableType( GET_META_NAME( dataFragments_t ), GET_META_ID( dataFragments_t ) );
+	LUA->SetMetaTable( -2 );
+}
+
+dataFragments_t *Get_dataFragments( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
+{
+	LUA->CheckType( index, GET_META_ID( dataFragments_t ) );
+
+	dataFragments_userdata *userdata = static_cast<dataFragments_userdata *>( LUA->GetUserdata( index ) );
+	dataFragments_t *datafrag = userdata->datafrag;
+	if( !IsValid_dataFragments( datafrag, userdata->netchan ) )
+		LUA->ThrowError( "invalid dataFragments_t" );
+
+	if( netchan != nullptr )
+		*netchan = userdata->netchan;
+
+	if( cleanup )
+	{
+		userdata->datafrag = nullptr;
+		userdata->netchan = nullptr;
+	}
+
+	return datafrag;
+}
 
 META_ID( dataFragments_t, 5 );
 
-META_FUNCTION( dataFragments_t, GetFileHandle )
+META_FUNCTION( dataFragments_t, __gc )
+{
+	CNetChan *netchan = nullptr;
+	dataFragments_t *fragments = Get_dataFragments( state, 1, &netchan, true );
+
+	if( netchan == nullptr )
+		delete fragments;
+
+	return 0;
+}
+
+META_FUNCTION( dataFragments_t, __eq )
+{
+	dataFragments_t *fragments1 = Get_dataFragments( state, 1 );
+	dataFragments_t *fragments2 = Get_dataFragments( state, 2 );
+
+	LUA->PushBool( fragments1 == fragments2 );
+
+	return 1;
+}
+
+META_FUNCTION( dataFragments_t, __tostring )
+{
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( dataFragments_t ), fragments );
+
+	return 1;
+}
+
+META_FUNCTION( dataFragments_t, IsValid )
 {
 	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_userdata *userdata = static_cast<dataFragments_userdata *>( LUA->GetUserdata( 1 ) );
+	LUA->PushBool( IsValid_dataFragments( userdata->datafrag, userdata->netchan ) );
 
-	PUSH_META( fragments->hfile, FileHandle_t );
+	return 1;
+}
+
+META_FUNCTION( dataFragments_t, GetFileHandle )
+{
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
+
+	Push_FileHandle( state, fragments->hfile );
 
 	return 1;
 }
 
 META_FUNCTION( dataFragments_t, SetFileHandle )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
-
-	int arg___t = LUA->GetType( 2 );
-	if( arg___t == GET_META_ID( FileHandle_t ) )
-		fragments->hfile = static_cast<FileHandle_t>( GET_META( 2, FileHandle_t ) );
-	else if( arg___t == GarrysMod::Lua::Type::NUMBER && static_cast<int>( LUA->GetNumber( 2 ) ) == 0 )
-		fragments->hfile = static_cast<FileHandle_t>( nullptr );
+	int32_t argt = LUA->GetType( 2 );
+	if( argt == GET_META_ID( FileHandle_t ) )
+		fragments->hfile = Get_FileHandle( state, 2 );
+	else if( argt == GarrysMod::Lua::Type::NUMBER && static_cast<int32_t>( LUA->GetNumber( 2 ) ) == 0 )
+		fragments->hfile = nullptr;
 	else
 		TypeError( state, GET_META_NAME( FileHandle_t ), 2 );
 
@@ -34,9 +121,7 @@ META_FUNCTION( dataFragments_t, SetFileHandle )
 
 META_FUNCTION( dataFragments_t, GetFileName )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushString( fragments->filename );
 
@@ -45,10 +130,8 @@ META_FUNCTION( dataFragments_t, GetFileName )
 
 META_FUNCTION( dataFragments_t, SetFileName )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2 , GarrysMod::Lua::Type::STRING );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	strcpy_s( fragments->filename, MAX_PATH, LUA->GetString( 2 ) );
 
@@ -57,9 +140,7 @@ META_FUNCTION( dataFragments_t, SetFileName )
 
 META_FUNCTION( dataFragments_t, GetFileTransferID )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->transferid );
 
@@ -68,10 +149,8 @@ META_FUNCTION( dataFragments_t, GetFileTransferID )
 
 META_FUNCTION( dataFragments_t, SetFileTransferID )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->transferid = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
 
@@ -80,28 +159,33 @@ META_FUNCTION( dataFragments_t, SetFileTransferID )
 
 META_FUNCTION( dataFragments_t, GetBuffer )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
-
-	PUSH_META( fragments->buffer, UCHARPTR );
+	Push_UCHARPTR( state, fragments->buffer, fragments->bits );
 
 	return 1;
 }
 
 META_FUNCTION( dataFragments_t, SetBuffer )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-	
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
-	int arg___t = LUA->GetType( 2 );
-	if( arg___t == GET_META_ID( UCHARPTR ) )
-		fragments->buffer = static_cast<UCHARPTR>( GET_META( 2, uint8_t ) );
-	else if( arg___t == GarrysMod::Lua::Type::NUMBER && static_cast<int>( LUA->GetNumber( 2 ) ) == 0 )
-		fragments->buffer = static_cast<UCHARPTR>( nullptr );
+	int32_t argt = LUA->GetType( 2 );
+	if( argt == GET_META_ID( UCHARPTR ) )
+	{
+		int32_t bits = 0;
+		fragments->buffer = Get_UCHARPTR( state, 2, &bits, true );
+		fragments->bits = bits;
+		fragments->bytes = BitByte( bits );
+	}
+	else if( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 )
+	{
+		fragments->buffer = nullptr;
+	}
 	else
+	{
 		TypeError( state, GET_META_NAME( UCHARPTR ), 2 );
+	}
 		
 	return 0;
 }
@@ -109,9 +193,7 @@ META_FUNCTION( dataFragments_t, SetBuffer )
 
 META_FUNCTION( dataFragments_t, GetBytes )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->bytes );
 
@@ -120,10 +202,8 @@ META_FUNCTION( dataFragments_t, GetBytes )
 
 META_FUNCTION( dataFragments_t, SetBytes )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->bytes = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
 
@@ -132,9 +212,7 @@ META_FUNCTION( dataFragments_t, SetBytes )
 
 META_FUNCTION( dataFragments_t, GetBits )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->bits );
 
@@ -143,10 +221,8 @@ META_FUNCTION( dataFragments_t, GetBits )
 
 META_FUNCTION( dataFragments_t, SetBits )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->bits = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
 
@@ -155,9 +231,7 @@ META_FUNCTION( dataFragments_t, SetBits )
 
 META_FUNCTION( dataFragments_t, GetActualSize )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->actualsize );
 
@@ -166,10 +240,8 @@ META_FUNCTION( dataFragments_t, GetActualSize )
 
 META_FUNCTION( dataFragments_t, SetActualSize )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->actualsize = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
 
@@ -178,9 +250,7 @@ META_FUNCTION( dataFragments_t, SetActualSize )
 
 META_FUNCTION( dataFragments_t, GetCompressed )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushBool( fragments->compressed );
 
@@ -189,10 +259,8 @@ META_FUNCTION( dataFragments_t, GetCompressed )
 
 META_FUNCTION( dataFragments_t, SetCompressed )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->compressed = LUA->GetBool( 2 );
 
@@ -201,9 +269,7 @@ META_FUNCTION( dataFragments_t, SetCompressed )
 
 META_FUNCTION( dataFragments_t, GetStream )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushBool( fragments->stream );
 
@@ -212,10 +278,8 @@ META_FUNCTION( dataFragments_t, GetStream )
 
 META_FUNCTION( dataFragments_t, SetStream )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
 
 	fragments->stream = LUA->GetBool( 2 );
 
@@ -224,9 +288,7 @@ META_FUNCTION( dataFragments_t, SetStream )
 
 META_FUNCTION( dataFragments_t, GetTotal )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->total );
 
@@ -235,21 +297,17 @@ META_FUNCTION( dataFragments_t, GetTotal )
 
 META_FUNCTION( dataFragments_t, SetTotal )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
-
-	fragments->total = static_cast<int>( LUA->GetNumber( 2 ) );
+	fragments->total = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
 	return 0;
 }
 
 META_FUNCTION( dataFragments_t, GetProgress )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->progress );
 
@@ -258,21 +316,17 @@ META_FUNCTION( dataFragments_t, GetProgress )
 
 META_FUNCTION( dataFragments_t, SetProgress )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
-
-	fragments->progress = static_cast<int>( LUA->GetNumber( 2 ) );
+	fragments->progress = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
 	return 0;
 }
 
 META_FUNCTION( dataFragments_t, GetNum )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 
 	LUA->PushNumber( fragments->num );
 
@@ -281,30 +335,17 @@ META_FUNCTION( dataFragments_t, GetNum )
 
 META_FUNCTION( dataFragments_t, SetNum )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	dataFragments_t *fragments = GET_META( 1, dataFragments_t );
-
-	fragments->num = static_cast<int>( LUA->GetNumber( 2 ) );
-
-	return 0;
-}
-
-META_FUNCTION( dataFragments_t, Delete )
-{
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
-
-	delete GET_META( 1, dataFragments_t );
+	fragments->num = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
 	return 0;
 }
 
 GLBL_FUNCTION( dataFragments_t )
 {
-	dataFragments_t *fragments = new dataFragments_t;
-
-	PUSH_META( fragments, dataFragments_t );
+	Push_dataFragments( state, new( std::nothrow ) dataFragments_t );
 
 	return 1;
 }

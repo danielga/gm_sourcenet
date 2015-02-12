@@ -1,13 +1,62 @@
 #include <gl_netadr_t.hpp>
 #include <netadr.h>
 
+struct netadr_userdata
+{
+	netadr_t *pnetadr;
+	uint8_t type;
+	netadr_t netadr;
+};
+
+void Push_netadr( lua_State *state, const netadr_t &netadr )
+{
+	netadr_userdata *userdata = static_cast<netadr_userdata *>( LUA->NewUserdata( sizeof( netadr_userdata ) ) );
+	userdata->type = GET_META_ID( netadr_t );
+	userdata->pnetadr = &userdata->netadr;
+	new( &userdata->netadr ) netadr_t( netadr );
+
+	LUA->CreateMetaTableType( GET_META_NAME( netadr_t ), GET_META_ID( netadr_t ) );
+	LUA->SetMetaTable( -2 );
+}
+
+static netadr_t *Get_netadr( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GET_META_ID( netadr_t ) );
+	return static_cast<netadr_userdata *>( LUA->GetUserdata( index ) )->pnetadr;
+}
+
 META_ID( netadr_t, 8 );
+
+META_FUNCTION( netadr_t, __eq )
+{
+	netadr_t *adr1 = Get_netadr( state, 1 );
+	netadr_t *adr2 = Get_netadr( state, 2 );
+
+	bool baseonly = false;
+	if( LUA->IsType( 3, GarrysMod::Lua::Type::BOOL ) )
+		baseonly = LUA->GetBool( 3 );
+
+	LUA->PushBool( adr1->CompareAdr( *adr2, baseonly ) );
+
+	return 1;
+}
+
+META_FUNCTION( netadr_t, __tostring )
+{
+	netadr_t *adr = Get_netadr( state, 1 );
+
+	bool baseonly = false;
+	if( LUA->IsType( 2, GarrysMod::Lua::Type::BOOL ) )
+		baseonly = LUA->GetBool( 2 );
+
+	LUA->PushString( adr->ToString( baseonly ) );
+
+	return 1;
+}
 
 META_FUNCTION( netadr_t, IsLocalhost )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushBool( adr->IsLocalhost( ) );
 
@@ -16,9 +65,7 @@ META_FUNCTION( netadr_t, IsLocalhost )
 
 META_FUNCTION( netadr_t, IsLoopback )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushBool( adr->IsLoopback( ) );
 
@@ -27,9 +74,7 @@ META_FUNCTION( netadr_t, IsLoopback )
 
 META_FUNCTION( netadr_t, IsReservedAdr )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushBool( adr->IsReservedAdr( ) );
 
@@ -38,9 +83,7 @@ META_FUNCTION( netadr_t, IsReservedAdr )
 
 META_FUNCTION( netadr_t, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushBool( adr->IsValid( ) );
 
@@ -49,20 +92,17 @@ META_FUNCTION( netadr_t, IsValid )
 
 META_FUNCTION( netadr_t, GetIP )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
+	netadr_t *adr = Get_netadr( state, 1 );
 
-	netadr_t *adr = GET_META( 1, netadr_t );
-
+	LUA->PushString( adr->ToString( true ) );
 	LUA->PushNumber( adr->GetIPHostByteOrder( ) );
 
-	return 1;
+	return 2;
 }
 
 META_FUNCTION( netadr_t, GetPort )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushNumber( adr->GetPort( ) );
 
@@ -71,22 +111,9 @@ META_FUNCTION( netadr_t, GetPort )
 
 META_FUNCTION( netadr_t, GetType )
 {
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
+	netadr_t *adr = Get_netadr( state, 1 );
 
 	LUA->PushNumber( adr->GetType( ) );
-
-	return 1;
-}
-
-META_FUNCTION( netadr_t, ToString )
-{
-	LUA->CheckType( 1, GET_META_ID( netadr_t ) );
-
-	netadr_t *adr = GET_META( 1, netadr_t );
-
-	LUA->PushString( adr->ToString( LUA->GetBool( 2 ) ) );
 
 	return 1;
 }

@@ -1,5 +1,6 @@
 #define IVENGINESERVER_INTERFACE
 #define IVENGINECLIENT_INTERFACE
+#define ISERVER_INTERFACE
 
 #include <gl_cnetchan.hpp>
 #include <gl_inetchannelhandler.hpp>
@@ -10,14 +11,107 @@
 #include <net.h>
 #include <inetmessage.h>
 
+struct CNetChan_userdata
+{
+	CNetChan *netchan;
+	uint8_t type;
+};
+#include <iclient.h>
+bool IsValid_CNetChan( CNetChan *netchan )
+{
+
+	if( netchan == nullptr )
+		return false;
+
+#if defined SOURCENET_SERVER
+
+	for( int32_t i = 1; i <= g_pServer->GetClientCount( ); ++i )
+		if( netchan == g_pEngineServer->GetPlayerNetInfo( i ) )
+			return true;
+
+#elif defined SOURCENET_CLIENT
+
+	if( netchan == g_pEngineClient->GetNetChannelInfo( ) )
+		return true;
+
+#endif
+
+	return false;
+
+}
+
+void Push_CNetChan( lua_State *state, CNetChan *netchan )
+{
+	if( netchan == nullptr )
+	{
+		LUA->PushNil( );
+		return;
+	}
+
+	CNetChan_userdata *userdata = static_cast<CNetChan_userdata *>( LUA->NewUserdata( sizeof( CNetChan_userdata ) ) );
+	userdata->type = GET_META_ID( CNetChan );
+	userdata->netchan = netchan;
+
+	LUA->CreateMetaTableType( GET_META_NAME( CNetChan ), GET_META_ID( CNetChan ) );
+	LUA->SetMetaTable( -2 );
+}
+
+CNetChan *Get_CNetChan( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GET_META_ID( CNetChan ) );
+
+	CNetChan *netchan = static_cast<CNetChan_userdata *>( LUA->GetUserdata( index ) )->netchan;
+	if( !IsValid_CNetChan( netchan ) )
+		LUA->ThrowError( "invalid CNetChan" );
+
+	return netchan;
+}
+
+inline int32_t VerifyStream( lua_State *state, int32_t stream )
+{
+	if( stream < 0 || stream >= MAX_STREAMS )
+	{
+		LUA->PushNil( );
+		return 1;
+	}
+
+	return 0;
+}
+
 META_ID( CNetChan, 3 );
 
-META_FUNCTION( CNetChan, DumpMessages )
+META_FUNCTION( CNetChan, __eq )
+{
+	CNetChan *netchan1 = Get_CNetChan( state, 1 );
+	CNetChan *netchan2 = Get_CNetChan( state, 2 );
+
+	LUA->PushBool( netchan1 == netchan2 );
+
+	return 1;
+}
+
+META_FUNCTION( CNetChan, __tostring )
+{
+	CNetChan *netchan = Get_CNetChan( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( CNetChan ), netchan );
+
+	return 1;
+}
+
+META_FUNCTION( CNetChan, IsValid )
 {
 	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-	for( int i = 0; i < netchan->netmessages.Count( ); ++i )
+	LUA->PushBool( IsValid_CNetChan( static_cast<CNetChan_userdata *>( LUA->GetUserdata( 1 ) )->netchan ) );
+
+	return 1;
+}
+
+META_FUNCTION( CNetChan, DumpMessages )
+{
+	CNetChan *netchan = Get_CNetChan( state, 1 );
+	for( int32_t i = 0; i < netchan->netmessages.Count( ); ++i )
 	{
 		INetMessage *netmsg = netchan->netmessages.Element( i );
 		Msg( "%d. %s (%d)\n", i + 1, netmsg->GetName( ), netmsg->GetType( ) );
@@ -28,9 +122,7 @@ META_FUNCTION( CNetChan, DumpMessages )
 
 META_FUNCTION( CNetChan, Reset )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	netchan->Reset( );
 
@@ -39,9 +131,7 @@ META_FUNCTION( CNetChan, Reset )
 
 META_FUNCTION( CNetChan, Clear )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	netchan->Clear( );
 
@@ -50,10 +140,8 @@ META_FUNCTION( CNetChan, Clear )
 
 META_FUNCTION( CNetChan, Shutdown )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->Shutdown( LUA->GetString( 2 ) );
 
@@ -62,9 +150,7 @@ META_FUNCTION( CNetChan, Shutdown )
 
 META_FUNCTION( CNetChan, Transmit )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	bool onlyReliable = false;
 
@@ -78,11 +164,9 @@ META_FUNCTION( CNetChan, Transmit )
 
 META_FUNCTION( CNetChan, SendFile )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	LUA->PushBool( netchan->SendFile( LUA->GetString( 2 ), static_cast<uint32_t>( LUA->GetNumber( 3 ) ) ) );
 
@@ -91,11 +175,9 @@ META_FUNCTION( CNetChan, SendFile )
 
 META_FUNCTION( CNetChan, DenyFile )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->DenyFile( LUA->GetString( 2 ), static_cast<uint32_t>( LUA->GetNumber( 3 ) ) );
 
@@ -104,10 +186,8 @@ META_FUNCTION( CNetChan, DenyFile )
 
 META_FUNCTION( CNetChan, RequestFile )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	LUA->PushNumber( netchan->RequestFile( LUA->GetString( 2 ) ) );
 
@@ -116,14 +196,12 @@ META_FUNCTION( CNetChan, RequestFile )
 
 META_FUNCTION( CNetChan, GetOutgoingQueueSize )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int stream = static_cast<int>( LUA->GetNumber( 2 ) );
-
-	VerifyStream( stream );
+	VerifyStream( state, stream );
 
 	LUA->PushNumber( netchan->waitlist[stream].Count( ) );
 
@@ -132,38 +210,41 @@ META_FUNCTION( CNetChan, GetOutgoingQueueSize )
 
 META_FUNCTION( CNetChan, GetOutgoingQueueFragments )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int stream = static_cast<int>( LUA->GetNumber( 2 ) );
+	int32_t ret = VerifyStream( state, stream );
+	if( ret != 0 )
+		return ret;
 
-	VerifyStream( stream );
+	int32_t offset = static_cast<int32_t>( LUA->GetNumber( 3 ) );
+	if( offset < 0 || offset >= netchan->waitlist[stream].Count( ) )
+	{
+		LUA->PushNil( );
+		return 1;
+	}
 
-	int offset = static_cast<int>( LUA->GetNumber( 2 ) );
-
-	VerifyOffset( netchan->waitlist[stream], offset );
-
-	PUSH_META( netchan->waitlist[stream].Element( offset ), dataFragments_t );
+	Push_dataFragments( state, netchan->waitlist[stream].Element( offset ), netchan );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, QueueOutgoingFragments )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GET_META_ID( dataFragments_t ) );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int stream = static_cast<int>( LUA->GetNumber( 2 ) );
+	int32_t ret = VerifyStream( state, stream );
+	if( ret != 0 )
+		return ret;
 
-	VerifyStream( stream );
-
-	dataFragments_t *fragments = GET_META( 3, dataFragments_t );
+	dataFragments_t *fragments = Get_dataFragments( state, 3 );
 
 	netchan->waitlist[stream].AddToTail( fragments );
 
@@ -172,38 +253,29 @@ META_FUNCTION( CNetChan, QueueOutgoingFragments )
 
 META_FUNCTION( CNetChan, GetIncomingFragments )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int stream = static_cast<int>( LUA->GetNumber( 2 ) );
+	int32_t ret = VerifyStream( state, stream );
+	if( ret != 0 )
+		return ret;
 
-	VerifyStream( stream );
-
-	PUSH_META( &netchan->recvlist[stream], dataFragments_t );
+	Push_dataFragments( state, &netchan->recvlist[stream], netchan );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetSubChannels )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->CreateTable( );
 
-	for( int i = 0; i < MAX_SUBCHANNELS; ++i )
+	for( int32_t i = 0; i < MAX_SUBCHANNELS; ++i )
 	{
-		subchannel_t *subchan = &netchan->subchannels[i];
-
-		GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
-		userdata->data = subchan;
-		userdata->type = GET_META_ID( subchannel_t );
-
-		LUA->CreateMetaTableType( GET_META_NAME( subchannel_t ), GET_META_ID( subchannel_t ) );
-		LUA->SetMetaTable( -2 );
+		Push_subchannel( state, &netchan->subchannels[i], netchan );
 
 		LUA->PushNumber( i + 1 );
 
@@ -215,64 +287,52 @@ META_FUNCTION( CNetChan, GetSubChannels )
 
 META_FUNCTION( CNetChan, GetReliableBuffer )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	PUSH_META( &netchan->reliabledata, sn4_bf_write );
+	Push_sn4_bf_write( state, &netchan->reliabledata );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetUnreliableBuffer )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	PUSH_META( &netchan->unreliabledata, sn4_bf_write );
+	Push_sn4_bf_write( state, &netchan->unreliabledata );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetVoiceBuffer )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	PUSH_META( &netchan->voicedata, sn4_bf_write );
+	Push_sn4_bf_write( state, &netchan->voicedata );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetNetChannelHandler )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	PUSH_META( netchan->GetMsgHandler( ), INetChannelHandler );
+	Push_INetChannelHandler( state, netchan->GetMsgHandler( ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetAddress )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	PUSH_META( &netchan->remote_address, netadr_t );
+	Push_netadr( state, netchan->remote_address );
 	
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushNumber( netchan->GetTime( ) );
 
@@ -281,150 +341,126 @@ META_FUNCTION( CNetChan, GetTime )
 
 META_FUNCTION( CNetChan, GetLatency )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetLatency( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetLatency( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 EXT_META_FUNCTION( CNetChan, GetAvgLatency )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetAvgLatency( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetAvgLatency( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetAvgLoss )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetAvgLoss( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetAvgLoss( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetAvgChoke )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetAvgChoke( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetAvgChoke( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetAvgData )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetAvgData( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetAvgData( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetAvgPackets )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetAvgPackets( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetAvgPackets( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetTotalData )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetTotalData( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetTotalData( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetSequenceNr )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetSequenceNr( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( netchan->GetSequenceNr( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, IsValidPacket )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushBool( netchan->IsValidPacket( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushBool( netchan->IsValidPacket( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetPacketTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetPacketTime( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushNumber( netchan->GetPacketTime( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetPacketBytes )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 4, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetPacketBytes( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ), static_cast<int>( LUA->GetNumber( 4 ) ) ) );
+	LUA->PushNumber( netchan->GetPacketBytes( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), static_cast<int32_t>( LUA->GetNumber( 4 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetStreamProgress )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t received = 0, total = 0;
 
-	int received = 0, total = 0;
-
-	if( netchan->GetStreamProgress( static_cast<int>( LUA->GetNumber( 2 ) ), &received, &total ) )
+	if( netchan->GetStreamProgress( static_cast<int32_t>( LUA->GetNumber( 2 ) ), &received, &total ) )
 	{
 		LUA->PushNumber( received );
 		LUA->PushNumber( total );
@@ -440,28 +476,24 @@ META_FUNCTION( CNetChan, GetStreamProgress )
 
 META_FUNCTION( CNetChan, GetCommandInterpolationAmount )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	LUA->PushNumber( netchan->GetCommandInterpolationAmount( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushNumber( netchan->GetCommandInterpolationAmount( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( CNetChan, GetPacketResponseLatency )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	int32_t latencymsecs = 0, choke = 0;
 
-	int latencymsecs = 0, choke = 0;
-
-	netchan->GetPacketResponseLatency( static_cast<int>( LUA->GetNumber( 2 ) ), static_cast<int>( LUA->GetNumber( 3 ) ), &latencymsecs, &choke );
+	netchan->GetPacketResponseLatency( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), &latencymsecs, &choke );
 
 	LUA->PushNumber( latencymsecs );
 	LUA->PushNumber( choke );
@@ -471,9 +503,7 @@ META_FUNCTION( CNetChan, GetPacketResponseLatency )
 
 META_FUNCTION( CNetChan, GetRemoteFramerate )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	float frametime = 0.0f, frametimedev = 0.0f;
 
@@ -487,10 +517,8 @@ META_FUNCTION( CNetChan, GetRemoteFramerate )
 
 META_FUNCTION( CNetChan, SetInterpolationAmount )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->SetInterpolationAmount( LUA->GetNumber( 2 ) );
 
@@ -499,11 +527,9 @@ META_FUNCTION( CNetChan, SetInterpolationAmount )
 
 META_FUNCTION( CNetChan, SetRemoteFramerate )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->SetRemoteFramerate( LUA->GetNumber( 2 ), LUA->GetNumber( 3 ) );
 
@@ -512,23 +538,19 @@ META_FUNCTION( CNetChan, SetRemoteFramerate )
 
 META_FUNCTION( CNetChan, SetMaxBufferSize )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 4, GarrysMod::Lua::Type::BOOL );
-	
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
-	netchan->SetMaxBufferSize( LUA->GetBool( 2 ), static_cast<int>( LUA->GetNumber( 3 ) ), LUA->GetBool( 4 ) );
+	netchan->SetMaxBufferSize( LUA->GetBool( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), LUA->GetBool( 4 ) );
 
 	return 0;
 }
 
 META_FUNCTION( CNetChan, IsPlayback )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushBool( netchan->IsPlayback( ) );
 
@@ -537,9 +559,7 @@ META_FUNCTION( CNetChan, IsPlayback )
 
 META_FUNCTION( CNetChan, GetTimeoutSeconds )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushNumber( netchan->timeout_seconds );
 
@@ -548,10 +568,8 @@ META_FUNCTION( CNetChan, GetTimeoutSeconds )
 
 META_FUNCTION( CNetChan, SetTimeoutSeconds )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->timeout_seconds = LUA->GetNumber( 2 );
 
@@ -560,9 +578,7 @@ META_FUNCTION( CNetChan, SetTimeoutSeconds )
 
 META_FUNCTION( CNetChan, GetConnectTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushNumber( netchan->connect_time );
 
@@ -571,10 +587,8 @@ META_FUNCTION( CNetChan, GetConnectTime )
 
 META_FUNCTION( CNetChan, SetConnectTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->connect_time = LUA->GetNumber( 2 );
 
@@ -583,9 +597,7 @@ META_FUNCTION( CNetChan, SetConnectTime )
 
 META_FUNCTION( CNetChan, GetLastReceivedTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushNumber( netchan->last_received );
 
@@ -594,10 +606,8 @@ META_FUNCTION( CNetChan, GetLastReceivedTime )
 
 META_FUNCTION( CNetChan, SetLastReceivedTime )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->last_received = LUA->GetNumber( 2 );
 
@@ -606,9 +616,7 @@ META_FUNCTION( CNetChan, SetLastReceivedTime )
 
 META_FUNCTION( CNetChan, GetName )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushString( netchan->name );
 
@@ -617,10 +625,8 @@ META_FUNCTION( CNetChan, GetName )
 
 META_FUNCTION( CNetChan, SetName )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	strcpy_s( netchan->name, 32, LUA->GetString( 2 ) );
 
@@ -629,9 +635,7 @@ META_FUNCTION( CNetChan, SetName )
 
 META_FUNCTION( CNetChan, GetRate )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	
 	LUA->PushNumber( netchan->rate );
 
@@ -640,21 +644,17 @@ META_FUNCTION( CNetChan, GetRate )
 
 META_FUNCTION( CNetChan, SetRate )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	netchan->rate = static_cast<int>( LUA->GetNumber( 2 ) );
+	netchan->rate = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
 	return 0;
 }
 
 META_FUNCTION( CNetChan, GetBackgroundMode )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushBool( netchan->backgroundmode );
 
@@ -663,10 +663,8 @@ META_FUNCTION( CNetChan, GetBackgroundMode )
 
 META_FUNCTION( CNetChan, SetBackgroundMode )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->backgroundmode = LUA->GetBool( 2 );
 
@@ -675,9 +673,7 @@ META_FUNCTION( CNetChan, SetBackgroundMode )
 
 META_FUNCTION( CNetChan, GetCompressionMode )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushBool( netchan->usecompression );
 
@@ -686,10 +682,8 @@ META_FUNCTION( CNetChan, GetCompressionMode )
 
 META_FUNCTION( CNetChan, SetCompressionMode )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
 
 	netchan->usecompression = LUA->GetBool( 2 );
 
@@ -698,9 +692,7 @@ META_FUNCTION( CNetChan, SetCompressionMode )
 
 META_FUNCTION( CNetChan, GetMaxRoutablePayloadSize )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan = GET_META( 1, CNetChan );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	LUA->PushNumber( netchan->splitsize );
 
@@ -709,27 +701,12 @@ META_FUNCTION( CNetChan, GetMaxRoutablePayloadSize )
 
 META_FUNCTION( CNetChan, SetMaxRoutablePayloadSize )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = GET_META( 1, CNetChan );
-
-	netchan->SetMaxRoutablePayloadSize( static_cast<int>( LUA->GetNumber( 2 ) ) );
+	netchan->SetMaxRoutablePayloadSize( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
 
 	return 0;
-}
-
-META_FUNCTION( CNetChan, __eq )
-{
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
-	LUA->CheckType( 2, GET_META_ID( CNetChan ) );
-
-	CNetChan *netchan1 = GET_META( 1, CNetChan );
-	CNetChan *netchan2 = GET_META( 2, CNetChan );
-
-	LUA->PushBool( netchan1 == netchan2 );
-
-	return 1;
 }
 
 GLBL_FUNCTION( CNetChan )
@@ -739,22 +716,13 @@ GLBL_FUNCTION( CNetChan )
 
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	CNetChan *netchan = static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( static_cast<int>( LUA->GetNumber( 1 ) ) ) );	
+	Push_CNetChan( state, static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( static_cast<int32_t>( LUA->GetNumber( 1 ) ) ) ) );	
 
 #elif defined SOURCENET_CLIENT
 
-	CNetChan *netchan = static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) );
+	Push_CNetChan( state, static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) ) );
 
 #endif
-
-	if( netchan != nullptr )
-	{
-		PUSH_META( netchan, CNetChan );
-	}
-	else
-	{
-		LUA->PushNil( );
-	}
 
 	return 1;
 }

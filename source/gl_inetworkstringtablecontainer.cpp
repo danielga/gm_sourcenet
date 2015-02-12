@@ -2,28 +2,65 @@
 #include <gl_inetworkstringtable.hpp>
 #include <networkstringtabledefs.h>
 
+struct INetworkStringTableContainer_userdata
+{
+	INetworkStringTableContainer *container;
+	uint8_t type;
+};
+
+static void Push_INetworkStringTableContainer( lua_State *state, INetworkStringTableContainer *container )
+{
+	INetworkStringTableContainer_userdata *userdata = static_cast<INetworkStringTableContainer_userdata *>( LUA->NewUserdata( sizeof( INetworkStringTableContainer_userdata ) ) );
+	userdata->type = GET_META_ID( INetworkStringTableContainer );
+	userdata->container = container;
+
+	LUA->CreateMetaTableType( GET_META_NAME( INetworkStringTableContainer ), GET_META_ID( INetworkStringTableContainer ) );
+	LUA->SetMetaTable( -2 );
+}
+
+static INetworkStringTableContainer *Get_INetworkStringTableContainer( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GET_META_ID( INetworkStringTableContainer ) );
+	return static_cast<INetworkStringTableContainer_userdata *>( LUA->GetUserdata( index ) )->container;
+}
+
 META_ID( INetworkStringTableContainer, 10 );
+
+META_FUNCTION( INetworkStringTableContainer, __eq )
+{
+	LUA->CheckType( 1, GET_META_ID( INetworkStringTableContainer ) );
+	LUA->CheckType( 2, GET_META_ID( INetworkStringTableContainer ) );
+
+	LUA->PushBool( true );
+
+	return 1;
+}
+
+META_FUNCTION( INetworkStringTableContainer, __tostring )
+{
+	INetworkStringTableContainer *container = Get_INetworkStringTableContainer( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( INetworkStringTableContainer ), container );
+
+	return 1;
+}
 
 META_FUNCTION( INetworkStringTableContainer, FindTable )
 {
-	LUA->CheckType( 1, GET_META_ID( INetworkStringTableContainer ) );
+	INetworkStringTableContainer *container = Get_INetworkStringTableContainer( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	INetworkStringTableContainer *pContainer = GET_META( 1, INetworkStringTableContainer );
-
-	PUSH_META( pContainer->FindTable( LUA->GetString( 2 ) ), INetworkStringTable );
+	Push_INetworkStringTable( state, container->FindTable( LUA->GetString( 2 ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( INetworkStringTableContainer, GetTable )
 {
-	LUA->CheckType( 1, GET_META_ID( INetworkStringTableContainer ) );
+	INetworkStringTableContainer *container = Get_INetworkStringTableContainer( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	INetworkStringTableContainer *pContainer = GET_META( 1, INetworkStringTableContainer );
-
-	PUSH_META( pContainer->GetTable( static_cast<int>( LUA->GetNumber( 2 ) ) ), INetworkStringTable );
+	Push_INetworkStringTable( state, container->GetTable( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
@@ -33,19 +70,19 @@ GLBL_FUNCTION( INetworkStringTableContainer )
 
 #if defined SOURCENET_SERVER
 
-	INetworkStringTableContainer *pContainer = static_cast<INetworkStringTableContainer *>(
+	INetworkStringTableContainer *container = static_cast<INetworkStringTableContainer *>(
 		fnEngineFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, nullptr )
 	);
 
 #elif defined SOURCENET_CLIENT
 
-	INetworkStringTableContainer *pContainer = static_cast<INetworkStringTableContainer *>(
+	INetworkStringTableContainer *container = static_cast<INetworkStringTableContainer *>(
 		fnEngineFactory( INTERFACENAME_NETWORKSTRINGTABLECLIENT, nullptr )
 	);
 
 #endif
 
-	PUSH_META( pContainer, INetworkStringTableContainer );
+	Push_INetworkStringTableContainer( state, container );
 
 	return 1;
 }

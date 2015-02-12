@@ -2,45 +2,6 @@
 
 #include <main.hpp>
 
-#define INIT_HOOK( name ) \
-{ \
-	lua_State *state = global_state; \
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB ); \
-	LUA->GetField( -1, "hook" ); \
-	LUA->Remove( -2 ); \
-	LUA->GetField( -1, "Call" ); \
-	LUA->Remove( -2 ); \
-	LUA->PushString( name ); \
-	LUA->PushNil( ); \
-	int argc = 0
-
-#define DO_HOOK( code ) \
-	code; \
-	++argc
-
-#define CALL_HOOK( returns ) \
-	LUA->Call( 2 + argc, returns ); \
-}
-
-#define EXT_MONITOR_HOOK( name ) \
-	extern bool attach_status__##name
-
-#define MONITOR_HOOK( name ) \
-	bool attach_status__##name = false
-
-#define IS_ATTACHED( name ) \
-	attach_status__##name
-
-#define REGISTER_ATTACH( name ) \
-	Msg( "Attach: %s\n", #name ); \
-	attach_status__##name = true
-
-#define REGISTER_DETACH( name ) \
-	Msg( "Detach: %s\n", #name ); \
-	attach_status__##name = false
-
-EXT_MONITOR_HOOK( CNetChan_ProcessMessages );
-
 EXT_GLBL_FUNCTION( Attach__CNetChan_SendDatagram );
 EXT_GLBL_FUNCTION( Detach__CNetChan_SendDatagram );
 

@@ -2,24 +2,130 @@
 #include <gl_ucharptr.hpp>
 #include <bitbuf.h>
 
+struct sn4_bf_read_userdata
+{
+	sn4_bf_read *preader;
+	uint8_t type;
+	sn4_bf_read reader;
+	int32_t bufref;
+};
+
+sn4_bf_read **Push_sn4_bf_read( lua_State *state, sn4_bf_read *reader, int32_t bufref )
+{
+	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>( LUA->NewUserdata( sizeof( sn4_bf_read_userdata ) ) );
+	userdata->type = GET_META_ID( sn4_bf_read );
+	userdata->bufref = bufref;
+
+	if( reader == nullptr )
+		userdata->preader = new( &userdata->reader ) sn4_bf_read;
+	else
+		userdata->preader = reader;
+
+	LUA->CreateMetaTableType( GET_META_NAME( sn4_bf_read ), GET_META_ID( sn4_bf_read ) );
+	LUA->SetMetaTable( -2 );
+
+	return &userdata->preader;
+}
+
+sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GET_META_ID( sn4_bf_read ) );
+
+	sn4_bf_read *reader = static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( index ) )->preader;
+	if( reader == nullptr )
+		LUA->ThrowError( "invalid sn4_bf_read" );
+
+	return reader;
+}
+
+static void Push_Angle( lua_State *state, QAngle *ang )
+{
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
+	userdata->type = GarrysMod::Lua::Type::VECTOR;
+	userdata->data = ang;
+
+	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
+	LUA->SetMetaTable( -2 );
+}
+
+static void Push_Vector( lua_State *state, Vector *vec )
+{
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
+	userdata->type = GarrysMod::Lua::Type::VECTOR;
+	userdata->data = vec;
+
+	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
+	LUA->SetMetaTable( -2 );
+}
+
 META_ID( sn4_bf_read, 2 );
 
-META_FUNCTION( sn4_bf_read, GetBasePointer )
+META_FUNCTION( sn4_bf_read, __gc )
 {
 	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( 1 ) );
 
-	PUSH_META( const_cast<uint8_t *>( buf->GetBasePointer( ) ), UCHARPTR );
+	userdata->preader = nullptr;
+
+	if( userdata->bufref != -1 )
+	{
+		LUA->ReferenceFree( userdata->bufref );
+		userdata->bufref = -1;
+	}
+
+	return 0;
+}
+
+META_FUNCTION( sn4_bf_read, __eq )
+{
+	sn4_bf_read *buf1 = Get_sn4_bf_read( state, 1 );
+	sn4_bf_read *buf2 = Get_sn4_bf_read( state, 2 );
+
+	LUA->PushBool( buf1 == buf2 );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, __tostring )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( sn4_bf_read ), buf );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, IsValid )
+{
+	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+
+	LUA->PushBool( static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, GetBasePointer )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	Push_UCHARPTR( state, const_cast<UCHARPTR>( buf->GetBasePointer( ) ), buf->m_nDataBits );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, TotalBytesAvailable )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	LUA->PushNumber( buf->TotalBytesAvailable( ) );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, GetNumBitsLeft )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBitsLeft( ) );
 
@@ -28,9 +134,7 @@ META_FUNCTION( sn4_bf_read, GetNumBitsLeft )
 
 META_FUNCTION( sn4_bf_read, GetNumBytesLeft )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBytesLeft( ) );
 
@@ -39,107 +143,129 @@ META_FUNCTION( sn4_bf_read, GetNumBytesLeft )
 
 META_FUNCTION( sn4_bf_read, GetNumBitsRead )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBitsRead( ) );
 
 	return 1;
 }
 
+META_FUNCTION( sn4_bf_read, GetNumBytesRead )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	LUA->PushNumber( buf->GetNumBytesRead( ) );
+
+	return 1;
+}
+
 META_FUNCTION( sn4_bf_read, IsOverflowed )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushBool( buf->IsOverflowed( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadBitAngle )
+META_FUNCTION( sn4_bf_read, Seek )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->Push( buf->ReadBitAngle( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushBool( buf->Seek( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadBitAngles )
+META_FUNCTION( sn4_bf_read, SeekRelative )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	LUA->PushBool( buf->SeekRelative( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
-	QAngle *ang = new QAngle;
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadBitAngle )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	LUA->Push( buf->ReadBitAngle( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadAngle )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	QAngle *ang = new( std::nothrow ) QAngle;
+	if( ang == nullptr )
+		LUA->ThrowError( "failed to allocate Angle" );
 
 	buf->ReadBitAngles( *ang );
 
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
-	userdata->data = ang;
-	userdata->type = GarrysMod::Lua::Type::ANGLE;
-
-	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
-	LUA->SetMetaTable( -2 );
+	Push_Angle( state, ang );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, ReadBits )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+	if( bits <= 0 )
+		LUA->ThrowError( "invalid amount of bits to read (less or equal to zero)" );
 
-	uint8_t *data = new uint8_t[static_cast<int>( LUA->GetNumber( 2 ) )];
+	uint8_t *data = new( std::nothrow ) uint8_t[BitByte( bits )];
 	if( data == nullptr )
-	{
-		Msg( "[gm_sourcenet4][sn4_bf_read::ReadBits] Failed allocating %i bytes\n", BitByte( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
-		LUA->ThrowError( "fatal error" );
+		LUA->ThrowError( "failed to allocate the requested amount of bits" );
 
-		// Prevent further reading of the buffer
-		buf->SetOverflowFlag( );
-	}
+	buf->ReadBits( data, bits );
 
-	buf->ReadBits( data, static_cast<int>( LUA->GetNumber( 2 ) ) );
-
-	PUSH_META( data, UCHARPTR );
+	Push_UCHARPTR( state, data, bits );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadBitVec3Coord )
+META_FUNCTION( sn4_bf_read, ReadVector )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	Vector *vec = new Vector;
+	Vector *vec = new( std::nothrow ) Vector;
+	if( vec == nullptr )
+		LUA->ThrowError( "failed to allocate Vector" );
 
 	buf->ReadBitVec3Coord( *vec );
 
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
-	userdata->data = vec;
-	userdata->type = GarrysMod::Lua::Type::VECTOR;
+	Push_Vector( state, vec );
 
-	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
-	LUA->SetMetaTable( -2 );
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadNormal )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	Vector *vec = new( std::nothrow ) Vector;
+	if( vec == nullptr )
+		LUA->ThrowError( "failed to allocate Vector" );
+
+	buf->ReadBitVec3Normal( *vec );
+
+	Push_Vector( state, vec );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, ReadByte )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadByte( ) );
 
@@ -148,33 +274,27 @@ META_FUNCTION( sn4_bf_read, ReadByte )
 
 META_FUNCTION( sn4_bf_read, ReadBytes )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	int32_t bytes = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+	if( bytes <= 0 )
+		LUA->ThrowError( "invalid amount of bytes to read (less or equal to zero)" );
 
-	uint8_t *data = new uint8_t[static_cast<int>( LUA->GetNumber( 2 ) )];
+	uint8_t *data = new( std::nothrow ) uint8_t[bytes];
 	if( data == nullptr )
-	{
-		Msg( "[gm_sourcenet4][sn4_bf_read::ReadBytes] Failed allocating %i bytes\n", static_cast<int>( LUA->GetNumber( 2 ) ) );
-		LUA->ThrowError( "fatal error" );
+		LUA->ThrowError( "failed to allocate the requested amount of bytes" );
 
-		// Prevent further reading of the buffer
-		buf->SetOverflowFlag( );
-	}
+	buf->ReadBytes( data, bytes );
 
-	buf->ReadBytes( data, static_cast<int>( LUA->GetNumber( 2 ) ) );
-
-	PUSH_META( data, UCHARPTR );
+	Push_UCHARPTR( state, data, bytes * 8 );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, ReadChar )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadChar( ) );
 
@@ -183,31 +303,45 @@ META_FUNCTION( sn4_bf_read, ReadChar )
 
 META_FUNCTION( sn4_bf_read, ReadFloat )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadFloat( ) );
 
 	return 1;
 }
 
+META_FUNCTION( sn4_bf_read, ReadDouble )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	double num = 0.0;
+	buf->ReadBits( &num, sizeof( double ) * 8 );
+	LUA->PushNumber( num );
+
+	return 1;
+}
+
 META_FUNCTION( sn4_bf_read, ReadLong )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadLong( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadOneBit )
+META_FUNCTION( sn4_bf_read, ReadLongLong )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	LUA->PushNumber( buf->ReadLongLong( ) );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadBit )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadOneBit( ) );
 
@@ -216,9 +350,7 @@ META_FUNCTION( sn4_bf_read, ReadOneBit )
 
 META_FUNCTION( sn4_bf_read, ReadShort )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadShort( ) );
 
@@ -227,9 +359,7 @@ META_FUNCTION( sn4_bf_read, ReadShort )
 
 META_FUNCTION( sn4_bf_read, ReadString )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	char str[1024] = { 0 };
 
@@ -241,95 +371,80 @@ META_FUNCTION( sn4_bf_read, ReadString )
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadSBitLong )
+META_FUNCTION( sn4_bf_read, ReadInt )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->PushNumber( buf->ReadSBitLong( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( buf->ReadSBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, ReadUBitLong )
+META_FUNCTION( sn4_bf_read, ReadUInt )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->PushNumber( buf->ReadUBitLong( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( buf->ReadUBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, ReadWord )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 
 	LUA->PushNumber( buf->ReadWord( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_read, Seek )
+META_FUNCTION( sn4_bf_read, ReadSignedVarInt32 )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	LUA->PushNumber( buf->ReadSignedVarInt32( ) );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadVarInt32 )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	LUA->PushNumber( buf->ReadVarInt32( ) );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadSignedVarInt64 )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+
+	LUA->PushNumber( buf->ReadSignedVarInt64( ) );
+
+	return 1;
+}
+
+META_FUNCTION( sn4_bf_read, ReadVarInt64 )
+{
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->PushBool( buf->Seek( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
+	LUA->PushNumber( buf->ReadVarInt64( ) );
 
 	return 1;
-}
-
-META_FUNCTION( sn4_bf_read, SeekRelative )
-{
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->PushBool( buf->SeekRelative( static_cast<int>( LUA->GetNumber( 2 ) ) ) );
-
-	return 1;
-}
-
-META_FUNCTION( sn4_bf_read, TotalBytesAvailable )
-{
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	sn4_bf_read *buf = GET_META( 1, sn4_bf_read );
-
-	LUA->PushNumber( buf->TotalBytesAvailable( ) );
-
-	return 1;
-}
-
-META_FUNCTION( sn4_bf_read, FinishReading )
-{
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
-
-	delete GET_META( 1, sn4_bf_read );
-
-	return 0;
 }
 
 GLBL_FUNCTION( sn4_bf_read )
 {
-	LUA->CheckType( 1, GET_META_ID( UCHARPTR ) );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+	int32_t bits = 0;
+	UCHARPTR ptr = Get_UCHARPTR( state, 1, &bits );
 
-	int bits = static_cast<int>( LUA->GetNumber( 2 ) );
-
-	sn4_bf_read *buf = new sn4_bf_read( GET_META( 1, UCHARPTR ), BitByte( bits ), bits );
-
-	PUSH_META( buf, sn4_bf_read );
+	LUA->Push( 1 );
+	sn4_bf_read *reader = *Push_sn4_bf_read( state, nullptr, LUA->ReferenceCreate( ) );
+	reader->StartReading( ptr, BitByte( bits ), 0, bits );
 
 	return 1;
 }

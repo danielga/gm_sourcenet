@@ -64,13 +64,14 @@ solution("gm_sourcenet4")
 				SDK_FOLDER .. "/**.cpp"
 			}
 		})
+		libdirs({GARRYSMOD_MODULE_BASE_FOLDER})
 
 		targetprefix("")
 		targetextension(".dll")
 
 		filter("system:windows")
 			libdirs({SDK_FOLDER .. "/lib/public"})
-			links({"ws2_32", "tier0", "tier1"})
+			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
 
 			filter({"system:windows", "configurations:Debug"})
@@ -80,13 +81,17 @@ solution("gm_sourcenet4")
 			defines({"POSIX", "GNUC", "_LINUX"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0_srv"})
-			linkoptions({SDK_FOLDER .. "/lib/public/linux32/tier1.a"})
+			linkoptions({
+				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
+				"-Wl,-rpath,garrysmod/bin",
+				"-l:lua_shared_srv.so"
+			})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_linux")
 
 		filter({"system:macosx"})
 			libdirs({SDK_FOLDER .. "/lib/public/osx32"})
-			links({"dl", "tier0", "tier1"})
+			links({"dl", "tier0", "tier1", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")
 
@@ -127,13 +132,14 @@ solution("gm_sourcenet4")
 				SDK_FOLDER .. "/**.cpp"
 			}
 		})
+		libdirs({GARRYSMOD_MODULE_BASE_FOLDER})
 
 		targetprefix("")
 		targetextension(".dll")
 
 		filter("system:windows")
 			libdirs({SDK_FOLDER .. "/lib/public"})
-			links({"ws2_32", "tier0", "tier1"})
+			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
 
 			filter({"system:windows", "configurations:Debug"})
@@ -143,12 +149,16 @@ solution("gm_sourcenet4")
 			defines({"POSIX", "GNUC", "_LINUX"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0"})
-			linkoptions({SDK_FOLDER .. "/lib/public/linux32/tier1.a"})
+			linkoptions({
+				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
+				"-Wl,-rpath,garrysmod/bin",
+				"-l:lua_shared.so"
+			})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_linux")
 
 		filter({"system:macosx"})
 			libdirs({SDK_FOLDER .. "/lib/public/osx32"})
-			links({"dl", "tier0", "tier1"})
+			links({"dl", "tier0", "tier1", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")

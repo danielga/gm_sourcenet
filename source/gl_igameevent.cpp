@@ -1,13 +1,79 @@
 #include <gl_igameevent.hpp>
 #include <igameevents.h>
 
+struct IGameEvent_userdata
+{
+	IGameEvent *event;
+	uint8_t type;
+	IGameEventManager2 *manager;
+};
+
+void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
+{
+	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>( LUA->NewUserdata( sizeof( IGameEvent_userdata ) ) );
+	userdata->type = GET_META_ID( IGameEvent );
+	userdata->event = event;
+	userdata->manager = manager;
+
+	LUA->CreateMetaTableType( GET_META_NAME( IGameEvent ), GET_META_ID( IGameEvent ) );
+	LUA->SetMetaTable( -2 );
+}
+
+IGameEvent *Get_IGameEvent( lua_State *state, int32_t index, IGameEventManager2 **manager, bool cleanup )
+{
+	LUA->CheckType( index, GET_META_ID( IGameEvent ) );
+
+	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>( LUA->GetUserdata( index ) );
+	IGameEvent *event = userdata->event;
+	if( event == nullptr || userdata->manager == nullptr )
+		LUA->ThrowError( "invalid IGameEvent" );
+
+	if( manager != nullptr )
+		*manager = userdata->manager;
+
+	if( cleanup )
+	{
+		userdata->event = nullptr;
+		userdata->manager = nullptr;
+	}
+
+	return event;
+}
+
 META_ID( IGameEvent, 13 );
+
+META_FUNCTION( IGameEvent, __gc )
+{
+	IGameEventManager2 *manager = nullptr;
+	IGameEvent *event = Get_IGameEvent( state, 1, &manager, true );
+
+	manager->FreeEvent( event );
+
+	return 0;
+}
+
+META_FUNCTION( IGameEvent, __eq )
+{
+	IGameEvent *event1 = Get_IGameEvent( state, 1 );
+	IGameEvent *event2 = Get_IGameEvent( state, 2 );
+
+	LUA->PushBool( event1 == event2 );
+
+	return 1;
+}
+
+META_FUNCTION( IGameEvent, __tostring )
+{
+	IGameEvent *event = Get_IGameEvent( state, 1 );
+
+	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( IGameEvent ), event );
+
+	return 1;
+}
 
 META_FUNCTION( IGameEvent, GetName )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 
 	LUA->PushString( event->GetName( ) );
 
@@ -16,9 +82,7 @@ META_FUNCTION( IGameEvent, GetName )
 
 META_FUNCTION( IGameEvent, IsReliable )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 
 	LUA->PushBool( event->IsReliable( ) );
 
@@ -27,9 +91,7 @@ META_FUNCTION( IGameEvent, IsReliable )
 
 META_FUNCTION( IGameEvent, IsLocal )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 
 	LUA->PushBool( event->IsLocal( ) );
 
@@ -38,9 +100,7 @@ META_FUNCTION( IGameEvent, IsLocal )
 
 META_FUNCTION( IGameEvent, IsEmpty )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 
 	LUA->PushBool( event->IsEmpty( LUA->GetString( 2 ) ) );
 
@@ -49,10 +109,8 @@ META_FUNCTION( IGameEvent, IsEmpty )
 
 META_FUNCTION( IGameEvent, GetBool )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	LUA->PushBool( event->GetBool( LUA->GetString( 2 ) ) );
 
@@ -61,10 +119,8 @@ META_FUNCTION( IGameEvent, GetBool )
 
 META_FUNCTION( IGameEvent, GetInt )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	LUA->PushNumber( event->GetInt( LUA->GetString( 2 ) ) );
 
@@ -73,10 +129,8 @@ META_FUNCTION( IGameEvent, GetInt )
 
 META_FUNCTION( IGameEvent, GetFloat )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	LUA->PushNumber( event->GetFloat( LUA->GetString( 2 ) ) );
 
@@ -85,10 +139,8 @@ META_FUNCTION( IGameEvent, GetFloat )
 
 META_FUNCTION( IGameEvent, GetString )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	LUA->PushString( event->GetString( LUA->GetString( 2 ) ) );
 
@@ -97,11 +149,9 @@ META_FUNCTION( IGameEvent, GetString )
 
 META_FUNCTION( IGameEvent, SetBool )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::BOOL );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	event->SetBool( LUA->GetString( 2 ), LUA->GetBool( 3 ) );
 
@@ -110,24 +160,20 @@ META_FUNCTION( IGameEvent, SetBool )
 
 META_FUNCTION( IGameEvent, SetInt )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	IGameEvent *event = GET_META( 1, IGameEvent );
-
-	event->SetInt( LUA->GetString( 2 ), static_cast<int>( LUA->GetNumber( 3 ) ) );
+	event->SetInt( LUA->GetString( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
 
 	return 0;
 }
 
 META_FUNCTION( IGameEvent, SetFloat )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
 
 	event->SetFloat( LUA->GetString( 2 ), LUA->GetNumber( 3 ) );
 
@@ -136,24 +182,11 @@ META_FUNCTION( IGameEvent, SetFloat )
 
 META_FUNCTION( IGameEvent, SetString )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
+	IGameEvent *event = Get_IGameEvent( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
-	IGameEvent *event = GET_META( 1, IGameEvent );
-
 	event->SetString( LUA->GetString( 2 ), LUA->GetString( 3 ) );
-
-	return 0;
-}
-
-META_FUNCTION( IGameEvent, Delete )
-{
-	LUA->CheckType( 1, GET_META_ID( IGameEvent ) );
-
-	IGameEvent *event = GET_META( 1, IGameEvent );
-
-	event->~IGameEvent( );
 
 	return 0;
 }
