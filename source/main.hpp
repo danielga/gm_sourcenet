@@ -2,7 +2,6 @@
 
 #include <GarrysMod/Lua/Interface.h>
 #include <interface.h>
-#include <utllinkedlist.h>
 #include <cstdint>
 
 extern "C"
@@ -41,6 +40,9 @@ extern IVEngineClient *g_pEngineClient;
 extern IServer *g_pServer;
 
 #endif
+
+#undef min
+#undef max
 
 extern void TypeError( lua_State *state, const char *name, int32_t index );
 

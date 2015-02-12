@@ -1,7 +1,6 @@
 ﻿// Required interfaces
 #define IVENGINESERVER_INTERFACE
 #define IVENGINECLIENT_INTERFACE
-#define ICVAR_INTERFACE
 
 #include <main.hpp>
 #include <GarrysMod/Lua/LuaInterface.h>
@@ -114,17 +113,17 @@ static size_t netchunk_siglen = 16;
 
 inline uint8_t *PageAlign( uint8_t *addr, long page )
 {
-	return addr - ( static_cast<uintptr_t>( addr ) % page );
+	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
 }
 
-#define BEGIN_MEMEDIT( addr, size ) \ 
+#define BEGIN_MEMEDIT( addr, size ) \
 { \
 	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( PageAlign( static_cast<uint8_t *>( addr ), page ), \
+	mprotect( PageAlign( addr, page ), \
 			page, PROT_EXEC | PROT_READ | PROT_WRITE )
 
 #define FINISH_MEMEDIT( addr, size ) \
-	mprotect( PageAlign( static_cast<uint8_t *>( addr ), page ), \
+	mprotect( PageAlign( addr, page ), \
 			page, PROT_EXEC | PROT_READ ); \
 }
 
@@ -140,7 +139,7 @@ static size_t IServer_siglen = 16;
 
 static size_t netpatch_len = 6;
 static const char *netpatch_old = "\x0F\x85\xC9\x00\x00\x00";
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
+static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
 
 static size_t netchunk_sig_offset = 8;
 static const char *netchunk_sig = "\x85\xFF\x8D\x04\x91\x89\x46\x10";
@@ -153,17 +152,17 @@ static size_t netchunk_siglen = 8;
 
 inline uint8_t *PageAlign( uint8_t *addr, long page )
 {
-	return addr - ( (DWORD)addr % page );
+	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
 }
 
-#define BEGIN_MEMEDIT( addr, size ) \ 
+#define BEGIN_MEMEDIT( addr, size ) \
 { \
 	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( PageAlign( static_cast<uint8_t *>( addr ), page ), \
+	mprotect( PageAlign( addr, page ), \
 			page, PROT_EXEC | PROT_READ | PROT_WRITE )
 
 #define FINISH_MEMEDIT( addr, size ) \
-	mprotect( PageAlign( static_cast<uint8_t *>( addr ), page ), \
+	mprotect( PageAlign( addr, page ), \
 			page, PROT_EXEC | PROT_READ ); \
 }
 
@@ -235,7 +234,7 @@ GMOD_MODULE_OPEN( )
 	if( g_pServer == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
-	CNetChan_ProcessMessages_O = static_cast<CNetChan_ProcessMessages_T>(
+	CNetChan_ProcessMessages_O = reinterpret_cast<CNetChan_ProcessMessages_T>(
 		symfinder.ResolveOnBinary( engine_lib, CNetChan_ProcessMessages_sig, CNetChan_ProcessMessages_siglen )
 	);
 	if( CNetChan_ProcessMessages_O == nullptr )

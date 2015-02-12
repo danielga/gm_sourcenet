@@ -64,13 +64,12 @@ solution("gm_sourcenet4")
 				SDK_FOLDER .. "/**.cpp"
 			}
 		})
-		libdirs({GARRYSMOD_MODULE_BASE_FOLDER})
 
 		targetprefix("")
 		targetextension(".dll")
 
 		filter("system:windows")
-			libdirs({SDK_FOLDER .. "/lib/public"})
+			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
 
@@ -90,7 +89,7 @@ solution("gm_sourcenet4")
 			targetsuffix("_linux")
 
 		filter({"system:macosx"})
-			libdirs({SDK_FOLDER .. "/lib/public/osx32"})
+			libdirs({SDK_FOLDER .. "/lib/public/osx32", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"dl", "tier0", "tier1", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")
@@ -138,7 +137,7 @@ solution("gm_sourcenet4")
 		targetextension(".dll")
 
 		filter("system:windows")
-			libdirs({SDK_FOLDER .. "/lib/public"})
+			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
 
@@ -158,7 +157,7 @@ solution("gm_sourcenet4")
 			targetsuffix("_linux")
 
 		filter({"system:macosx"})
-			libdirs({SDK_FOLDER .. "/lib/public/osx32"})
+			libdirs({SDK_FOLDER .. "/lib/public/osx32", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"dl", "tier0", "tier1", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")

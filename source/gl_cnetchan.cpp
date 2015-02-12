@@ -16,7 +16,7 @@ struct CNetChan_userdata
 	CNetChan *netchan;
 	uint8_t type;
 };
-#include <iclient.h>
+
 bool IsValid_CNetChan( CNetChan *netchan )
 {
 
@@ -628,7 +628,8 @@ META_FUNCTION( CNetChan, SetName )
 	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	strcpy_s( netchan->name, 32, LUA->GetString( 2 ) );
+	strncpy( netchan->name, LUA->GetString( 2 ), 32 );
+	netchan->name[sizeof( netchan->name )] = '\0';
 
 	return 0;
 }

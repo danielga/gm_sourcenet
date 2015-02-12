@@ -133,7 +133,8 @@ META_FUNCTION( dataFragments_t, SetFileName )
 	dataFragments_t *fragments = Get_dataFragments( state, 1 );
 	LUA->CheckType( 2 , GarrysMod::Lua::Type::STRING );
 
-	strcpy_s( fragments->filename, MAX_PATH, LUA->GetString( 2 ) );
+	strncpy( fragments->filename, LUA->GetString( 2 ), MAX_PATH );
+	fragments->filename[sizeof( fragments->filename )] = '\0';
 
 	return 0;
 }
