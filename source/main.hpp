@@ -41,8 +41,12 @@ extern IServer *g_pServer;
 
 #endif
 
+#if defined __linux || defined __APPLE__
+
 #undef min
 #undef max
+
+#endif
 
 extern void TypeError( lua_State *state, const char *name, int32_t index );
 
