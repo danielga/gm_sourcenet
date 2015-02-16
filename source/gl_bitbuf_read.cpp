@@ -12,7 +12,9 @@ struct sn4_bf_read_userdata
 
 sn4_bf_read **Push_sn4_bf_read( lua_State *state, sn4_bf_read *reader, int32_t bufref )
 {
-	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>( LUA->NewUserdata( sizeof( sn4_bf_read_userdata ) ) );
+	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>(
+		LUA->NewUserdata( sizeof( sn4_bf_read_userdata ) )
+	);
 	userdata->type = GET_META_ID( sn4_bf_read );
 	userdata->bufref = bufref;
 
@@ -27,20 +29,27 @@ sn4_bf_read **Push_sn4_bf_read( lua_State *state, sn4_bf_read *reader, int32_t b
 	return &userdata->preader;
 }
 
-sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index )
+sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index, int32_t *bufref )
 {
 	LUA->CheckType( index, GET_META_ID( sn4_bf_read ) );
 
-	sn4_bf_read *reader = static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( index ) )->preader;
-	if( reader == nullptr )
+	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>(
+		LUA->GetUserdata( index )
+	);
+	if( userdata->preader == nullptr )
 		LUA->ThrowError( "invalid sn4_bf_read" );
 
-	return reader;
+	if( bufref != nullptr )
+		*bufref = userdata->bufref;
+
+	return userdata->preader;
 }
 
 static void Push_Angle( lua_State *state, QAngle *ang )
 {
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+	);
 	userdata->type = GarrysMod::Lua::Type::VECTOR;
 	userdata->data = ang;
 
@@ -50,7 +59,9 @@ static void Push_Angle( lua_State *state, QAngle *ang )
 
 static void Push_Vector( lua_State *state, Vector *vec )
 {
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>( LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) ) );
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+	);
 	userdata->type = GarrysMod::Lua::Type::VECTOR;
 	userdata->data = vec;
 
@@ -100,16 +111,21 @@ META_FUNCTION( sn4_bf_read, IsValid )
 {
 	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
 
-	LUA->PushBool( static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
+	void *userdata = LUA->GetUserdata( 1 );
+	LUA->PushBool( static_cast<sn4_bf_read_userdata *>( userdata )->preader != nullptr );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_read, GetBasePointer )
 {
-	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
+	int32_t bufref = -1;
+	sn4_bf_read *buf = Get_sn4_bf_read( state, 1, &bufref );
 
-	Push_UCHARPTR( state, const_cast<UCHARPTR>( buf->GetBasePointer( ) ), buf->m_nDataBits );
+	if( bufref != -1 )
+		LUA->ReferencePush( bufref );
+	else
+		Push_UCHARPTR( state, buf->m_nDataBits, const_cast<UCHARPTR>( buf->GetBasePointer( ) ) );
 
 	return 1;
 }
@@ -219,16 +235,10 @@ META_FUNCTION( sn4_bf_read, ReadBits )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-	if( bits <= 0 )
-		LUA->ThrowError( "invalid amount of bits to read (less or equal to zero)" );
 
-	uint8_t *data = new( std::nothrow ) uint8_t[BitByte( bits )];
-	if( data == nullptr )
-		LUA->ThrowError( "failed to allocate the requested amount of bits" );
+	UCHARPTR data = Push_UCHARPTR( state, bits );
 
 	buf->ReadBits( data, bits );
-
-	Push_UCHARPTR( state, data, bits );
 
 	return 1;
 }
@@ -278,16 +288,10 @@ META_FUNCTION( sn4_bf_read, ReadBytes )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t bytes = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-	if( bytes <= 0 )
-		LUA->ThrowError( "invalid amount of bytes to read (less or equal to zero)" );
 
-	uint8_t *data = new( std::nothrow ) uint8_t[bytes];
-	if( data == nullptr )
-		LUA->ThrowError( "failed to allocate the requested amount of bytes" );
+	UCHARPTR data = Push_UCHARPTR( state, bytes * 8 );
 
 	buf->ReadBytes( data, bytes );
-
-	Push_UCHARPTR( state, data, bytes * 8 );
 
 	return 1;
 }

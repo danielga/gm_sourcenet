@@ -24,10 +24,10 @@ local function FilterGameEvent(netchan, read, write, hookname)
 				IGameEventManager2():SerializeEvent(event, serialized_buffer)
 				
 				write:WriteUInt(serialized_buffer:GetNumBitsWritten(), 11)
-				write:WriteBits(serialized_buffer:GetBasePointer(), serialized_buffer:GetNumBitsWritten())
+				write:WriteBits(serialized_buffer:GetBasePointer())
 			else
 				write:WriteUInt(bits, 11)
-				write:WriteBits(data, bits)
+				write:WriteBits(data)
 			end
 		end
 	end

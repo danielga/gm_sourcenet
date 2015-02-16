@@ -18,7 +18,7 @@ local function CopyBufferEnd(dst, src)
 	local bitsleft = src:GetNumBitsLeft()
 	local data = src:ReadBits(bitsleft)
 	
-	dst:WriteBits(data, bitsleft)
+	dst:WriteBits(data)
 end
 
 hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localchan)

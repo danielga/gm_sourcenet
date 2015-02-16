@@ -19,25 +19,17 @@ struct CNetChan_userdata
 
 bool IsValid_CNetChan( CNetChan *netchan )
 {
-
 	if( netchan == nullptr )
 		return false;
-
-#if defined SOURCENET_SERVER
 
 	for( int32_t i = 1; i <= g_pServer->GetClientCount( ); ++i )
 		if( netchan == g_pEngineServer->GetPlayerNetInfo( i ) )
 			return true;
 
-#elif defined SOURCENET_CLIENT
-
-	if( netchan == g_pEngineClient->GetNetChannelInfo( ) )
+	if( !g_pEngineServer->IsDedicatedServer( ) && netchan == g_pEngineClient->GetNetChannelInfo( ) )
 		return true;
 
-#endif
-
 	return false;
-
 }
 
 void Push_CNetChan( lua_State *state, CNetChan *netchan )
@@ -48,7 +40,9 @@ void Push_CNetChan( lua_State *state, CNetChan *netchan )
 		return;
 	}
 
-	CNetChan_userdata *userdata = static_cast<CNetChan_userdata *>( LUA->NewUserdata( sizeof( CNetChan_userdata ) ) );
+	CNetChan_userdata *userdata = static_cast<CNetChan_userdata *>(
+		LUA->NewUserdata( sizeof( CNetChan_userdata ) )
+	);
 	userdata->type = GET_META_ID( CNetChan );
 	userdata->netchan = netchan;
 
@@ -103,7 +97,8 @@ META_FUNCTION( CNetChan, IsValid )
 {
 	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
 
-	LUA->PushBool( IsValid_CNetChan( static_cast<CNetChan_userdata *>( LUA->GetUserdata( 1 ) )->netchan ) );
+	void *userdata = LUA->GetUserdata( 1 );
+	LUA->PushBool( IsValid_CNetChan( static_cast<CNetChan_userdata *>( userdata )->netchan ) );
 
 	return 1;
 }
@@ -168,7 +163,10 @@ META_FUNCTION( CNetChan, SendFile )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushBool( netchan->SendFile( LUA->GetString( 2 ), static_cast<uint32_t>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushBool( netchan->SendFile(
+		LUA->GetString( 2 ),
+		static_cast<uint32_t>( LUA->GetNumber( 3 ) )
+	) );
 
 	return 1;
 }
@@ -425,7 +423,10 @@ META_FUNCTION( CNetChan, IsValidPacket )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushBool( netchan->IsValidPacket( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushBool( netchan->IsValidPacket(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	) );
 
 	return 1;
 }
@@ -436,7 +437,10 @@ META_FUNCTION( CNetChan, GetPacketTime )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushNumber( netchan->GetPacketTime( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushNumber( netchan->GetPacketTime(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	) );
 
 	return 1;
 }
@@ -448,7 +452,11 @@ META_FUNCTION( CNetChan, GetPacketBytes )
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 4, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushNumber( netchan->GetPacketBytes( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), static_cast<int32_t>( LUA->GetNumber( 4 ) ) ) );
+	LUA->PushNumber( netchan->GetPacketBytes(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 4 ) )
+	) );
 
 	return 1;
 }
@@ -458,9 +466,8 @@ META_FUNCTION( CNetChan, GetStreamProgress )
 	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	int32_t received = 0, total = 0;
-
-	if( netchan->GetStreamProgress( static_cast<int32_t>( LUA->GetNumber( 2 ) ), &received, &total ) )
+	int32_t flow = static_cast<int32_t>( LUA->GetNumber( 2 ) ), received = 0, total = 0;
+	if( netchan->GetStreamProgress( flow, &received, &total ) )
 	{
 		LUA->PushNumber( received );
 		LUA->PushNumber( total );
@@ -480,7 +487,10 @@ META_FUNCTION( CNetChan, GetCommandInterpolationAmount )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushNumber( netchan->GetCommandInterpolationAmount( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) ) );
+	LUA->PushNumber( netchan->GetCommandInterpolationAmount(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	) );
 
 	return 1;
 }
@@ -492,8 +502,12 @@ META_FUNCTION( CNetChan, GetPacketResponseLatency )
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t latencymsecs = 0, choke = 0;
-
-	netchan->GetPacketResponseLatency( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), &latencymsecs, &choke );
+	netchan->GetPacketResponseLatency(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) ),
+		&latencymsecs,
+		&choke
+	);
 
 	LUA->PushNumber( latencymsecs );
 	LUA->PushNumber( choke );
@@ -506,7 +520,6 @@ META_FUNCTION( CNetChan, GetRemoteFramerate )
 	CNetChan *netchan = Get_CNetChan( state, 1 );
 
 	float frametime = 0.0f, frametimedev = 0.0f;
-
 	netchan->GetRemoteFramerate( &frametime, &frametimedev );
 
 	LUA->PushNumber( frametime );
@@ -543,7 +556,11 @@ META_FUNCTION( CNetChan, SetMaxBufferSize )
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 4, GarrysMod::Lua::Type::BOOL );
 
-	netchan->SetMaxBufferSize( LUA->GetBool( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ), LUA->GetBool( 4 ) );
+	netchan->SetMaxBufferSize(
+		LUA->GetBool( 2 ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) ),
+		LUA->GetBool( 4 )
+	);
 
 	return 0;
 }
@@ -717,7 +734,11 @@ GLBL_FUNCTION( CNetChan )
 
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	Push_CNetChan( state, static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( static_cast<int32_t>( LUA->GetNumber( 1 ) ) ) ) );	
+	int32_t index = static_cast<int32_t>( LUA->GetNumber( 1 ) );
+	Push_CNetChan(
+		state,
+		static_cast<CNetChan *>( g_pEngineServer->GetPlayerNetInfo( index ) )
+	);	
 
 #elif defined SOURCENET_CLIENT
 

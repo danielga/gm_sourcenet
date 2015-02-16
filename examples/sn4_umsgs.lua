@@ -22,5 +22,5 @@ function _R.Player:Test()
 	msgbuffer:WriteByte(0)
 
 	reliablebuffer:WriteUInt(msgbuffer:GetNumBitsWritten(), 11)
-	reliablebuffer:WriteBits(msgdata, msgbuffer:GetNumBitsWritten())
+	reliablebuffer:WriteBits(msgdata)
 end

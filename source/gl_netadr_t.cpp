@@ -10,7 +10,9 @@ struct netadr_userdata
 
 void Push_netadr( lua_State *state, const netadr_t &netadr )
 {
-	netadr_userdata *userdata = static_cast<netadr_userdata *>( LUA->NewUserdata( sizeof( netadr_userdata ) ) );
+	netadr_userdata *userdata = static_cast<netadr_userdata *>(
+		LUA->NewUserdata( sizeof( netadr_userdata ) )
+	);
 	userdata->type = GET_META_ID( netadr_t );
 	userdata->pnetadr = &userdata->netadr;
 	new( &userdata->netadr ) netadr_t( netadr );

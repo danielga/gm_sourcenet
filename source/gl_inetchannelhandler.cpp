@@ -8,11 +8,16 @@ struct INetChannelHandler_userdata
 
 void Push_INetChannelHandler( lua_State *state, INetChannelHandler *handler )
 {
-	INetChannelHandler_userdata *userdata = static_cast<INetChannelHandler_userdata *>( LUA->NewUserdata( sizeof( INetChannelHandler_userdata ) ) );
+	INetChannelHandler_userdata *userdata = static_cast<INetChannelHandler_userdata *>(
+		LUA->NewUserdata( sizeof( INetChannelHandler_userdata ) )
+	);
 	userdata->type = GET_META_ID( INetChannelHandler );
 	userdata->handler = handler;
 
-	LUA->CreateMetaTableType( GET_META_NAME( INetChannelHandler ), GET_META_ID( INetChannelHandler ) );
+	LUA->CreateMetaTableType(
+		GET_META_NAME( INetChannelHandler ),
+		GET_META_ID( INetChannelHandler )
+	);
 	LUA->SetMetaTable( -2 );
 }
 

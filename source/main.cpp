@@ -3,7 +3,6 @@
 #define IVENGINECLIENT_INTERFACE
 
 #include <main.hpp>
-#include <GarrysMod/Lua/LuaInterface.h>
 #include <net.h>
 #include <protocol.h>
 #include <gl_hooks.hpp>
@@ -93,18 +92,17 @@ static const char *client_lib = "client.dll";
 static const char *server_lib = "server.dll";
 
 static const char *CNetChan_ProcessMessages_sig = "\x55\x8B\xEC\x83\xEC\x2C\x53\x89\x4D\xFC";
-static size_t CNetChan_ProcessMessages_siglen = 10;
+static const size_t CNetChan_ProcessMessages_siglen = 10;
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
-static size_t IServer_siglen = 16;
+static const size_t IServer_siglen = 16;
 
-static size_t netpatch_len = 6;
-static const char *netpatch_old = "\x0F\x84\xC0\x00\x00\x00";
-static const char *netpatch_new = "\xE9\xC1\x00\x00\x00\x90";
+static const size_t netpatch_len = 6;
+static char netpatch_old[netpatch_len] = { 0 };
+static const char *netpatch_new = "\xE9\x2B\x00\x00\x00\x90";
 
-static size_t netchunk_sig_offset = 15;
-static const char *netchunk_sig = "\x83\x78\x30\x00\x53\x8B\x5D\x08\x56\x8B\xF1\x57\x89\x75\xFC\x74";
-static size_t netchunk_siglen = 16;
+static const char *netchunk_sig = "\x74\x2A\x85\xDB\x74\x2A\x8B\x43\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
+static const size_t netchunk_siglen = 16;
 
 #elif defined __linux
 
@@ -132,18 +130,17 @@ static const char *client_lib = "client.so";
 static const char *server_lib = "server.so";
 
 static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
-static size_t CNetChan_ProcessMessages_siglen = 0;
+static const size_t CNetChan_ProcessMessages_siglen = 0;
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x7D\x88\xC7\x85\x78\xFF";
-static size_t IServer_siglen = 16;
+static const size_t IServer_siglen = 16;
 
-static size_t netpatch_len = 6;
-static const char *netpatch_old = "\x0F\x85\xC9\x00\x00\x00";
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
+static const size_t netpatch_len = 6;
+static char netpatch_old[netpatch_len] = { 0 };
+static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
 
-static size_t netchunk_sig_offset = 8;
-static const char *netchunk_sig = "\x85\xFF\x8D\x04\x91\x89\x46\x10";
-static size_t netchunk_siglen = 8;
+static const char *netchunk_sig = "\x74\x2A\x85\xFF\x74\x2A\x8B\x47\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
+static const size_t netchunk_siglen = 16;
 
 #elif defined __APPLE__
 
@@ -171,18 +168,17 @@ static const char *client_lib = "client.dylib";
 static const char *server_lib = "server.dylib";
 
 static const char *CNetChan_ProcessMessages_sig = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
-static size_t CNetChan_ProcessMessages_siglen = 0;
+static const size_t CNetChan_ProcessMessages_siglen = 0;
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
-static size_t IServer_siglen = 16;
+static const size_t IServer_siglen = 16;
 
-static size_t netpatch_len = 6;
-static const char *netpatch_old = "\x0F\x85\xC9\x00\x00\x00";
+static const size_t netpatch_len = 6;
+static char netpatch_old[netpatch_len] = { 0 };
 static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
 
-static size_t netchunk_sig_offset = 8;
-static const char *netchunk_sig = "\x85\xFF\x8D\x04\x91\x89\x46\x10";
-static size_t netchunk_siglen = 8;
+static const char *netchunk_sig = "\x74\x2A\x85\xD2\x74\x2A\x8B\x42\x0C\x83\xC0\x07\xC1\xf8\x03\x85";
+static const size_t netchunk_siglen = 16;
 
 #endif
 
@@ -199,11 +195,6 @@ IServer *g_pServer = nullptr;
 // CNetChan::ProcessMessages function pointer
 CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
 
-void TypeError( lua_State *state, const char *name, int32_t index )
-{
-	static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->TypeError( name, index );
-}
-
 // Module load
 GMOD_MODULE_OPEN( )
 {
@@ -213,20 +204,26 @@ GMOD_MODULE_OPEN( )
 	if( fnEngineFactory == nullptr )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
 
-	g_pEngineServer = static_cast<IVEngineServer *>( fnEngineFactory( "VEngineServer021", nullptr ) );
+	g_pEngineServer = static_cast<IVEngineServer *>(
+		fnEngineFactory( "VEngineServer021", nullptr )
+	);
 	if( g_pEngineServer == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
 	if( !g_pEngineServer->IsDedicatedServer( ) )
 	{
-		g_pEngineClient = static_cast<IVEngineClient *>( fnEngineFactory( "VEngineClient015", nullptr ) );
+		g_pEngineClient = static_cast<IVEngineClient *>(
+			fnEngineFactory( "VEngineClient015", nullptr )
+		);
 		if( g_pEngineClient == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
 
 	SymbolFinder symfinder;
 
-	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary( engine_lib, IServer_sig, IServer_siglen ) );
+	IServer **pserver = reinterpret_cast<IServer **>(
+		symfinder.ResolveOnBinary( engine_lib, IServer_sig, IServer_siglen )
+	);
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
 
@@ -234,9 +231,12 @@ GMOD_MODULE_OPEN( )
 	if( g_pServer == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
-	CNetChan_ProcessMessages_O = reinterpret_cast<CNetChan_ProcessMessages_T>(
-		symfinder.ResolveOnBinary( engine_lib, CNetChan_ProcessMessages_sig, CNetChan_ProcessMessages_siglen )
-	);
+	CNetChan_ProcessMessages_O =
+		reinterpret_cast<CNetChan_ProcessMessages_T>( symfinder.ResolveOnBinary(
+			engine_lib,
+			CNetChan_ProcessMessages_sig,
+			CNetChan_ProcessMessages_siglen
+		) );
 	if( CNetChan_ProcessMessages_O == nullptr )
 		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 	
@@ -244,15 +244,14 @@ GMOD_MODULE_OPEN( )
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
-	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
-	if( ulNetThreadChunk == nullptr )
+	void *netthread = symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen );
+	if( netthread == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
-	ulNetThreadChunk += netchunk_sig_offset;
-
-	BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
-		memcpy( ulNetThreadChunk, netpatch_new, netpatch_len );
-	FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
+	BEGIN_MEMEDIT( netthread, netpatch_len );
+		memcpy( netpatch_old, netthread, netpatch_len );
+		memcpy( netthread, netpatch_new, netpatch_len );
+	FINISH_MEMEDIT( netthread, netpatch_len );
 
 #endif
 
@@ -720,19 +719,18 @@ GMOD_MODULE_OPEN( )
 // Module shutdown
 GMOD_MODULE_CLOSE( )
 {
+	UnloadHooks( state );
 
 #if defined SOURCENET_SERVER
 
 	SymbolFinder symfinder;
 
-	uint8_t *ulNetThreadChunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen ) );
-	if( ulNetThreadChunk != nullptr )
+	void *netthread = symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen );
+	if( netthread != nullptr )
 	{
-		ulNetThreadChunk += netchunk_sig_offset;
-
-		BEGIN_MEMEDIT( ulNetThreadChunk, netpatch_len );
-			memcpy( ulNetThreadChunk, netpatch_old, netpatch_len );
-		FINISH_MEMEDIT( ulNetThreadChunk, netpatch_len );
+		BEGIN_MEMEDIT( netthread, netpatch_len );
+			memcpy( netthread, netpatch_old, netpatch_len );
+		FINISH_MEMEDIT( netthread, netpatch_len );
 	}
 
 #endif

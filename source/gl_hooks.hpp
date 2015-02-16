@@ -2,6 +2,8 @@
 
 #include <main.hpp>
 
+void UnloadHooks( lua_State *state );
+
 EXT_GLBL_FUNCTION( Attach__CNetChan_SendDatagram );
 EXT_GLBL_FUNCTION( Detach__CNetChan_SendDatagram );
 
@@ -37,7 +39,10 @@ EXT_GLBL_FUNCTION( Detach__INetChannelHandler_FileDenied );
 
 #if defined _WIN32
 
-typedef bool ( __thiscall *CNetChan_ProcessMessages_T )( class CNetChan *netchan, class bf_read &buf );
+typedef bool ( __thiscall *CNetChan_ProcessMessages_T )(
+	class CNetChan *netchan,
+	class bf_read &buf
+);
 
 #elif defined __linux || defined __APPLE__
 

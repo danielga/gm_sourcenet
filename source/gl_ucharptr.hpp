@@ -4,9 +4,15 @@
 
 typedef uint8_t *UCHARPTR;
 
-void Push_UCHARPTR( lua_State *state, UCHARPTR data, int32_t bits );
+UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data = nullptr );
 
-UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits = nullptr, bool cleanup = false );
+UCHARPTR Get_UCHARPTR(
+	lua_State *state,
+	int32_t index,
+	int32_t *bits = nullptr,
+	bool cleanup = false,
+	bool *own = nullptr
+);
 
 EXT_META_ID( UCHARPTR, 7 );
 

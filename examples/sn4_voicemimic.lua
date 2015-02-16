@@ -13,14 +13,14 @@ FilterIncomingMessage(svc_VoiceData, function(netchan, read, write)
 	write:WriteWord(bits)
 
 	local voicedata = read:ReadBits(bits)
-	write:WriteBits(voicedata, bits)
+	write:WriteBits(voicedata)
 	
 	if client ~= LocalPlayer():EntIndex() - 1 then
 		local voicebuf = CNetChan():GetVoiceBuffer()
 		
 		voicebuf:WriteUInt(clc_VoiceData, NET_MESSAGE_BITS)
 		voicebuf:WriteWord(bits)
-		voicebuf:WriteBits(voicedata, bits)
+		voicebuf:WriteBits(voicedata)
 
 		CNetChan():Transmit()
 	end

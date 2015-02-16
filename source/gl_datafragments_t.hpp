@@ -5,9 +5,18 @@
 
 typedef CNetChan::dataFragments_t dataFragments_t;
 
-void Push_dataFragments( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan = nullptr );
+void Push_dataFragments(
+	lua_State *state,
+	dataFragments_t *datafrag,
+	CNetChan *netchan = nullptr
+);
 
-dataFragments_t *Get_dataFragments( lua_State *state, int32_t index, CNetChan **netchan = nullptr, bool cleanup = false );
+dataFragments_t *Get_dataFragments(
+	lua_State *state,
+	int32_t index,
+	CNetChan **netchan = nullptr,
+	bool cleanup = false
+);
 
 EXT_META_ID( dataFragments_t, 5 );
 

@@ -9,11 +9,16 @@ struct INetworkStringTable_userdata
 
 void Push_INetworkStringTable( lua_State *state, INetworkStringTable *table )
 {
-	INetworkStringTable_userdata *userdata = static_cast<INetworkStringTable_userdata *>( LUA->NewUserdata( sizeof( INetworkStringTable_userdata ) ) );
+	INetworkStringTable_userdata *userdata = static_cast<INetworkStringTable_userdata *>(
+		LUA->NewUserdata( sizeof( INetworkStringTable_userdata ) )
+	);
 	userdata->type = GET_META_ID( INetworkStringTable );
 	userdata->table = table;
 
-	LUA->CreateMetaTableType( GET_META_NAME( INetworkStringTable ), GET_META_ID( INetworkStringTable ) );
+	LUA->CreateMetaTableType(
+		GET_META_NAME( INetworkStringTable ),
+		GET_META_ID( INetworkStringTable )
+	);
 	LUA->SetMetaTable( -2 );
 }
 

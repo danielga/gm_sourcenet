@@ -5,9 +5,13 @@
 
 typedef bf_write sn4_bf_write;
 
-sn4_bf_write **Push_sn4_bf_write( lua_State *state, sn4_bf_write *writer = nullptr, int32_t bufref = -1 );
+sn4_bf_write **Push_sn4_bf_write(
+	lua_State *state,
+	sn4_bf_write *writer = nullptr,
+	int32_t bufref = -1
+);
 
-sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index );
+sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref = nullptr );
 
 EXT_META_ID( sn4_bf_write, 1 );
 

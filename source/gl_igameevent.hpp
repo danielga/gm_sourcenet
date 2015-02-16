@@ -7,7 +7,12 @@ class IGameEvent;
 
 void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *manager );
 
-IGameEvent *Get_IGameEvent( lua_State *state, int32_t index, IGameEventManager2 **manager = nullptr, bool cleanup = false );
+IGameEvent *Get_IGameEvent(
+	lua_State *state,
+	int32_t index,
+	IGameEventManager2 **manager = nullptr,
+	bool cleanup = false
+);
 
 EXT_META_ID( IGameEvent, 13 );
 

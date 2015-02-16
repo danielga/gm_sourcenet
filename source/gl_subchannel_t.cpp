@@ -16,7 +16,9 @@ static bool IsValid_subchannel( subchannel_t *subchan, CNetChan *netchan )
 
 void Push_subchannel( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
 {
-	subchannel_userdata *userdata = static_cast<subchannel_userdata *>( LUA->NewUserdata( sizeof( subchannel_userdata ) ) );
+	subchannel_userdata *userdata = static_cast<subchannel_userdata *>(
+		LUA->NewUserdata( sizeof( subchannel_userdata ) )
+	);
 	userdata->type = GET_META_ID( subchannel_t );
 	userdata->subchan = subchan;
 
@@ -28,7 +30,9 @@ static subchannel_t *Get_subchannel( lua_State *state, int32_t index )
 {
 	LUA->CheckType( index, GET_META_ID( subchannel_t ) );
 
-	subchannel_userdata *userdata = static_cast<subchannel_userdata *>( LUA->GetUserdata( index ) );
+	subchannel_userdata *userdata = static_cast<subchannel_userdata *>(
+		LUA->GetUserdata( index )
+	);
 	if( !IsValid_subchannel( userdata->subchan, userdata->netchan ) )
 		LUA->ThrowError( "invalid subchannel_t" );
 

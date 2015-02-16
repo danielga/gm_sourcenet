@@ -95,7 +95,11 @@ bool CNetChan::ProcessControlMessage( int32_t cmd, bf_read &msg )
 		}
 
 		default:
-			ConMsg( "Netchannel: received bad control cmd %i from %s.\n", cmd, remote_address.ToString( ) );
+			ConMsg(
+				"Netchannel: received bad control cmd %i from %s.\n",
+				cmd,
+				remote_address.ToString( )
+			);
 			return false;
 	}
 }

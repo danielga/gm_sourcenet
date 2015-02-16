@@ -1,27 +1,45 @@
 #include <gl_ucharptr.hpp>
+#include <GarrysMod/Lua/LuaInterface.h>
 
 struct UCHARPTR_userdata
 {
 	UCHARPTR data;
 	uint8_t type;
 	int32_t bits;
+	bool own;
 };
 
-void Push_UCHARPTR( lua_State *state, UCHARPTR data, int32_t bits )
+UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data )
 {
-	if( bits <= 0 )
-		LUA->ThrowError( "invalid amount of bits for a buffer (less or equal to zero)" );
+	if( bits < 0 )
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua(
+			"invalid amount of bits for a buffer (requested %d, less than zero)", bits
+		);
 
-	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>( LUA->NewUserdata( sizeof( UCHARPTR_userdata ) ) );
+	bool own = false;
+	if( data == nullptr )
+	{
+		own = true;
+		data = new( std::nothrow ) uint8_t[bits == 0 ? 1 : ( bits + 7 ) >> 3];
+		if( data == nullptr )
+			LUA->ThrowError( "failed to allocate buffer" );
+	}
+
+	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>(
+		LUA->NewUserdata( sizeof( UCHARPTR_userdata ) )
+	);
 	userdata->type = GET_META_ID( UCHARPTR );
 	userdata->data = data;
 	userdata->bits = bits;
+	userdata->own = own;
 
 	LUA->CreateMetaTableType( GET_META_NAME( UCHARPTR ), GET_META_ID( UCHARPTR ) );
 	LUA->SetMetaTable( -2 );
+
+	return data;
 }
 
-UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool cleanup )
+UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
 {
 	LUA->CheckType( index, GET_META_ID( UCHARPTR ) );
 
@@ -34,10 +52,14 @@ UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool clea
 	if( bits != nullptr )
 		*bits = userdata->bits;
 
+	if( own != nullptr )
+		*own = userdata->own;
+
 	if( cleanup )
 	{
 		userdata->data = nullptr;
 		userdata->bits = 0;
+		userdata->own = false;
 	}
 
 	return ptr;
@@ -47,7 +69,12 @@ META_ID( UCHARPTR, 7 );
 
 META_FUNCTION( UCHARPTR, __gc )
 {
-	delete[] Get_UCHARPTR( state, 1, nullptr, true );
+	bool own = false;
+	UCHARPTR data = Get_UCHARPTR( state, 1, nullptr, true, &own );
+	if( !own )
+		return 0;
+
+	delete[] data;
 
 	return 0;
 }
@@ -94,15 +121,7 @@ GLBL_FUNCTION( UCHARPTR )
 {
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	int32_t bytes = static_cast<int32_t>( LUA->GetNumber( 1 ) );
-	if( bytes <= 0 )
-		LUA->ThrowError( "invalid amount of bytes for a buffer (less or equal to zero)" );
-
-	uint8_t *ptr = new( std::nothrow ) uint8_t[bytes];
-	if( ptr == nullptr )
-		LUA->ThrowError( "failed to allocate buffer" );
-
-	Push_UCHARPTR( state, ptr, bytes * 8 );
+	Push_UCHARPTR( state, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
 
 	return 1;
 }

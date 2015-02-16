@@ -12,11 +12,16 @@ struct IGameEventManager2_userdata
 
 static void Push_IGameEventManager2( lua_State *state, IGameEventManager2 *manager )
 {
-	IGameEventManager2_userdata *userdata = static_cast<IGameEventManager2_userdata *>( LUA->NewUserdata( sizeof( IGameEventManager2_userdata ) ) );
+	IGameEventManager2_userdata *userdata = static_cast<IGameEventManager2_userdata *>(
+		LUA->NewUserdata( sizeof( IGameEventManager2_userdata ) )
+	);
 	userdata->type = GET_META_ID( IGameEventManager2 );
 	userdata->manager = manager;
 
-	LUA->CreateMetaTableType( GET_META_NAME( IGameEventManager2 ), GET_META_ID( IGameEventManager2 ) );
+	LUA->CreateMetaTableType(
+		GET_META_NAME( IGameEventManager2 ),
+		GET_META_ID( IGameEventManager2 )
+	);
 	LUA->SetMetaTable( -2 );
 }
 

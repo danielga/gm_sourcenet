@@ -8,20 +8,33 @@ struct INetworkStringTableContainer_userdata
 	uint8_t type;
 };
 
-static void Push_INetworkStringTableContainer( lua_State *state, INetworkStringTableContainer *container )
+static void Push_INetworkStringTableContainer(
+	lua_State *state,
+	INetworkStringTableContainer *container
+)
 {
-	INetworkStringTableContainer_userdata *userdata = static_cast<INetworkStringTableContainer_userdata *>( LUA->NewUserdata( sizeof( INetworkStringTableContainer_userdata ) ) );
+	INetworkStringTableContainer_userdata *userdata =
+		static_cast<INetworkStringTableContainer_userdata *>(
+			LUA->NewUserdata( sizeof( INetworkStringTableContainer_userdata ) )
+		);
 	userdata->type = GET_META_ID( INetworkStringTableContainer );
 	userdata->container = container;
 
-	LUA->CreateMetaTableType( GET_META_NAME( INetworkStringTableContainer ), GET_META_ID( INetworkStringTableContainer ) );
+	LUA->CreateMetaTableType(
+		GET_META_NAME( INetworkStringTableContainer ),
+		GET_META_ID( INetworkStringTableContainer )
+	);
 	LUA->SetMetaTable( -2 );
 }
 
-static INetworkStringTableContainer *Get_INetworkStringTableContainer( lua_State *state, int32_t index )
+static INetworkStringTableContainer *Get_INetworkStringTableContainer(
+	lua_State *state,
+	int32_t index
+)
 {
 	LUA->CheckType( index, GET_META_ID( INetworkStringTableContainer ) );
-	return static_cast<INetworkStringTableContainer_userdata *>( LUA->GetUserdata( index ) )->container;
+	void *userdata = LUA->GetUserdata( index );
+	return static_cast<INetworkStringTableContainer_userdata *>( userdata )->container;
 }
 
 META_ID( INetworkStringTableContainer, 10 );
@@ -60,7 +73,10 @@ META_FUNCTION( INetworkStringTableContainer, GetTable )
 	INetworkStringTableContainer *container = Get_INetworkStringTableContainer( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	Push_INetworkStringTable( state, container->GetTable( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
+	Push_INetworkStringTable(
+		state,
+		container->GetTable( static_cast<int32_t>( LUA->GetNumber( 2 ) ) )
+	);
 
 	return 1;
 }

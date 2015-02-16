@@ -14,7 +14,9 @@ void Push_FileHandle( lua_State *state, FileHandle_t file )
 		return;
 	}
 
-	FileHandle_userdata *userdata = static_cast<FileHandle_userdata *>( LUA->NewUserdata( sizeof( FileHandle_userdata ) ) );
+	FileHandle_userdata *userdata = static_cast<FileHandle_userdata *>(
+		LUA->NewUserdata( sizeof( FileHandle_userdata ) )
+	);
 	userdata->type = GET_META_ID( FileHandle_t );
 	userdata->file = file;
 

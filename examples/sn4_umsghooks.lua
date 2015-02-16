@@ -62,5 +62,5 @@ FilterIncomingMessage(svc_UserMessage, function(netchan, read, write)
 
 	write:WriteByte(msg)
 	write:WriteUInt(bits, 11)
-	write:WriteBits(data, bits)
+	write:WriteBits(data)
 end)

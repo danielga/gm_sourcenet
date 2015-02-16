@@ -8,6 +8,7 @@ extern "C"
 {
 
 #include <lua.h>
+#include <lauxlib.h>
 
 }
 
@@ -47,8 +48,6 @@ extern IServer *g_pServer;
 #undef max
 
 #endif
-
-extern void TypeError( lua_State *state, const char *name, int32_t index );
 
 // Utility macros
 

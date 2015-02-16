@@ -12,7 +12,9 @@ struct sn4_bf_write_userdata
 
 sn4_bf_write **Push_sn4_bf_write( lua_State *state, sn4_bf_write *writer, int32_t bufref )
 {
-	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>( LUA->NewUserdata( sizeof( sn4_bf_write_userdata ) ) );
+	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>(
+		LUA->NewUserdata( sizeof( sn4_bf_write_userdata ) )
+	);
 	userdata->type = GET_META_ID( sn4_bf_write );
 	userdata->bufref = bufref;
 
@@ -27,15 +29,20 @@ sn4_bf_write **Push_sn4_bf_write( lua_State *state, sn4_bf_write *writer, int32_
 	return &userdata->pwriter;
 }
 
-sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index )
+sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref )
 {
 	LUA->CheckType( index, GET_META_ID( sn4_bf_write ) );
 
-	sn4_bf_write *writer = static_cast<sn4_bf_write_userdata *>( LUA->GetUserdata( index ) )->pwriter;
-	if( writer == nullptr )
+	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>(
+		LUA->GetUserdata( index )
+	);
+	if( userdata->pwriter == nullptr )
 		LUA->ThrowError( "invalid sn4_bf_write" );
 
-	return writer;
+	if( bufref != nullptr )
+		*bufref = userdata->bufref;
+
+	return userdata->pwriter;
 }
 
 META_ID( sn4_bf_write, 1 );
@@ -80,16 +87,21 @@ META_FUNCTION( sn4_bf_write, IsValid )
 {
 	LUA->CheckType( 1, GET_META_ID( sn4_bf_write ) );
 
-	LUA->PushBool( static_cast<sn4_bf_write_userdata *>( LUA->GetUserdata( 1 ) )->pwriter != nullptr );
+	void *userdata = LUA->GetUserdata( 1 );
+	LUA->PushBool( static_cast<sn4_bf_write_userdata *>( userdata )->pwriter != nullptr );
 
 	return 1;
 }
 
 META_FUNCTION( sn4_bf_write, GetBasePointer )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	int32_t bufref = -1;
+	sn4_bf_write *buf = Get_sn4_bf_write( state, 1, &bufref );
 
-	Push_UCHARPTR( state, buf->GetBasePointer( ), buf->m_nDataBits );
+	if( bufref != -1 )
+		LUA->ReferencePush( bufref );
+	else
+		Push_UCHARPTR( state, buf->m_nDataBits, buf->GetBasePointer( ) );
 
 	return 1;
 }
@@ -174,7 +186,9 @@ META_FUNCTION( sn4_bf_write, WriteAngle )
 	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::ANGLE );
 
-	buf->WriteBitAngles( *static_cast<QAngle *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data ) );
+	buf->WriteBitAngles( *static_cast<QAngle *>(
+		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
+	) );
 
 	return 0;
 }
@@ -195,7 +209,9 @@ META_FUNCTION( sn4_bf_write, WriteVector )
 	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
-	buf->WriteBitVec3Coord( *static_cast<Vector *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data ) );
+	buf->WriteBitVec3Coord( *static_cast<Vector *>(
+		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
+	) );
 
 	return 0;
 }
@@ -205,7 +221,9 @@ META_FUNCTION( sn4_bf_write, WriteNormal )
 	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
-	buf->WriteBitVec3Normal( *static_cast<Vector *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data ) );
+	buf->WriteBitVec3Normal( *static_cast<Vector *>(
+		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
+	) );
 
 	return 0;
 }
@@ -318,7 +336,10 @@ META_FUNCTION( sn4_bf_write, WriteInt )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	buf->WriteSBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
+	buf->WriteSBitLong(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	);
 
 	return 0;
 }
@@ -329,7 +350,10 @@ META_FUNCTION( sn4_bf_write, WriteUInt )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	buf->WriteUBitLong( static_cast<uint32_t>( LUA->GetNumber( 2 ) ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
+	buf->WriteUBitLong(
+		static_cast<uint32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	);
 
 	return 0;
 }

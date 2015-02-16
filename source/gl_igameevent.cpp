@@ -10,7 +10,9 @@ struct IGameEvent_userdata
 
 void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 {
-	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>( LUA->NewUserdata( sizeof( IGameEvent_userdata ) ) );
+	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>(
+		LUA->NewUserdata( sizeof( IGameEvent_userdata ) )
+	);
 	userdata->type = GET_META_ID( IGameEvent );
 	userdata->event = event;
 	userdata->manager = manager;
@@ -19,11 +21,18 @@ void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *m
 	LUA->SetMetaTable( -2 );
 }
 
-IGameEvent *Get_IGameEvent( lua_State *state, int32_t index, IGameEventManager2 **manager, bool cleanup )
+IGameEvent *Get_IGameEvent(
+	lua_State *state,
+	int32_t index,
+	IGameEventManager2 **manager,
+	bool cleanup
+)
 {
 	LUA->CheckType( index, GET_META_ID( IGameEvent ) );
 
-	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>( LUA->GetUserdata( index ) );
+	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>(
+		LUA->GetUserdata( index )
+	);
 	IGameEvent *event = userdata->event;
 	if( event == nullptr || userdata->manager == nullptr )
 		LUA->ThrowError( "invalid IGameEvent" );
