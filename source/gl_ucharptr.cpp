@@ -46,7 +46,7 @@ UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool clea
 	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>( LUA->GetUserdata( index ) );
 
 	UCHARPTR ptr = userdata->data;
-	if( ptr == nullptr )
+	if( ptr == nullptr && !cleanup )
 		LUA->ThrowError( "invalid UCHARPTR" );
 
 	if( bits != nullptr )

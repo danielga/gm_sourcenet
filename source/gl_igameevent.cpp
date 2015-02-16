@@ -34,7 +34,7 @@ IGameEvent *Get_IGameEvent(
 		LUA->GetUserdata( index )
 	);
 	IGameEvent *event = userdata->event;
-	if( event == nullptr || userdata->manager == nullptr )
+	if( ( event == nullptr || userdata->manager == nullptr ) && !cleanup )
 		LUA->ThrowError( "invalid IGameEvent" );
 
 	if( manager != nullptr )

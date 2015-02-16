@@ -37,7 +37,7 @@ sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index, int32_t *bufref, 
 		LUA->GetUserdata( index )
 	);
 	sn4_bf_read *reader = userdata->preader;
-	if( userdata->preader == nullptr )
+	if( userdata->preader == nullptr && !cleanup )
 		LUA->ThrowError( "invalid sn4_bf_read" );
 
 	if( bufref != nullptr )

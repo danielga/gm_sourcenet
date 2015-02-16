@@ -37,7 +37,7 @@ sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref
 		LUA->GetUserdata( index )
 	);
 	sn4_bf_write *writer = userdata->pwriter;
-	if( writer == nullptr )
+	if( writer == nullptr && !cleanup )
 		LUA->ThrowError( "invalid sn4_bf_write" );
 
 	if( bufref != nullptr )

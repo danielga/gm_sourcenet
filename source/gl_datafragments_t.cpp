@@ -47,7 +47,7 @@ dataFragments_t *Get_dataFragments(
 		LUA->GetUserdata( index )
 	);
 	dataFragments_t *datafrag = userdata->datafrag;
-	if( !IsValid_dataFragments( datafrag, userdata->netchan ) )
+	if( !IsValid_dataFragments( datafrag, userdata->netchan ) && !cleanup )
 		LUA->ThrowError( "invalid dataFragments_t" );
 
 	if( netchan != nullptr )
