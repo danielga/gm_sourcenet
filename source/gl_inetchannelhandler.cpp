@@ -23,7 +23,12 @@ void Push_INetChannelHandler( lua_State *state, INetChannelHandler *handler )
 
 INetChannelHandler *Get_INetChannelHandler( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( INetChannelHandler ) );
+	CheckType(
+		state,
+		index,
+		GET_META_ID( INetChannelHandler ),
+		GET_META_NAME( INetChannelHandler )
+	);
 	return static_cast<INetChannelHandler_userdata *>( LUA->GetUserdata( index ) )->handler;
 }
 

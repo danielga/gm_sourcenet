@@ -27,7 +27,12 @@ static void Push_IGameEventManager2( lua_State *state, IGameEventManager2 *manag
 
 static IGameEventManager2 *Get_IGameEventManager2( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( IGameEventManager2 ) );
+	CheckType(
+		state,
+		index,
+		GET_META_ID( IGameEventManager2 ),
+		GET_META_NAME( IGameEventManager2 )
+	);
 	return static_cast<IGameEventManager2_userdata *>( LUA->GetUserdata( index ) )->manager;
 }
 
@@ -35,8 +40,8 @@ META_ID( IGameEventManager2, 12 );
 
 META_FUNCTION( IGameEventManager2, __eq )
 {
-	LUA->CheckType( 1, GET_META_ID( IGameEventManager2 ) );
-	LUA->CheckType( 2, GET_META_ID( IGameEventManager2 ) );
+	Get_IGameEventManager2( state, 1 );
+	Get_IGameEventManager2( state, 2 );
 
 	LUA->PushBool( true );
 

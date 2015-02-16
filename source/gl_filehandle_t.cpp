@@ -26,7 +26,7 @@ void Push_FileHandle( lua_State *state, FileHandle_t file )
 
 FileHandle_t Get_FileHandle( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( FileHandle_t ) );
+	CheckType( state, index, GET_META_ID( FileHandle_t ), GET_META_NAME( FileHandle_t ) );
 	return static_cast<FileHandle_userdata *>( LUA->GetUserdata( index ) )->file;
 }
 

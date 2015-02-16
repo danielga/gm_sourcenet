@@ -23,7 +23,7 @@ void Push_netadr( lua_State *state, const netadr_t &netadr )
 
 static netadr_t *Get_netadr( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( netadr_t ) );
+	CheckType( state, index, GET_META_ID( netadr_t ), GET_META_NAME( netadr_t ) );
 	return static_cast<netadr_userdata *>( LUA->GetUserdata( index ) )->pnetadr;
 }
 

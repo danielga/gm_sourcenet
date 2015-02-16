@@ -28,7 +28,7 @@ void Push_subchannel( lua_State *state, subchannel_t *subchan, CNetChan *netchan
 
 static subchannel_t *Get_subchannel( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( subchannel_t ) );
+	CheckType( state, index, GET_META_ID( subchannel_t ), GET_META_NAME( subchannel_t ) );
 
 	subchannel_userdata *userdata = static_cast<subchannel_userdata *>(
 		LUA->GetUserdata( index )
@@ -73,7 +73,7 @@ META_FUNCTION( subchannel_t, __tostring )
 
 META_FUNCTION( subchannel_t, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( subchannel_t ) );
+	CheckType( state, 1, GET_META_ID( subchannel_t ), GET_META_NAME( subchannel_t ) );
 
 	subchannel_userdata *userdata = static_cast<subchannel_userdata *>( LUA->GetUserdata( 1 ) );
 	LUA->PushBool( IsValid_subchannel( userdata->subchan, userdata->netchan ) );

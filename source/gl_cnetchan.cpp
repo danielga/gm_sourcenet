@@ -52,7 +52,7 @@ void Push_CNetChan( lua_State *state, CNetChan *netchan )
 
 CNetChan *Get_CNetChan( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( CNetChan ) );
+	CheckType( state, index, GET_META_ID( CNetChan ), GET_META_NAME( CNetChan ) );
 
 	CNetChan *netchan = static_cast<CNetChan_userdata *>( LUA->GetUserdata( index ) )->netchan;
 	if( !IsValid_CNetChan( netchan ) )
@@ -95,7 +95,7 @@ META_FUNCTION( CNetChan, __tostring )
 
 META_FUNCTION( CNetChan, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( CNetChan ) );
+	CheckType( state, 1, GET_META_ID( CNetChan ), GET_META_NAME( CNetChan ) );
 
 	void *userdata = LUA->GetUserdata( 1 );
 	LUA->PushBool( IsValid_CNetChan( static_cast<CNetChan_userdata *>( userdata )->netchan ) );
@@ -234,7 +234,6 @@ META_FUNCTION( CNetChan, QueueOutgoingFragments )
 {
 	CNetChan *netchan = Get_CNetChan( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-	LUA->CheckType( 3, GET_META_ID( dataFragments_t ) );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 

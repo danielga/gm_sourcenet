@@ -29,37 +29,38 @@ sn4_bf_write **Push_sn4_bf_write( lua_State *state, sn4_bf_write *writer, int32_
 	return &userdata->pwriter;
 }
 
-sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref )
+sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	LUA->CheckType( index, GET_META_ID( sn4_bf_write ) );
+	CheckType( state, index, GET_META_ID( sn4_bf_write ), GET_META_NAME( sn4_bf_write ) );
 
 	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>(
 		LUA->GetUserdata( index )
 	);
-	if( userdata->pwriter == nullptr )
+	sn4_bf_write *writer = userdata->pwriter;
+	if( writer == nullptr )
 		LUA->ThrowError( "invalid sn4_bf_write" );
 
 	if( bufref != nullptr )
 		*bufref = userdata->bufref;
 
-	return userdata->pwriter;
+	if( cleanup )
+	{
+		userdata->pwriter = nullptr;
+		userdata->bufref = -1;
+	}
+
+	return writer;
 }
 
 META_ID( sn4_bf_write, 1 );
 
 META_FUNCTION( sn4_bf_write, __gc )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_write ) );
+	int32_t bufref = -1;
+	Get_sn4_bf_write( state, 1, &bufref, true );
 
-	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>( LUA->GetUserdata( 1 ) );
-
-	userdata->pwriter = nullptr;
-
-	if( userdata->bufref != -1 )
-	{
-		LUA->ReferenceFree( userdata->bufref );
-		userdata->bufref = -1;
-	}
+	if( bufref != -1 )
+		LUA->ReferenceFree( bufref );
 
 	return 0;
 }
@@ -85,7 +86,7 @@ META_FUNCTION( sn4_bf_write, __tostring )
 
 META_FUNCTION( sn4_bf_write, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_write ) );
+	CheckType( state, 1, GET_META_ID( sn4_bf_write ), GET_META_NAME( sn4_bf_write ) );
 
 	void *userdata = LUA->GetUserdata( 1 );
 	LUA->PushBool( static_cast<sn4_bf_write_userdata *>( userdata )->pwriter != nullptr );

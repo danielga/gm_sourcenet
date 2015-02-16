@@ -29,20 +29,27 @@ sn4_bf_read **Push_sn4_bf_read( lua_State *state, sn4_bf_read *reader, int32_t b
 	return &userdata->preader;
 }
 
-sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index, int32_t *bufref )
+sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	LUA->CheckType( index, GET_META_ID( sn4_bf_read ) );
+	CheckType( state, index, GET_META_ID( sn4_bf_read ), GET_META_NAME( sn4_bf_read ) );
 
 	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>(
 		LUA->GetUserdata( index )
 	);
+	sn4_bf_read *reader = userdata->preader;
 	if( userdata->preader == nullptr )
 		LUA->ThrowError( "invalid sn4_bf_read" );
 
 	if( bufref != nullptr )
 		*bufref = userdata->bufref;
 
-	return userdata->preader;
+	if( cleanup )
+	{
+		userdata->preader = nullptr;
+		userdata->bufref = -1;
+	}
+
+	return reader;
 }
 
 static void Push_Angle( lua_State *state, QAngle *ang )
@@ -73,17 +80,11 @@ META_ID( sn4_bf_read, 2 );
 
 META_FUNCTION( sn4_bf_read, __gc )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	int32_t bufref = -1;
+	Get_sn4_bf_read( state, 1, &bufref, true );
 
-	sn4_bf_read_userdata *userdata = static_cast<sn4_bf_read_userdata *>( LUA->GetUserdata( 1 ) );
-
-	userdata->preader = nullptr;
-
-	if( userdata->bufref != -1 )
-	{
-		LUA->ReferenceFree( userdata->bufref );
-		userdata->bufref = -1;
-	}
+	if( bufref != -1 )
+		LUA->ReferenceFree( bufref );
 
 	return 0;
 }
@@ -109,7 +110,7 @@ META_FUNCTION( sn4_bf_read, __tostring )
 
 META_FUNCTION( sn4_bf_read, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( sn4_bf_read ) );
+	CheckType( state, 1, GET_META_ID( sn4_bf_read ), GET_META_NAME( sn4_bf_read ) );
 
 	void *userdata = LUA->GetUserdata( 1 );
 	LUA->PushBool( static_cast<sn4_bf_read_userdata *>( userdata )->preader != nullptr );
@@ -434,7 +435,6 @@ META_FUNCTION( sn4_bf_read, ReadSignedVarInt64 )
 META_FUNCTION( sn4_bf_read, ReadVarInt64 )
 {
 	sn4_bf_read *buf = Get_sn4_bf_read( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	LUA->PushNumber( buf->ReadVarInt64( ) );
 

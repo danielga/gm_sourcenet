@@ -41,7 +41,7 @@ UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data )
 
 UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
 {
-	LUA->CheckType( index, GET_META_ID( UCHARPTR ) );
+	CheckType( state, index, GET_META_ID( UCHARPTR ), GET_META_NAME( UCHARPTR ) );
 
 	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>( LUA->GetUserdata( index ) );
 
@@ -100,7 +100,7 @@ META_FUNCTION( UCHARPTR, __tostring )
 
 META_FUNCTION( UCHARPTR, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( UCHARPTR ) );
+	CheckType( state, 1, GET_META_ID( UCHARPTR ), GET_META_NAME( UCHARPTR ) );
 
 	LUA->PushBool( static_cast<UCHARPTR_userdata *>( LUA->GetUserdata( 1 ) )->data != nullptr );
 

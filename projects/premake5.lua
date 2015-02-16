@@ -80,6 +80,10 @@ solution("gm_sourcenet4")
 			defines({"POSIX", "GNUC", "_LINUX"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0_srv"})
+			prelinkcommands({
+				"cp " .. SDK_FOLDER .. "/lib/public/linux32/libtier0.so " .. PROJECT_FOLDER .. "/libtier0_srv.so",
+				"cp " .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared_srv.so " .. PROJECT_FOLDER
+			})
 			linkoptions({
 				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
 				"-Wl,-rpath,garrysmod/bin",
@@ -148,6 +152,10 @@ solution("gm_sourcenet4")
 			defines({"POSIX", "GNUC", "_LINUX"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0"})
+			prelinkcommands({
+				"cp -s " .. SDK_FOLDER .. "/lib/public/linux32/libtier0.so " .. PROJECT_FOLDER,
+				"cp -s " .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared.so " .. PROJECT_FOLDER
+			})
 			linkoptions({
 				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
 				"-Wl,-rpath,garrysmod/bin",

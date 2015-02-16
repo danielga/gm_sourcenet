@@ -14,8 +14,6 @@ extern "C"
 
 extern lua_State *global_state;
 
-// Source interfaces
-
 extern CreateInterfaceFn fnEngineFactory;
 
 #if defined IVENGINESERVER_INTERFACE
@@ -49,7 +47,7 @@ extern IServer *g_pServer;
 
 #endif
 
-// Utility macros
+void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype );
 
 #define SOURCENET_META_BASE 100
 

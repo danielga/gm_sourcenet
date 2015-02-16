@@ -1,4 +1,3 @@
-// Required interfaces
 #define IVENGINESERVER_INTERFACE
 #define IVENGINECLIENT_INTERFACE
 
@@ -81,7 +80,7 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 }
 
 #define MONITOR_HOOK( name ) \
-	bool attach_status__##name = false
+	static bool attach_status__##name = false
 
 #define IS_ATTACHED( name ) \
 	attach_status__##name
@@ -98,7 +97,6 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 	MONITOR_HOOK( name ); \
 	GLBL_FUNCTION( Attach__##name ) \
 	{ \
-		LUA->CheckType( 1, GET_META_ID( meta ) ); \
 		if( !IS_ATTACHED( name ) ) \
 		{ \
 			meta *temp = Get_##meta( state, 1 ); \

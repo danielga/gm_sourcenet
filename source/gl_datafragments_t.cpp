@@ -41,7 +41,7 @@ dataFragments_t *Get_dataFragments(
 	bool cleanup
 )
 {
-	LUA->CheckType( index, GET_META_ID( dataFragments_t ) );
+	CheckType( state, index, GET_META_ID( dataFragments_t ), GET_META_NAME( dataFragments_t ) );
 
 	dataFragments_userdata *userdata = static_cast<dataFragments_userdata *>(
 		LUA->GetUserdata( index )
@@ -96,7 +96,7 @@ META_FUNCTION( dataFragments_t, __tostring )
 
 META_FUNCTION( dataFragments_t, IsValid )
 {
-	LUA->CheckType( 1, GET_META_ID( dataFragments_t ) );
+	CheckType( state, 1, GET_META_ID( dataFragments_t ), GET_META_NAME( dataFragments_t ) );
 
 	dataFragments_userdata *userdata = static_cast<dataFragments_userdata *>(
 		LUA->GetUserdata( 1 )

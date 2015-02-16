@@ -32,7 +32,13 @@ static INetworkStringTableContainer *Get_INetworkStringTableContainer(
 	int32_t index
 )
 {
-	LUA->CheckType( index, GET_META_ID( INetworkStringTableContainer ) );
+	CheckType(
+		state,
+		index,
+		GET_META_ID( INetworkStringTableContainer ),
+		GET_META_NAME( INetworkStringTableContainer )
+	);
+
 	void *userdata = LUA->GetUserdata( index );
 	return static_cast<INetworkStringTableContainer_userdata *>( userdata )->container;
 }
@@ -41,8 +47,8 @@ META_ID( INetworkStringTableContainer, 10 );
 
 META_FUNCTION( INetworkStringTableContainer, __eq )
 {
-	LUA->CheckType( 1, GET_META_ID( INetworkStringTableContainer ) );
-	LUA->CheckType( 2, GET_META_ID( INetworkStringTableContainer ) );
+	Get_INetworkStringTableContainer( state, 1 );
+	Get_INetworkStringTableContainer( state, 2 );
 
 	LUA->PushBool( true );
 

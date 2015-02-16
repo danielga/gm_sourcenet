@@ -1,5 +1,4 @@
-﻿// Required interfaces
-#define IVENGINESERVER_INTERFACE
+﻿#define IVENGINESERVER_INTERFACE
 #define IVENGINECLIENT_INTERFACE
 
 #include <main.hpp>
@@ -184,7 +183,6 @@ static const size_t netchunk_siglen = 16;
 
 lua_State *global_state = nullptr;
 
-// Interfaces
 static CDllDemandLoader engine_loader( engine_lib );
 CreateInterfaceFn fnEngineFactory = nullptr;
 
@@ -192,10 +190,14 @@ IVEngineServer *g_pEngineServer = nullptr;
 IVEngineClient *g_pEngineClient = nullptr;
 IServer *g_pServer = nullptr;
 
-// CNetChan::ProcessMessages function pointer
 CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
 
-// Module load
+void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype )
+{
+	if( LUA->GetType( index ) != type )
+		luaL_typerror( state, index, nametype );
+}
+
 GMOD_MODULE_OPEN( )
 {
 	global_state = state;
@@ -626,6 +628,11 @@ GMOD_MODULE_OPEN( )
 		REG_META_FUNCTION( netadr_t, GetType );
 	END_META_REGISTRATION( );
 
+	BEGIN_META_REGISTRATION( INetChannelHandler );
+		REG_META_FUNCTION( INetChannelHandler, __eq );
+		REG_META_FUNCTION( INetChannelHandler, __tostring );
+	END_META_REGISTRATION( );
+
 	BEGIN_META_REGISTRATION( INetworkStringTableContainer );
 		REG_META_FUNCTION( INetworkStringTableContainer, __eq );
 		REG_META_FUNCTION( INetworkStringTableContainer, __tostring );
@@ -716,7 +723,6 @@ GMOD_MODULE_OPEN( )
 	return 0;
 }
 
-// Module shutdown
 GMOD_MODULE_CLOSE( )
 {
 	UnloadHooks( state );

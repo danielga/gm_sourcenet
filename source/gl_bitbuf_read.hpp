@@ -11,7 +11,12 @@ sn4_bf_read **Push_sn4_bf_read(
 	int32_t bufref = -1
 );
 
-sn4_bf_read *Get_sn4_bf_read( lua_State *state, int32_t index, int32_t *bufref = nullptr );
+sn4_bf_read *Get_sn4_bf_read(
+	lua_State *state,
+	int32_t index,
+	int32_t *bufref = nullptr,
+	bool cleanup = false
+);
 
 EXT_META_ID( sn4_bf_read, 2 );
 

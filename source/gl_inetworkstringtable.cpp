@@ -24,7 +24,12 @@ void Push_INetworkStringTable( lua_State *state, INetworkStringTable *table )
 
 INetworkStringTable *Get_INetworkStringTable( lua_State *state, int32_t index )
 {
-	LUA->CheckType( index, GET_META_ID( INetworkStringTable ) );
+	CheckType(
+		state,
+		index,
+		GET_META_ID( INetworkStringTable ),
+		GET_META_NAME( INetworkStringTable )
+	);
 	return static_cast<INetworkStringTable_userdata *>( LUA->GetUserdata( index ) )->table;
 }
 

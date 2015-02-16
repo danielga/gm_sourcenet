@@ -28,7 +28,7 @@ IGameEvent *Get_IGameEvent(
 	bool cleanup
 )
 {
-	LUA->CheckType( index, GET_META_ID( IGameEvent ) );
+	CheckType( state, index, GET_META_ID( IGameEvent ), GET_META_NAME( IGameEvent ) );
 
 	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>(
 		LUA->GetUserdata( index )
