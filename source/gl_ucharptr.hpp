@@ -2,11 +2,15 @@
 
 #include <main.hpp>
 
-typedef uint8_t *UCHARPTR;
+namespace UCHARPTR
+{
 
-UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data = nullptr );
+extern const uint8_t metaid;
+extern const char *metaname;
 
-UCHARPTR Get_UCHARPTR(
+uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data = nullptr );
+
+uint8_t *Get(
 	lua_State *state,
 	int32_t index,
 	int32_t *bits = nullptr,
@@ -14,14 +18,8 @@ UCHARPTR Get_UCHARPTR(
 	bool *own = nullptr
 );
 
-EXT_META_ID( UCHARPTR, 7 );
+void Initialize( lua_State *state );
 
-EXT_META_FUNCTION( UCHARPTR, __gc );
-EXT_META_FUNCTION( UCHARPTR, __eq );
-EXT_META_FUNCTION( UCHARPTR, __tostring );
+void Deinitialize( lua_State *state );
 
-EXT_META_FUNCTION( UCHARPTR, IsValid );
-
-EXT_META_FUNCTION( UCHARPTR, Size );
-
-EXT_GLBL_FUNCTION( UCHARPTR );
+}

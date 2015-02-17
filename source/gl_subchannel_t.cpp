@@ -2,41 +2,46 @@
 #include <gl_cnetchan.hpp>
 #include <net.h>
 
-struct subchannel_userdata
+namespace subchannel
+{
+
+struct userdata
 {
 	subchannel_t *subchan;
 	uint8_t type;
 	CNetChan *netchan;
 };
 
-static bool IsValid_subchannel( subchannel_t *subchan, CNetChan *netchan )
+static const uint8_t metaid = Global::metabase + 4;
+static const char *metaname = "subchannel_t";
+
+static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
 {
-	return subchan != nullptr && ( netchan == nullptr || IsValid_CNetChan( netchan ) );
+	return subchan != nullptr && ( netchan == nullptr || NetChannel::IsValid( netchan ) );
 }
 
-void Push_subchannel( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
+void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
 {
-	subchannel_userdata *userdata = static_cast<subchannel_userdata *>(
-		LUA->NewUserdata( sizeof( subchannel_userdata ) )
-	);
-	userdata->type = GET_META_ID( subchannel_t );
-	userdata->subchan = subchan;
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->subchan = subchan;
 
-	LUA->CreateMetaTableType( GET_META_NAME( subchannel_t ), GET_META_ID( subchannel_t ) );
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 }
 
-static subchannel_t *Get_subchannel( lua_State *state, int32_t index )
+static subchannel_t *Get( lua_State *state, int32_t index )
 {
-	CheckType( state, index, GET_META_ID( subchannel_t ), GET_META_NAME( subchannel_t ) );
+	Global::CheckType( state, index, metaid, metaname );
 
-	subchannel_userdata *userdata = static_cast<subchannel_userdata *>(
-		LUA->GetUserdata( index )
-	);
-	if( !IsValid_subchannel( userdata->subchan, userdata->netchan ) )
-		LUA->ThrowError( "invalid subchannel_t" );
+	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	if( !IsValid( udata->subchan, udata->netchan ) )
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
 
-	return userdata->subchan;
+	return udata->subchan;
 }
 
 inline int32_t VerifyStream( lua_State *state, int32_t stream )
@@ -50,40 +55,38 @@ inline int32_t VerifyStream( lua_State *state, int32_t stream )
 	return 0;
 }
 
-META_ID( subchannel_t, 4 );
-
-META_FUNCTION( subchannel_t, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	subchannel_t *subchan1 = Get_subchannel( state, 1 );
-	subchannel_t *subchan2 = Get_subchannel( state, 2 );
+	subchannel_t *subchan1 = Get( state, 1 );
+	subchannel_t *subchan2 = Get( state, 2 );
 
 	LUA->PushBool( subchan1 == subchan2 );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( subchannel_t ), subchan );
+	lua_pushfstring( state, "%s: 0x%p", metaname, subchan );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, IsValid )
+LUA_FUNCTION_STATIC( IsValid )
 {
-	CheckType( state, 1, GET_META_ID( subchannel_t ), GET_META_NAME( subchannel_t ) );
+	Global::CheckType( state, 1, metaid, metaname );
 
-	subchannel_userdata *userdata = static_cast<subchannel_userdata *>( LUA->GetUserdata( 1 ) );
-	LUA->PushBool( IsValid_subchannel( userdata->subchan, userdata->netchan ) );
+	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( 1 ) );
+	LUA->PushBool( IsValid( udata->subchan, udata->netchan ) );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, GetFragmentOffset )
+LUA_FUNCTION_STATIC( GetFragmentOffset )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -97,9 +100,9 @@ META_FUNCTION( subchannel_t, GetFragmentOffset )
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, SetFragmentOffset )
+LUA_FUNCTION_STATIC( SetFragmentOffset )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -114,9 +117,9 @@ META_FUNCTION( subchannel_t, SetFragmentOffset )
 	return 0;
 }
 
-META_FUNCTION( subchannel_t, GetFragmentNumber )
+LUA_FUNCTION_STATIC( GetFragmentNumber )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -130,9 +133,9 @@ META_FUNCTION( subchannel_t, GetFragmentNumber )
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, SetFragmentNumber )
+LUA_FUNCTION_STATIC( SetFragmentNumber )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -147,18 +150,18 @@ META_FUNCTION( subchannel_t, SetFragmentNumber )
 	return 0;
 }
 
-META_FUNCTION( subchannel_t, GetSequence )
+LUA_FUNCTION_STATIC( GetSequence )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 
 	LUA->PushNumber( subchan->sequence );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, SetSequence )
+LUA_FUNCTION_STATIC( SetSequence )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->sequence = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -166,18 +169,18 @@ META_FUNCTION( subchannel_t, SetSequence )
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, GetState )
+LUA_FUNCTION_STATIC( GetState )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 
 	LUA->PushNumber( subchan->state );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, SetState )
+LUA_FUNCTION_STATIC( SetState )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->state = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -185,21 +188,85 @@ META_FUNCTION( subchannel_t, SetState )
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, GetIndex )
+LUA_FUNCTION_STATIC( GetIndex )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 
 	LUA->PushNumber( subchan->index );
 
 	return 1;
 }
 
-META_FUNCTION( subchannel_t, SetIndex )
+LUA_FUNCTION_STATIC( SetIndex )
 {
-	subchannel_t *subchan = Get_subchannel( state, 1 );
+	subchannel_t *subchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->index = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( IsValid );
+		LUA->SetField( -2, "IsValid" );
+
+		LUA->PushCFunction( GetFragmentOffset );
+		LUA->SetField( -2, "GetFragmentOffset" );
+
+		LUA->PushCFunction( SetFragmentOffset );
+		LUA->SetField( -2, "SetFragmentOffset" );
+
+		LUA->PushCFunction( GetFragmentNumber );
+		LUA->SetField( -2, "GetFragmentNumber" );
+
+		LUA->PushCFunction( SetFragmentNumber );
+		LUA->SetField( -2, "SetFragmentNumber" );
+
+		LUA->PushCFunction( GetSequence );
+		LUA->SetField( -2, "GetSequence" );
+
+		LUA->PushCFunction( SetSequence );
+		LUA->SetField( -2, "SetSequence" );
+
+		LUA->PushCFunction( GetState );
+		LUA->SetField( -2, "GetState" );
+
+		LUA->PushCFunction( SetState );
+		LUA->SetField( -2, "SetState" );
+
+		LUA->PushCFunction( GetIndex );
+		LUA->SetField( -2, "GetIndex" );
+
+		LUA->PushCFunction( SetIndex );
+		LUA->SetField( -2, "SetIndex" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

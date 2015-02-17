@@ -2,58 +2,84 @@
 #define IVENGINECLIENT_INTERFACE
 
 #include <detours.h>
+#include <vfnhook.h>
 #include <gl_hooks.hpp>
 #include <gl_cnetchan.hpp>
 #include <gl_inetchannelhandler.hpp>
 #include <gl_ucharptr.hpp>
 #include <gl_bitbuf_read.hpp>
 #include <gl_bitbuf_write.hpp>
-#include <vfnhook.h>
 #include <net.h>
 #include <protocol.h>
 #include <inetmessage.h>
 #include <inetmsghandler.h>
-#include <GarrysMod/Lua/LuaInterface.h>
+#include <sstream>
+#include <symbolfinder.hpp>
+
+namespace Hooks
+{
+
+#if defined _WIN32
+
+typedef bool ( __thiscall *CNetChan_ProcessMessages_T )( CNetChan *netchan, bf_read &buf );
+
+static const char *CNetChan_ProcessMessages_sig = "\x55\x8B\xEC\x83\xEC\x2C\x53\x89\x4D\xFC";
+static const size_t CNetChan_ProcessMessages_siglen = 10;
+
+#elif defined __linux
+
+typedef bool ( *CNetChan_ProcessMessages_T )( NetChan *netchan, bf_read &buf );
+
+static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
+static const size_t CNetChan_ProcessMessages_siglen = 0;
+
+#elif defined __APPLE__
+
+typedef bool ( *CNetChan_ProcessMessages_T )( CNetChan *netchan, bf_read &buf );
+
+static const char *CNetChan_ProcessMessages_sig = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
+static const size_t CNetChan_ProcessMessages_siglen = 0;
+
+#endif
+
+static CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
 
 static uintptr_t CNetChan_vtable = 0;
 static uintptr_t INetChannelHandler_vtable = 0;
 
 LUA_FUNCTION_STATIC( ErrorTraceback )
 {
-	std::string spaces( 2, ' ' );
+	GarrysMod::Lua::ILuaInterface *lua = static_cast<GarrysMod::Lua::ILuaInterface *>( LUA );
 
-	int strs = 1;
+	std::string spaces( "\n  " );
+	std::ostringstream stream;
+	stream << LUA->GetString( 1 );
+
 	lua_Debug dbg = { 0 };
-	for(
-		int level = 1;
-		lua_getstack( state, level, &dbg ) == 1;
-		++level, memset( &dbg, 0, sizeof( dbg ) )
-	)
+	for( int lvl = 1; lua->GetStack( lvl, &dbg ) == 1; ++lvl, memset( &dbg, 0, sizeof( dbg ) ) )
 	{
-		if( lua_getinfo( state, "Sln", &dbg ) == 0 )
+		if( lua->GetInfo( "Sln", &dbg ) == 0 )
 			break;
 
-		lua_pushfstring(
-			state,
-			"\n%s%d. %s - %s:%d",
-			spaces.c_str( ),
-			level,
-			dbg.name == nullptr ? "unknown" : dbg.name,
-			dbg.short_src,
-			dbg.currentline
-		);
-
-		++strs;
+		stream
+			<< spaces
+			<< lvl
+			<< ". "
+			<< ( dbg.name == nullptr ? "unknown" : dbg.name )
+			<< " - "
+			<< dbg.short_src
+			<< ':'
+			<< dbg.currentline;
 		spaces += ' ';
 	}
 
-	lua_concat( state, strs );
+	LUA->PushString( stream.str( ).c_str( ) );
 	return 1;
 }
 
 #define INIT_HOOK( name ) \
 { \
-	lua_State *state = global_state; \
+	lua_State *state = Global::lua_state; \
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB ); \
 	LUA->GetField( -1, "hook" ); \
 	LUA->PushCFunction( ErrorTraceback ); \
@@ -93,20 +119,20 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 	Msg( "Detach: %s\n", #name ); \
 	attach_status__##name = false
 
-#define SIMPLE_VHOOK_BINDING( meta, name, offset ) \
+#define SIMPLE_VHOOK_BINDING( meta, namespc, name, offset ) \
 	MONITOR_HOOK( name ); \
-	GLBL_FUNCTION( Attach__##name ) \
+	LUA_FUNCTION_STATIC( Attach__##name ) \
 	{ \
 		if( !IS_ATTACHED( name ) ) \
 		{ \
-			meta *temp = Get_##meta( state, 1 ); \
+			meta *temp = namespc##::Get( state, 1 ); \
 			meta##_vtable = VTBL( temp ); \
 			HOOKVFUNC( temp, offset, name##_O, name##_D ); \
 			REGISTER_ATTACH( name ); \
 		} \
 		return 0; \
 	} \
-	GLBL_FUNCTION( Detach__##name ) \
+	LUA_FUNCTION_STATIC( Detach__##name ) \
 	{ \
 		if( IS_ATTACHED( name ) ) \
 		{ \
@@ -116,18 +142,18 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 		return 0; \
 	}
 
-DEFVFUNC_( CNetChan_SendDatagram_O, int32_t, ( CNetChan *netchan, sn4_bf_write *data ) );
+DEFVFUNC_( CNetChan_SendDatagram_O, int32_t, ( CNetChan *netchan, bf_write *data ) );
 
-int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, sn4_bf_write *data )
+int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, bf_write *data )
 {
 	INIT_HOOK( "PreSendDatagram" );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 
-		if( !g_pEngineServer->IsDedicatedServer( ) )
+		if( !Global::engine_server->IsDedicatedServer( ) )
 		{
-			DO_HOOK( Push_CNetChan(
+			DO_HOOK( NetChannel::Push(
 				state,
-				static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) )
+				static_cast<CNetChan *>( Global::engine_client->GetNetChannelInfo( ) )
 			) );
 		}
 		else
@@ -135,10 +161,10 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, sn4_bf_write *data )
 			DO_HOOK( LUA->PushNil( ) );
 		}
 
-		DO_HOOK( sn4_bf_write **writer1 = Push_sn4_bf_write( state, data ) );
-		DO_HOOK( sn4_bf_write **writer2 = Push_sn4_bf_write( state, &netchan->reliabledata ) );
-		DO_HOOK( sn4_bf_write **writer3 = Push_sn4_bf_write( state, &netchan->unreliabledata ) );
-		DO_HOOK( sn4_bf_write **writer4 = Push_sn4_bf_write( state, &netchan->voicedata ) );
+		DO_HOOK( bf_write **writer1 = sn4_bf_write::Push( state, data ) );
+		DO_HOOK( bf_write **writer2 = sn4_bf_write::Push( state, &netchan->reliabledata ) );
+		DO_HOOK( bf_write **writer3 = sn4_bf_write::Push( state, &netchan->unreliabledata ) );
+		DO_HOOK( bf_write **writer4 = sn4_bf_write::Push( state, &netchan->voicedata ) );
 		CALL_HOOK( 0 );
 
 		*writer1 = nullptr;
@@ -150,7 +176,7 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, sn4_bf_write *data )
 	int32_t r = CNetChan_SendDatagram_O( netchan, data );
 
 	INIT_HOOK( "PostSendDatagram" );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
@@ -159,11 +185,11 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, sn4_bf_write *data )
 
 #if defined _WIN32
 
-SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_SendDatagram, 46 );
+SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_SendDatagram, 46 );
 
 #else
 
-SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_SendDatagram, 47 );
+SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_SendDatagram, 47 );
 
 #endif
 
@@ -176,25 +202,25 @@ DEFVFUNC_( CNetChan_ProcessPacket_O, void, (
 void VFUNC CNetChan_ProcessPacket_D( CNetChan *netchan, netpacket_t *packet, bool bHasHeader )
 {
 	INIT_HOOK( "PreProcessPacket" );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
 	CNetChan_ProcessPacket_O( netchan, packet, bHasHeader );
 
 	INIT_HOOK( "PostProcessPacket" );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
 }
 
 #if defined _WIN32
 
-SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_ProcessPacket, 39 );
+SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_ProcessPacket, 39 );
 
 #else
 
-SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_ProcessPacket, 40 );
+SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_ProcessPacket, 40 );
 
 #endif
 
@@ -203,7 +229,7 @@ DEFVFUNC_( CNetChan_Shutdown_O, void, ( CNetChan *netchan, const char *reason ) 
 void VFUNC CNetChan_Shutdown_D( CNetChan *netchan, const char *reason )
 {
 	INIT_HOOK( "PreNetChannelShutdown" );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 
 		// Fuck Linux
 		if( reason != nullptr && reason != reinterpret_cast<const char *>( 0x02 ) )
@@ -225,7 +251,7 @@ void VFUNC CNetChan_Shutdown_D( CNetChan *netchan, const char *reason )
 	END_HOOK( );
 }
 
-SIMPLE_VHOOK_BINDING( CNetChan, CNetChan_Shutdown, 36 );
+SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_Shutdown, 36 );
 
 DEFVFUNC_( INetChannelHandler_ConnectionStart_O, void, (
 	INetChannelHandler *handler,
@@ -235,15 +261,15 @@ DEFVFUNC_( INetChannelHandler_ConnectionStart_O, void, (
 void VFUNC INetChannelHandler_ConnectionStart_D( INetChannelHandler *handler, CNetChan *netchan )
 {
 	INIT_HOOK( "INetChannelHandler::ConnectionStart" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
-		DO_HOOK( Push_CNetChan( state, netchan ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
+		DO_HOOK( NetChannel::Push( state, netchan ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
 	INetChannelHandler_ConnectionStart_O( handler, netchan );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_ConnectionStart, 1 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionStart, 1 );
 
 DEFVFUNC_( INetChannelHandler_ConnectionClosing_O, void, (
 	INetChannelHandler *handler,
@@ -256,7 +282,7 @@ void VFUNC INetChannelHandler_ConnectionClosing_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::ConnectionClosing" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushString( reason ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
@@ -264,7 +290,7 @@ void VFUNC INetChannelHandler_ConnectionClosing_D(
 	INetChannelHandler_ConnectionClosing_O( handler, reason );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_ConnectionClosing, 2 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionClosing, 2 );
 
 DEFVFUNC_( INetChannelHandler_ConnectionCrashed_O, void, (
 	INetChannelHandler *handler,
@@ -277,7 +303,7 @@ void VFUNC INetChannelHandler_ConnectionCrashed_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::ConnectionCrashed" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushString( reason ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
@@ -285,7 +311,7 @@ void VFUNC INetChannelHandler_ConnectionCrashed_D(
 	INetChannelHandler_ConnectionCrashed_O( handler, reason );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_ConnectionCrashed, 3 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionCrashed, 3 );
 
 DEFVFUNC_( INetChannelHandler_PacketStart_O, void, (
 	INetChannelHandler *handler,
@@ -300,7 +326,7 @@ void VFUNC INetChannelHandler_PacketStart_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::PacketStart" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushNumber( incoming_sequence ) );
 		DO_HOOK( LUA->PushNumber( incoming_sequence ) );
 		CALL_HOOK( 0 );
@@ -309,21 +335,21 @@ void VFUNC INetChannelHandler_PacketStart_D(
 	INetChannelHandler_PacketStart_O( handler, incoming_sequence, outgoing_acknowledged );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_PacketStart, 4 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketStart, 4 );
 
 DEFVFUNC_( INetChannelHandler_PacketEnd_O, void, ( INetChannelHandler *handler ) );
 
 void VFUNC INetChannelHandler_PacketEnd_D( INetChannelHandler *handler )
 {
 	INIT_HOOK( "INetChannelHandler::PacketEnd" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
 	INetChannelHandler_PacketEnd_O( handler );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_PacketEnd, 5 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketEnd, 5 );
 
 DEFVFUNC_( INetChannelHandler_FileRequested_O, void, (
 	INetChannelHandler *handler,
@@ -338,7 +364,7 @@ void VFUNC INetChannelHandler_FileRequested_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::FileRequested" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushString( fileName ) );
 		DO_HOOK( LUA->PushNumber( transferID ) );
 		CALL_HOOK( 0 );
@@ -347,7 +373,7 @@ void VFUNC INetChannelHandler_FileRequested_D(
 	INetChannelHandler_FileRequested_O( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileRequested, 6 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileRequested, 6 );
 
 DEFVFUNC_( INetChannelHandler_FileReceived_O, void, (
 	INetChannelHandler *handler,
@@ -362,7 +388,7 @@ void VFUNC INetChannelHandler_FileReceived_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::FileReceived" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushString( fileName ) );
 		DO_HOOK( LUA->PushNumber( transferID ) );
 		CALL_HOOK( 0 );
@@ -371,7 +397,7 @@ void VFUNC INetChannelHandler_FileReceived_D(
 	INetChannelHandler_FileReceived_O( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileReceived, 7 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileReceived, 7 );
 
 DEFVFUNC_( INetChannelHandler_FileDenied_O, void, (
 	INetChannelHandler *handler,
@@ -386,7 +412,7 @@ void VFUNC INetChannelHandler_FileDenied_D(
 )
 {
 	INIT_HOOK( "INetChannelHandler::FileDenied" );
-		DO_HOOK( Push_INetChannelHandler( state, handler ) );
+		DO_HOOK( NetChannelHandler::Push( state, handler ) );
 		DO_HOOK( LUA->PushString( fileName ) );
 		DO_HOOK( LUA->PushNumber( transferID ) );
 		CALL_HOOK( 0 );
@@ -395,18 +421,18 @@ void VFUNC INetChannelHandler_FileDenied_D(
 	INetChannelHandler_FileDenied_O( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, INetChannelHandler_FileDenied, 8 );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileDenied, 8 );
 
 static MologieDetours::Detour<CNetChan_ProcessMessages_T> *
 	CNetChan_ProcessMessages_detour = nullptr;
 
 #if defined _WIN32
 
-static bool __fastcall CNetChan_ProcessMessages_D( CNetChan *netchan, void *, sn4_bf_read &buf )
+static bool __fastcall CNetChan_ProcessMessages_D( CNetChan *netchan, void *, bf_read &buf )
 
 #elif defined __linux || defined __APPLE__
 
-static bool CNetChan_ProcessMessages_D( CNetChan *netchan, sn4_bf_read &buf )
+static bool CNetChan_ProcessMessages_D( CNetChan *netchan, bf_read &buf )
 
 #endif
 
@@ -417,18 +443,18 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, sn4_bf_read &buf )
 		memcpy( data, buf.m_pData, buf.GetNumBytesRead( ) );
 
 		int32_t bitsread = buf.GetNumBitsRead( );
-		sn4_bf_write write( data, sizeof( data ) );
+		bf_write write( data, sizeof( data ) );
 		write.SeekToBit( bitsread );
 
 		INIT_HOOK( "PreProcessMessages" );
-			DO_HOOK( Push_CNetChan( state, netchan ) );
-			DO_HOOK( sn4_bf_read **reader = Push_sn4_bf_read( state, &buf ) );
-			DO_HOOK( sn4_bf_write **writer = Push_sn4_bf_write( state, &write ) );
+			DO_HOOK( NetChannel::Push( state, netchan ) );
+			DO_HOOK( bf_read **reader = sn4_bf_read::Push( state, &buf ) );
+			DO_HOOK( bf_write **writer = sn4_bf_write::Push( state, &write ) );
 
-			if( !g_pEngineServer->IsDedicatedServer( ) )
-				DO_HOOK( Push_CNetChan(
+			if( !Global::engine_server->IsDedicatedServer( ) )
+				DO_HOOK( NetChannel::Push(
 					state,
-					static_cast<CNetChan *>( g_pEngineClient->GetNetChannelInfo( ) )
+					static_cast<CNetChan *>( Global::engine_client->GetNetChannelInfo( ) )
 				) );
 
 			CALL_HOOK( 0 );
@@ -450,7 +476,7 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, sn4_bf_read &buf )
 
 MONITOR_HOOK( CNetChan_ProcessMessages );
 
-GLBL_FUNCTION( Attach__CNetChan_ProcessMessages )
+LUA_FUNCTION( Attach__CNetChan_ProcessMessages )
 {
 	if( !IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
@@ -468,7 +494,7 @@ GLBL_FUNCTION( Attach__CNetChan_ProcessMessages )
 	return 0;
 }
 
-GLBL_FUNCTION( Detach__CNetChan_ProcessMessages )
+LUA_FUNCTION( Detach__CNetChan_ProcessMessages )
 {
 	if( IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
@@ -481,20 +507,188 @@ GLBL_FUNCTION( Detach__CNetChan_ProcessMessages )
 	return 0;
 }
 
-void UnloadHooks( lua_State *state )
+void Initialize( lua_State *state )
 {
-	_G__Detach__CNetChan_SendDatagram( state );
-	_G__Detach__CNetChan_ProcessPacket( state );
-	_G__Detach__CNetChan_Shutdown( state );
+	SymbolFinder symfinder;
 
-	_G__Detach__INetChannelHandler_ConnectionStart( state );
-	_G__Detach__INetChannelHandler_ConnectionClosing( state );
-	_G__Detach__INetChannelHandler_ConnectionCrashed( state );
-	_G__Detach__INetChannelHandler_PacketStart( state );
-	_G__Detach__INetChannelHandler_PacketEnd( state );
-	_G__Detach__INetChannelHandler_FileRequested( state );
-	_G__Detach__INetChannelHandler_FileReceived( state );
-	_G__Detach__INetChannelHandler_FileDenied( state );
+	CNetChan_ProcessMessages_O =
+		reinterpret_cast<CNetChan_ProcessMessages_T>( symfinder.ResolveOnBinary(
+			Global::engine_lib,
+			CNetChan_ProcessMessages_sig,
+			CNetChan_ProcessMessages_siglen
+		) );
+	if( CNetChan_ProcessMessages_O == nullptr )
+		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 
-	_G__Detach__CNetChan_ProcessMessages( state );
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
+
+		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushCFunction( Attach__CNetChan_SendDatagram );
+		LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
+
+		LUA->PushCFunction( Detach__CNetChan_SendDatagram );
+		LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
+
+		LUA->PushCFunction( Attach__CNetChan_Shutdown );
+		LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
+
+		LUA->PushCFunction( Detach__CNetChan_Shutdown );
+		LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionStart );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionStart );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_PacketStart );
+		LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_PacketStart );
+		LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_PacketEnd );
+		LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_PacketEnd );
+		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
+
+		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_FileReceived );
+		LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_FileReceived );
+		LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
+
+		LUA->PushCFunction( Attach__INetChannelHandler_FileDenied );
+		LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
+
+		LUA->PushCFunction( Detach__INetChannelHandler_FileDenied );
+		LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
+
+		LUA->PushCFunction( Attach__CNetChan_ProcessMessages );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
+
+		LUA->PushCFunction( Detach__CNetChan_ProcessMessages );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	Detach__CNetChan_SendDatagram( state );
+	Detach__CNetChan_ProcessPacket( state );
+	Detach__CNetChan_Shutdown( state );
+
+	Detach__INetChannelHandler_ConnectionStart( state );
+	Detach__INetChannelHandler_ConnectionClosing( state );
+	Detach__INetChannelHandler_ConnectionCrashed( state );
+	Detach__INetChannelHandler_PacketStart( state );
+	Detach__INetChannelHandler_PacketEnd( state );
+	Detach__INetChannelHandler_FileRequested( state );
+	Detach__INetChannelHandler_FileReceived( state );
+	Detach__INetChannelHandler_FileDenied( state );
+
+	Detach__CNetChan_ProcessMessages( state );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
+
+	LUA->Pop( 1 );
+}
+
 }

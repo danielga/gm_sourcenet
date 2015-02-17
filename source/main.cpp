@@ -20,48 +20,12 @@
 #include <gl_igameevent.hpp>
 #include <symbolfinder.hpp>
 
-#define BEGIN_META_REGISTRATION( name ) \
-	{ \
-		LUA->CreateMetaTableType( GET_META_NAME( name ), GET_META_ID( name ) )
+extern "C"
+{
 
-#define REG_META_FUNCTION( meta, name ) \
-	LUA->PushCFunction( meta##__##name ); \
-	LUA->SetField( -2, #name )
+#include <lauxlib.h>
 
-#define REG_META_CALLBACK( meta, name ) \
-	LUA->PushCFunction( meta##__##name ); \
-	LUA->SetField( -2, #name )
-
-#define END_META_REGISTRATION( ) \
-		LUA->Push( -1 ); \
-		LUA->SetField( -1, "__index" ); \
-		LUA->Pop( 1 ); \
-	}
-
-#define BEGIN_ENUM_REGISTRATION( name ) \
-	{ \
-		const char *__name = #name; \
-		LUA->CreateTable( )
-
-#define REG_ENUM( name, value ) \
-	LUA->PushNumber( static_cast<double>( value ) ); \
-	LUA->SetField( -2, #name )
-
-#define END_ENUM_REGISTRATION( ) \
-		LUA->SetField( -2, __name ); \
-	}
-
-#define REG_GLBL_FUNCTION( name ) \
-	LUA->PushCFunction( _G__##name ); \
-	LUA->SetField( -2, #name )
-
-#define REG_GLBL_NUMBER( name ) \
-	LUA->PushNumber( static_cast<double>( name ) ); \
-	LUA->SetField( -2, #name )
-
-#define REG_GLBL_STRING( name ) \
-	LUA->PushString( static_cast<const char *>( name ) ); \
-	LUA->SetField( -2, #name )
+}
 
 #if defined _WIN32
 
@@ -70,6 +34,9 @@
 #include <windows.h>
 
 #undef CreateEvent
+
+namespace Global
+{
 
 #define BEGIN_MEMEDIT( addr, size ) \
 { \
@@ -86,13 +53,6 @@
 			nullptr ); \
 }
 
-static const char *engine_lib = "engine.dll";
-static const char *client_lib = "client.dll";
-static const char *server_lib = "server.dll";
-
-static const char *CNetChan_ProcessMessages_sig = "\x55\x8B\xEC\x83\xEC\x2C\x53\x89\x4D\xFC";
-static const size_t CNetChan_ProcessMessages_siglen = 10;
-
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
 static const size_t IServer_siglen = 16;
 
@@ -107,6 +67,9 @@ static const size_t netchunk_siglen = 16;
 
 #include <sys/mman.h>
 #include <unistd.h>
+
+namespace Global
+{
 
 inline uint8_t *PageAlign( uint8_t *addr, long page )
 {
@@ -123,13 +86,6 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 	mprotect( PageAlign( addr, page ), \
 			page, PROT_EXEC | PROT_READ ); \
 }
-
-static const char *engine_lib = "engine.so";
-static const char *client_lib = "client.so";
-static const char *server_lib = "server.so";
-
-static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
-static const size_t CNetChan_ProcessMessages_siglen = 0;
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x7D\x88\xC7\x85\x78\xFF";
 static const size_t IServer_siglen = 16;
@@ -146,6 +102,9 @@ static const size_t netchunk_siglen = 16;
 #include <sys/mman.h>
 #include <unistd.h>
 
+namespace Global
+{
+
 inline uint8_t *PageAlign( uint8_t *addr, long page )
 {
 	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
@@ -162,13 +121,6 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 			page, PROT_EXEC | PROT_READ ); \
 }
 
-static const char *engine_lib = "engine.dylib";
-static const char *client_lib = "client.dylib";
-static const char *server_lib = "server.dylib";
-
-static const char *CNetChan_ProcessMessages_sig = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
-static const size_t CNetChan_ProcessMessages_siglen = 0;
-
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
 static const size_t IServer_siglen = 16;
 
@@ -181,563 +133,708 @@ static const size_t netchunk_siglen = 16;
 
 #endif
 
-lua_State *global_state = nullptr;
+lua_State *lua_state = nullptr;
 
 static CDllDemandLoader engine_loader( engine_lib );
-CreateInterfaceFn fnEngineFactory = nullptr;
+static void *net_thread_chunk = nullptr;
+CreateInterfaceFn engine_factory = nullptr;
 
-IVEngineServer *g_pEngineServer = nullptr;
-IVEngineClient *g_pEngineClient = nullptr;
-IServer *g_pServer = nullptr;
+IVEngineServer *engine_server = nullptr;
+IVEngineClient *engine_client = nullptr;
+IServer *server = nullptr;
 
-CNetChan_ProcessMessages_T CNetChan_ProcessMessages_O = nullptr;
+LUA_FUNCTION( index )
+{
+	LUA->GetMetaTable( 1 );
+	LUA->Push( 2 );
+	LUA->RawGet( -2 );
+	if( !LUA->IsType( -1, GarrysMod::Lua::Type::NIL ) )
+		return 1;
+
+	LUA->Pop( 2 );
+
+	lua_getfenv( state, 1 );
+	LUA->Push( 2 );
+	LUA->RawGet( -2 );
+	return 1;
+}
+
+LUA_FUNCTION( newindex )
+{
+	lua_getfenv( state, 1 );
+	LUA->Push( 2 );
+	LUA->Push( 3 );
+	LUA->RawSet( -3 );
+	return 0;
+}
 
 void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype )
 {
-	if( LUA->GetType( index ) != type )
+	if( !LUA->IsType( index, type ) )
 		luaL_typerror( state, index, nametype );
+}
+
 }
 
 GMOD_MODULE_OPEN( )
 {
-	global_state = state;
+	Global::lua_state = state;
 
-	fnEngineFactory = engine_loader.GetFactory( );
-	if( fnEngineFactory == nullptr )
+	Global::engine_factory = Global::engine_loader.GetFactory( );
+	if( Global::engine_factory == nullptr )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
 
-	g_pEngineServer = static_cast<IVEngineServer *>(
-		fnEngineFactory( "VEngineServer021", nullptr )
+	Global::engine_server = static_cast<IVEngineServer *>(
+		Global::engine_factory( "VEngineServer021", nullptr )
 	);
-	if( g_pEngineServer == nullptr )
+	if( Global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
-	if( !g_pEngineServer->IsDedicatedServer( ) )
+	if( !Global::engine_server->IsDedicatedServer( ) )
 	{
-		g_pEngineClient = static_cast<IVEngineClient *>(
-			fnEngineFactory( "VEngineClient015", nullptr )
+		Global::engine_client = static_cast<IVEngineClient *>(
+			Global::engine_factory( "VEngineClient015", nullptr )
 		);
-		if( g_pEngineClient == nullptr )
+		if( Global::engine_client == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
 
 	SymbolFinder symfinder;
 
 	IServer **pserver = reinterpret_cast<IServer **>(
-		symfinder.ResolveOnBinary( engine_lib, IServer_sig, IServer_siglen )
+		symfinder.ResolveOnBinary( Global::engine_lib, Global::IServer_sig, Global::IServer_siglen )
 	);
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
 
-	g_pServer = *pserver;
-	if( g_pServer == nullptr )
+	Global::server = *pserver;
+	if( Global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
-
-	CNetChan_ProcessMessages_O =
-		reinterpret_cast<CNetChan_ProcessMessages_T>( symfinder.ResolveOnBinary(
-			engine_lib,
-			CNetChan_ProcessMessages_sig,
-			CNetChan_ProcessMessages_siglen
-		) );
-	if( CNetChan_ProcessMessages_O == nullptr )
-		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 	
 #if defined SOURCENET_SERVER
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
-	void *netthread = symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen );
-	if( netthread == nullptr )
+	Global::net_thread_chunk = symfinder.ResolveOnBinary(
+		Global::engine_lib, Global::netchunk_sig, Global::netchunk_siglen
+	);
+	if( Global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
-	BEGIN_MEMEDIT( netthread, netpatch_len );
-		memcpy( netpatch_old, netthread, netpatch_len );
-		memcpy( netthread, netpatch_new, netpatch_len );
-	FINISH_MEMEDIT( netthread, netpatch_len );
+	BEGIN_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+		memcpy( Global::netpatch_old, Global::net_thread_chunk, Global::netpatch_len );
+		memcpy( Global::net_thread_chunk, Global::netpatch_new, Global::netpatch_len );
+	FINISH_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
 
 #endif
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
-	BEGIN_ENUM_REGISTRATION( UpdateType );
-		REG_ENUM( UpdateType, EnterPVS );
-		REG_ENUM( UpdateType, LeavePVS );
-		REG_ENUM( UpdateType, DeltaEnt );
-		REG_ENUM( UpdateType, PreserveEnt );
-		REG_ENUM( UpdateType, Finished );
-		REG_ENUM( UpdateType, Failed );
-	END_ENUM_REGISTRATION( );
-
-	REG_GLBL_NUMBER( FHDR_ZERO );
-	REG_GLBL_NUMBER( FHDR_LEAVEPVS );
-	REG_GLBL_NUMBER( FHDR_DELETE );
-	REG_GLBL_NUMBER( FHDR_ENTERPVS );
-
-	REG_GLBL_STRING( INSTANCE_BASELINE_TABLENAME );
-	REG_GLBL_STRING( LIGHT_STYLES_TABLENAME );
-	REG_GLBL_STRING( USER_INFO_TABLENAME );
-	REG_GLBL_STRING( SERVER_STARTUP_DATA_TABLENAME );
-
-	REG_GLBL_NUMBER( NET_MESSAGE_BITS );
-
-	REG_GLBL_NUMBER( net_NOP );
-	REG_GLBL_NUMBER( net_Disconnect );
-	REG_GLBL_NUMBER( net_File );
-	REG_GLBL_NUMBER( net_LastControlMessage );
-
-	REG_GLBL_NUMBER( net_Tick );
-	REG_GLBL_NUMBER( net_StringCmd );
-	REG_GLBL_NUMBER( net_SetConVar );
-	REG_GLBL_NUMBER( net_SignonState );
-
-	REG_GLBL_NUMBER( svc_ServerInfo );
-	REG_GLBL_NUMBER( svc_SendTable );
-	REG_GLBL_NUMBER( svc_ClassInfo );
-	REG_GLBL_NUMBER( svc_SetPause );
-	REG_GLBL_NUMBER( svc_CreateStringTable );
-	REG_GLBL_NUMBER( svc_UpdateStringTable );
-	REG_GLBL_NUMBER( svc_VoiceInit );
-	REG_GLBL_NUMBER( svc_VoiceData );
-	REG_GLBL_NUMBER( svc_Print );
-	REG_GLBL_NUMBER( svc_Sounds );
-	REG_GLBL_NUMBER( svc_SetView );
-	REG_GLBL_NUMBER( svc_FixAngle );
-	REG_GLBL_NUMBER( svc_CrosshairAngle );
-	REG_GLBL_NUMBER( svc_BSPDecal );
-	REG_GLBL_NUMBER( svc_UserMessage );
-	REG_GLBL_NUMBER( svc_EntityMessage );
-	REG_GLBL_NUMBER( svc_GameEvent );
-	REG_GLBL_NUMBER( svc_PacketEntities );
-	REG_GLBL_NUMBER( svc_TempEntities );
-	REG_GLBL_NUMBER( svc_Prefetch );
-	REG_GLBL_NUMBER( svc_Menu );
-	REG_GLBL_NUMBER( svc_GameEventList );
-	REG_GLBL_NUMBER( svc_GetCvarValue );
-	REG_GLBL_NUMBER( svc_CmdKeyValues );
-	REG_GLBL_NUMBER( svc_GMod_ServerToClient );
-	REG_GLBL_NUMBER( SVC_LASTMSG );
-
-	REG_GLBL_NUMBER( clc_ClientInfo );
-	REG_GLBL_NUMBER( clc_Move );
-	REG_GLBL_NUMBER( clc_VoiceData );
-	REG_GLBL_NUMBER( clc_BaselineAck );
-	REG_GLBL_NUMBER( clc_ListenEvents );
-	REG_GLBL_NUMBER( clc_RespondCvarValue );
-	REG_GLBL_NUMBER( clc_FileCRCCheck );
-	REG_GLBL_NUMBER( clc_CmdKeyValues );
-	REG_GLBL_NUMBER( clc_FileMD5Check );
-	REG_GLBL_NUMBER( clc_GMod_ClientToServer );
-	REG_GLBL_NUMBER( CLC_LASTMSG );
-
-	REG_GLBL_NUMBER( RES_FATALIFMISSING );
-	REG_GLBL_NUMBER( RES_PRELOAD );
-
-	REG_GLBL_NUMBER( SIGNONSTATE_NONE );
-	REG_GLBL_NUMBER( SIGNONSTATE_CHALLENGE );
-	REG_GLBL_NUMBER( SIGNONSTATE_CONNECTED );
-	REG_GLBL_NUMBER( SIGNONSTATE_NEW );
-	REG_GLBL_NUMBER( SIGNONSTATE_PRESPAWN );
-	REG_GLBL_NUMBER( SIGNONSTATE_SPAWN );
-	REG_GLBL_NUMBER( SIGNONSTATE_FULL );
-	REG_GLBL_NUMBER( SIGNONSTATE_CHANGELEVEL );
-
-	REG_GLBL_NUMBER( MAX_STREAMS );
-	REG_GLBL_NUMBER( FRAG_NORMAL_STREAM );
-	REG_GLBL_NUMBER( FRAG_FILE_STREAM );
-
-	REG_GLBL_NUMBER( MAX_RATE );
-	REG_GLBL_NUMBER( MIN_RATE );
-	REG_GLBL_NUMBER( DEFAULT_RATE );
-
-	REG_GLBL_NUMBER( MAX_FRAGMENT_SIZE );
-	REG_GLBL_NUMBER( MAX_SUBCHANNELS );
-	REG_GLBL_NUMBER( MAX_FILE_SIZE );
-
-	REG_GLBL_NUMBER( FLOW_OUTGOING );
-	REG_GLBL_NUMBER( FLOW_INCOMING );
-	REG_GLBL_NUMBER( MAX_FLOWS );
-
-	REG_GLBL_NUMBER( MAX_CUSTOM_FILES );
-
-	BEGIN_META_REGISTRATION( sn4_bf_write );
-		REG_META_FUNCTION( sn4_bf_write, __gc );
-		REG_META_FUNCTION( sn4_bf_write, __eq );
-		REG_META_FUNCTION( sn4_bf_write, __tostring );
-
-		REG_META_FUNCTION( sn4_bf_write, IsValid );
-
-		REG_META_FUNCTION( sn4_bf_write, GetBasePointer );
-		REG_META_FUNCTION( sn4_bf_write, GetMaxNumBits );
-		REG_META_FUNCTION( sn4_bf_write, GetNumBitsWritten );
-		REG_META_FUNCTION( sn4_bf_write, GetNumBytesWritten );
-		REG_META_FUNCTION( sn4_bf_write, GetNumBitsLeft );
-		REG_META_FUNCTION( sn4_bf_write, GetNumBytesLeft );
-
-		REG_META_FUNCTION( sn4_bf_write, IsOverflowed );
-
-		REG_META_FUNCTION( sn4_bf_write, Seek );
-
-		REG_META_FUNCTION( sn4_bf_write, WriteBitAngle );
-		REG_META_FUNCTION( sn4_bf_write, WriteAngle );
-		REG_META_FUNCTION( sn4_bf_write, WriteBits );
-		REG_META_FUNCTION( sn4_bf_write, WriteVector );
-		REG_META_FUNCTION( sn4_bf_write, WriteNormal );
-		REG_META_FUNCTION( sn4_bf_write, WriteByte );
-		REG_META_FUNCTION( sn4_bf_write, WriteBytes );
-		REG_META_FUNCTION( sn4_bf_write, WriteChar );
-		REG_META_FUNCTION( sn4_bf_write, WriteFloat );
-		REG_META_FUNCTION( sn4_bf_write, WriteDouble );
-		REG_META_FUNCTION( sn4_bf_write, WriteLong );
-		REG_META_FUNCTION( sn4_bf_write, WriteLongLong );
-		REG_META_FUNCTION( sn4_bf_write, WriteBit );
-		REG_META_FUNCTION( sn4_bf_write, WriteShort );
-		REG_META_FUNCTION( sn4_bf_write, WriteString );
-		REG_META_FUNCTION( sn4_bf_write, WriteInt );
-		REG_META_FUNCTION( sn4_bf_write, WriteUInt );
-		REG_META_FUNCTION( sn4_bf_write, WriteWord );
-		REG_META_FUNCTION( sn4_bf_write, WriteSignedVarInt32 );
-		REG_META_FUNCTION( sn4_bf_write, WriteVarInt32 );
-		REG_META_FUNCTION( sn4_bf_write, WriteSignedVarInt64 );
-		REG_META_FUNCTION( sn4_bf_write, WriteVarInt64 );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( sn4_bf_write );
-
-	BEGIN_META_REGISTRATION( sn4_bf_read );
-		REG_META_FUNCTION( sn4_bf_read, __gc );
-		REG_META_FUNCTION( sn4_bf_read, __eq );
-		REG_META_FUNCTION( sn4_bf_read, __tostring );
-
-		REG_META_FUNCTION( sn4_bf_read, IsValid );
-
-		REG_META_FUNCTION( sn4_bf_read, GetBasePointer );
-		REG_META_FUNCTION( sn4_bf_read, TotalBytesAvailable );
-		REG_META_FUNCTION( sn4_bf_read, GetNumBitsLeft );
-		REG_META_FUNCTION( sn4_bf_read, GetNumBytesLeft );
-		REG_META_FUNCTION( sn4_bf_read, GetNumBitsRead );
-		REG_META_FUNCTION( sn4_bf_read, GetNumBytesRead );
-
-		REG_META_FUNCTION( sn4_bf_read, IsOverflowed );
-
-		REG_META_FUNCTION( sn4_bf_read, Seek );
-		REG_META_FUNCTION( sn4_bf_read, SeekRelative );
-
-		REG_META_FUNCTION( sn4_bf_read, ReadBitAngle );
-		REG_META_FUNCTION( sn4_bf_read, ReadAngle );
-		REG_META_FUNCTION( sn4_bf_read, ReadBits );
-		REG_META_FUNCTION( sn4_bf_read, ReadVector );
-		REG_META_FUNCTION( sn4_bf_read, ReadNormal );
-		REG_META_FUNCTION( sn4_bf_read, ReadByte );
-		REG_META_FUNCTION( sn4_bf_read, ReadBytes );
-		REG_META_FUNCTION( sn4_bf_read, ReadChar );
-		REG_META_FUNCTION( sn4_bf_read, ReadFloat );
-		REG_META_FUNCTION( sn4_bf_read, ReadDouble );
-		REG_META_FUNCTION( sn4_bf_read, ReadLong );
-		REG_META_FUNCTION( sn4_bf_read, ReadLongLong );
-		REG_META_FUNCTION( sn4_bf_read, ReadBit );
-		REG_META_FUNCTION( sn4_bf_read, ReadShort );
-		REG_META_FUNCTION( sn4_bf_read, ReadString );
-		REG_META_FUNCTION( sn4_bf_read, ReadInt );
-		REG_META_FUNCTION( sn4_bf_read, ReadUInt );
-		REG_META_FUNCTION( sn4_bf_read, ReadWord );
-		REG_META_FUNCTION( sn4_bf_read, ReadSignedVarInt32 );
-		REG_META_FUNCTION( sn4_bf_read, ReadVarInt32 );
-		REG_META_FUNCTION( sn4_bf_read, ReadSignedVarInt64 );
-		REG_META_FUNCTION( sn4_bf_read, ReadVarInt64 );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( sn4_bf_read );
-
-	BEGIN_META_REGISTRATION( CNetChan );
-		REG_META_FUNCTION( CNetChan, __eq );
-		REG_META_FUNCTION( CNetChan, __tostring );
-
-		REG_META_FUNCTION( CNetChan, IsValid );
-
-		REG_META_FUNCTION( CNetChan, DumpMessages );
-
-		REG_META_FUNCTION( CNetChan, Reset );
-		REG_META_FUNCTION( CNetChan, Clear );
-		REG_META_FUNCTION( CNetChan, Shutdown );
-		REG_META_FUNCTION( CNetChan, Transmit );
-
-		REG_META_FUNCTION( CNetChan, SendFile );
-		REG_META_FUNCTION( CNetChan, DenyFile );
-		REG_META_FUNCTION( CNetChan, RequestFile );
-
-		REG_META_FUNCTION( CNetChan, GetOutgoingQueueSize );
-		REG_META_FUNCTION( CNetChan, GetOutgoingQueueFragments );
-		REG_META_FUNCTION( CNetChan, QueueOutgoingFragments );
-
-		REG_META_FUNCTION( CNetChan, GetIncomingFragments );
-
-		REG_META_FUNCTION( CNetChan, GetSubChannels );
-
-		REG_META_FUNCTION( CNetChan, GetReliableBuffer );
-		REG_META_FUNCTION( CNetChan, GetUnreliableBuffer );
-		REG_META_FUNCTION( CNetChan, GetVoiceBuffer );
-
-		REG_META_FUNCTION( CNetChan, GetNetChannelHandler );
-		REG_META_FUNCTION( CNetChan, GetAddress );
-		REG_META_FUNCTION( CNetChan, GetTime );
-		REG_META_FUNCTION( CNetChan, GetLatency );
-		REG_META_FUNCTION( CNetChan, GetAvgLatency );
-		REG_META_FUNCTION( CNetChan, GetAvgLoss );
-		REG_META_FUNCTION( CNetChan, GetAvgChoke );
-		REG_META_FUNCTION( CNetChan, GetAvgData );
-		REG_META_FUNCTION( CNetChan, GetAvgPackets );
-		REG_META_FUNCTION( CNetChan, GetTotalData );
-		REG_META_FUNCTION( CNetChan, GetSequenceNr );
-		REG_META_FUNCTION( CNetChan, IsValidPacket );
-		REG_META_FUNCTION( CNetChan, GetPacketTime );
-		REG_META_FUNCTION( CNetChan, GetPacketBytes );
-		REG_META_FUNCTION( CNetChan, GetStreamProgress );
-		REG_META_FUNCTION( CNetChan, GetCommandInterpolationAmount );
-		REG_META_FUNCTION( CNetChan, GetPacketResponseLatency );
-		REG_META_FUNCTION( CNetChan, GetRemoteFramerate );
-
-		REG_META_FUNCTION( CNetChan, SetInterpolationAmount );
-		REG_META_FUNCTION( CNetChan, SetRemoteFramerate );
-		REG_META_FUNCTION( CNetChan, SetMaxBufferSize );
-
-		REG_META_FUNCTION( CNetChan, IsPlayback );
-
-		REG_META_FUNCTION( CNetChan, GetTimeoutSeconds );
-		REG_META_FUNCTION( CNetChan, SetTimeoutSeconds );
-
-		REG_META_FUNCTION( CNetChan, GetConnectTime );
-		REG_META_FUNCTION( CNetChan, SetConnectTime );
-
-		REG_META_FUNCTION( CNetChan, GetLastReceivedTime );
-		REG_META_FUNCTION( CNetChan, SetLastReceivedTime );
-
-		REG_META_FUNCTION( CNetChan, GetName );
-		REG_META_FUNCTION( CNetChan, SetName );
-
-		REG_META_FUNCTION( CNetChan, GetRate );
-		REG_META_FUNCTION( CNetChan, SetRate );
-
-		REG_META_FUNCTION( CNetChan, GetBackgroundMode );
-		REG_META_FUNCTION( CNetChan, SetBackgroundMode );
-
-		REG_META_FUNCTION( CNetChan, GetCompressionMode );
-		REG_META_FUNCTION( CNetChan, SetCompressionMode );
-
-		REG_META_FUNCTION( CNetChan, GetMaxRoutablePayloadSize );
-		REG_META_FUNCTION( CNetChan, SetMaxRoutablePayloadSize );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( CNetChan );
-
-	BEGIN_META_REGISTRATION( subchannel_t );
-		REG_META_FUNCTION( subchannel_t, __eq );
-		REG_META_FUNCTION( subchannel_t, __tostring );
-
-		REG_META_FUNCTION( subchannel_t, IsValid );
-
-		REG_META_FUNCTION( subchannel_t, GetFragmentOffset );
-		REG_META_FUNCTION( subchannel_t, SetFragmentOffset );
-
-		REG_META_FUNCTION( subchannel_t, GetFragmentNumber );
-		REG_META_FUNCTION( subchannel_t, SetFragmentNumber );
-
-		REG_META_FUNCTION( subchannel_t, GetSequence );
-		REG_META_FUNCTION( subchannel_t, SetSequence );
-
-		REG_META_FUNCTION( subchannel_t, GetState );
-		REG_META_FUNCTION( subchannel_t, SetState );
-
-		REG_META_FUNCTION( subchannel_t, GetIndex );
-		REG_META_FUNCTION( subchannel_t, SetIndex );
-	END_META_REGISTRATION( );
-
-	BEGIN_META_REGISTRATION( dataFragments_t );
-		REG_META_FUNCTION( dataFragments_t, __gc );
-		REG_META_FUNCTION( dataFragments_t, __eq );
-		REG_META_FUNCTION( dataFragments_t, __tostring );
-
-		REG_META_FUNCTION( dataFragments_t, IsValid );
-
-		REG_META_FUNCTION( dataFragments_t, GetFileHandle );
-		REG_META_FUNCTION( dataFragments_t, SetFileHandle );
-
-		REG_META_FUNCTION( dataFragments_t, GetFileName );
-		REG_META_FUNCTION( dataFragments_t, SetFileName );
-
-		REG_META_FUNCTION( dataFragments_t, GetFileTransferID );
-		REG_META_FUNCTION( dataFragments_t, SetFileTransferID );
-
-		REG_META_FUNCTION( dataFragments_t, GetBuffer );
-		REG_META_FUNCTION( dataFragments_t, SetBuffer );
-
-		REG_META_FUNCTION( dataFragments_t, GetBytes );
-		REG_META_FUNCTION( dataFragments_t, SetBytes );
-
-		REG_META_FUNCTION( dataFragments_t, GetBits );
-		REG_META_FUNCTION( dataFragments_t, SetBits );
-
-		REG_META_FUNCTION( dataFragments_t, GetActualSize );
-		REG_META_FUNCTION( dataFragments_t, SetActualSize );
-
-		REG_META_FUNCTION( dataFragments_t, GetCompressed );
-		REG_META_FUNCTION( dataFragments_t, SetCompressed );
-
-		REG_META_FUNCTION( dataFragments_t, GetStream );
-		REG_META_FUNCTION( dataFragments_t, SetStream );
-
-		REG_META_FUNCTION( dataFragments_t, GetTotal );
-		REG_META_FUNCTION( dataFragments_t, SetTotal );
-
-		REG_META_FUNCTION( dataFragments_t, GetProgress );
-		REG_META_FUNCTION( dataFragments_t, SetProgress );
-
-		REG_META_FUNCTION( dataFragments_t, GetNum );
-		REG_META_FUNCTION( dataFragments_t, SetNum );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( dataFragments_t );
-
-	BEGIN_META_REGISTRATION( FileHandle_t );
-		REG_META_FUNCTION( FileHandle_t, __eq );
-		REG_META_FUNCTION( FileHandle_t, __tostring );
-	END_META_REGISTRATION( );
-
-	BEGIN_META_REGISTRATION( UCHARPTR );
-		REG_META_FUNCTION( UCHARPTR, __gc );
-		REG_META_FUNCTION( UCHARPTR, __eq );
-		REG_META_FUNCTION( UCHARPTR, __tostring );
-
-		REG_META_FUNCTION( UCHARPTR, IsValid );
-
-		REG_META_FUNCTION( UCHARPTR, Size );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( UCHARPTR );
-
-	BEGIN_META_REGISTRATION( netadr_t );
-		REG_META_FUNCTION( netadr_t, __eq );
-		REG_META_FUNCTION( netadr_t, __tostring );
-
-		REG_META_FUNCTION( netadr_t, IsLocalhost );
-		REG_META_FUNCTION( netadr_t, IsLoopback );
-		REG_META_FUNCTION( netadr_t, IsReservedAdr );
-		REG_META_FUNCTION( netadr_t, IsValid );
-
-		REG_META_FUNCTION( netadr_t, GetIP );
-		REG_META_FUNCTION( netadr_t, GetPort );
-		REG_META_FUNCTION( netadr_t, GetType );
-	END_META_REGISTRATION( );
-
-	BEGIN_META_REGISTRATION( INetChannelHandler );
-		REG_META_FUNCTION( INetChannelHandler, __eq );
-		REG_META_FUNCTION( INetChannelHandler, __tostring );
-	END_META_REGISTRATION( );
-
-	BEGIN_META_REGISTRATION( INetworkStringTableContainer );
-		REG_META_FUNCTION( INetworkStringTableContainer, __eq );
-		REG_META_FUNCTION( INetworkStringTableContainer, __tostring );
-
-		REG_META_FUNCTION( INetworkStringTableContainer, FindTable );
-		REG_META_FUNCTION( INetworkStringTableContainer, GetTable );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( INetworkStringTableContainer );
-
-	BEGIN_META_REGISTRATION( INetworkStringTable );
-		REG_META_FUNCTION( INetworkStringTable, __eq );
-		REG_META_FUNCTION( INetworkStringTable, __tostring );
-
-		REG_META_FUNCTION( INetworkStringTable, FindStringIndex );
-		REG_META_FUNCTION( INetworkStringTable, GetString );
-	END_META_REGISTRATION( );
-
-	BEGIN_META_REGISTRATION( IGameEventManager2 );
-		REG_META_FUNCTION( IGameEventManager2, __eq );
-		REG_META_FUNCTION( IGameEventManager2, __tostring );
-
-		REG_META_FUNCTION( IGameEventManager2, CreateEvent );
-		REG_META_FUNCTION( IGameEventManager2, SerializeEvent );
-		REG_META_FUNCTION( IGameEventManager2, UnserializeEvent );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( IGameEventManager2 );
-
-	BEGIN_META_REGISTRATION( IGameEvent );
-		REG_META_FUNCTION( IGameEvent, __gc );
-		REG_META_FUNCTION( IGameEvent, __eq );
-		REG_META_FUNCTION( IGameEvent, __tostring );
-
-		REG_META_FUNCTION( IGameEvent, GetName );
-
-		REG_META_FUNCTION( IGameEvent, IsReliable );
-		REG_META_FUNCTION( IGameEvent, IsLocal );
-		REG_META_FUNCTION( IGameEvent, IsEmpty );
-
-		REG_META_FUNCTION( IGameEvent, GetBool );
-		REG_META_FUNCTION( IGameEvent, GetInt );
-		REG_META_FUNCTION( IGameEvent, GetFloat );
-		REG_META_FUNCTION( IGameEvent, GetString );
-
-		REG_META_FUNCTION( IGameEvent, SetBool );
-		REG_META_FUNCTION( IGameEvent, SetInt );
-		REG_META_FUNCTION( IGameEvent, SetFloat );
-		REG_META_FUNCTION( IGameEvent, SetString );
-	END_META_REGISTRATION( );
-
-	REG_GLBL_FUNCTION( Attach__CNetChan_ProcessPacket );
-	REG_GLBL_FUNCTION( Detach__CNetChan_ProcessPacket );
-
-	REG_GLBL_FUNCTION( Attach__CNetChan_SendDatagram );
-	REG_GLBL_FUNCTION( Detach__CNetChan_SendDatagram );
-
-	REG_GLBL_FUNCTION( Attach__CNetChan_Shutdown );
-	REG_GLBL_FUNCTION( Detach__CNetChan_Shutdown );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_ConnectionStart );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_ConnectionStart );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_ConnectionClosing );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_ConnectionClosing );
-	
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_ConnectionCrashed );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_ConnectionCrashed );
-	
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_PacketStart );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_PacketStart );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_PacketEnd );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_PacketEnd );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_FileRequested );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_FileRequested );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_FileReceived );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_FileReceived );
-
-	REG_GLBL_FUNCTION( Attach__INetChannelHandler_FileDenied );
-	REG_GLBL_FUNCTION( Detach__INetChannelHandler_FileDenied );
-
-	REG_GLBL_FUNCTION( Attach__CNetChan_ProcessMessages );
-	REG_GLBL_FUNCTION( Detach__CNetChan_ProcessMessages );
+		LUA->CreateTable( );
+
+			LUA->PushNumber( UpdateType::EnterPVS );
+			LUA->SetField( -2, "EnterPVS" );
+
+			LUA->PushNumber( UpdateType::LeavePVS );
+			LUA->SetField( -2, "LeavePVS" );
+
+			LUA->PushNumber( UpdateType::DeltaEnt );
+			LUA->SetField( -2, "DeltaEnt" );
+
+			LUA->PushNumber( UpdateType::PreserveEnt );
+			LUA->SetField( -2, "PreserveEnt" );
+
+			LUA->PushNumber( UpdateType::Finished );
+			LUA->SetField( -2, "Finished" );
+
+			LUA->PushNumber( UpdateType::Failed );
+			LUA->SetField( -2, "Failed" );
+
+		LUA->SetField( -2, "UpdateType" );
+
+
+
+		LUA->PushNumber( FHDR_ZERO );
+		LUA->SetField( -2, "FHDR_ZERO" );
+
+		LUA->PushNumber( FHDR_LEAVEPVS );
+		LUA->SetField( -2, "FHDR_LEAVEPVS" );
+
+		LUA->PushNumber( FHDR_DELETE );
+		LUA->SetField( -2, "FHDR_DELETE" );
+
+		LUA->PushNumber( FHDR_ENTERPVS );
+		LUA->SetField( -2, "FHDR_ENTERPVS" );
+
+
+
+		LUA->PushString( INSTANCE_BASELINE_TABLENAME );
+		LUA->SetField( -2, "INSTANCE_BASELINE_TABLENAME" );
+
+		LUA->PushString( LIGHT_STYLES_TABLENAME );
+		LUA->SetField( -2, "LIGHT_STYLES_TABLENAME" );
+
+		LUA->PushString( USER_INFO_TABLENAME );
+		LUA->SetField( -2, "USER_INFO_TABLENAME" );
+
+		LUA->PushString( SERVER_STARTUP_DATA_TABLENAME );
+		LUA->SetField( -2, "SERVER_STARTUP_DATA_TABLENAME" );
+
+		LUA->PushNumber( NET_MESSAGE_BITS );
+		LUA->SetField( -2, "NET_MESSAGE_BITS" );
+
+
+
+		LUA->PushNumber( net_NOP );
+		LUA->SetField( -2, "net_NOP" );
+
+		LUA->PushNumber( net_Disconnect );
+		LUA->SetField( -2, "net_Disconnect" );
+
+		LUA->PushNumber( net_File );
+		LUA->SetField( -2, "net_File" );
+
+		LUA->PushNumber( net_LastControlMessage );
+		LUA->SetField( -2, "net_LastControlMessage" );
+
+
+		LUA->PushNumber( net_Tick );
+		LUA->SetField( -2, "net_Tick" );
+
+		LUA->PushNumber( net_StringCmd );
+		LUA->SetField( -2, "net_StringCmd" );
+
+		LUA->PushNumber( net_SetConVar );
+		LUA->SetField( -2, "net_SetConVar" );
+
+		LUA->PushNumber( net_SignonState );
+		LUA->SetField( -2, "net_SignonState" );
+
+
+		LUA->PushNumber( svc_ServerInfo );
+		LUA->SetField( -2, "svc_ServerInfo" );
+
+		LUA->PushNumber( svc_SendTable );
+		LUA->SetField( -2, "svc_SendTable" );
+
+		LUA->PushNumber( svc_ClassInfo );
+		LUA->SetField( -2, "svc_ClassInfo" );
+
+		LUA->PushNumber( svc_SetPause );
+		LUA->SetField( -2, "svc_SetPause" );
+
+		LUA->PushNumber( svc_CreateStringTable );
+		LUA->SetField( -2, "svc_CreateStringTable" );
+
+		LUA->PushNumber( svc_UpdateStringTable );
+		LUA->SetField( -2, "svc_UpdateStringTable" );
+
+		LUA->PushNumber( svc_VoiceInit );
+		LUA->SetField( -2, "svc_VoiceInit" );
+
+		LUA->PushNumber( svc_VoiceData );
+		LUA->SetField( -2, "svc_VoiceData" );
+
+		LUA->PushNumber( svc_Print );
+		LUA->SetField( -2, "svc_Print" );
+
+		LUA->PushNumber( svc_Sounds );
+		LUA->SetField( -2, "svc_Sounds" );
+
+		LUA->PushNumber( svc_SetView );
+		LUA->SetField( -2, "svc_SetView" );
+
+		LUA->PushNumber( svc_FixAngle );
+		LUA->SetField( -2, "svc_FixAngle" );
+
+		LUA->PushNumber( svc_CrosshairAngle );
+		LUA->SetField( -2, "svc_CrosshairAngle" );
+
+		LUA->PushNumber( svc_BSPDecal );
+		LUA->SetField( -2, "svc_BSPDecal" );
+
+		LUA->PushNumber( svc_UserMessage );
+		LUA->SetField( -2, "svc_UserMessage" );
+
+		LUA->PushNumber( svc_EntityMessage );
+		LUA->SetField( -2, "svc_EntityMessage" );
+
+		LUA->PushNumber( svc_GameEvent );
+		LUA->SetField( -2, "svc_GameEvent" );
+
+		LUA->PushNumber( svc_PacketEntities );
+		LUA->SetField( -2, "svc_PacketEntities" );
+
+		LUA->PushNumber( svc_TempEntities );
+		LUA->SetField( -2, "svc_TempEntities" );
+
+		LUA->PushNumber( svc_Prefetch );
+		LUA->SetField( -2, "svc_Prefetch" );
+
+		LUA->PushNumber( svc_Menu );
+		LUA->SetField( -2, "svc_Menu" );
+
+		LUA->PushNumber( svc_GameEventList );
+		LUA->SetField( -2, "svc_GameEventList" );
+
+		LUA->PushNumber( svc_GetCvarValue );
+		LUA->SetField( -2, "svc_GetCvarValue" );
+
+		LUA->PushNumber( svc_CmdKeyValues );
+		LUA->SetField( -2, "svc_CmdKeyValues" );
+
+		LUA->PushNumber( svc_GMod_ServerToClient );
+		LUA->SetField( -2, "svc_GMod_ServerToClient" );
+
+		LUA->PushNumber( SVC_LASTMSG );
+		LUA->SetField( -2, "SVC_LASTMSG" );
+
+
+		LUA->PushNumber( clc_ClientInfo );
+		LUA->SetField( -2, "clc_ClientInfo" );
+
+		LUA->PushNumber( clc_Move );
+		LUA->SetField( -2, "clc_Move" );
+
+		LUA->PushNumber( clc_VoiceData );
+		LUA->SetField( -2, "clc_VoiceData" );
+
+		LUA->PushNumber( clc_BaselineAck );
+		LUA->SetField( -2, "clc_BaselineAck" );
+
+		LUA->PushNumber( clc_ListenEvents );
+		LUA->SetField( -2, "clc_ListenEvents" );
+
+		LUA->PushNumber( clc_RespondCvarValue );
+		LUA->SetField( -2, "clc_RespondCvarValue" );
+
+		LUA->PushNumber( clc_FileCRCCheck );
+		LUA->SetField( -2, "clc_FileCRCCheck" );
+
+		LUA->PushNumber( clc_CmdKeyValues );
+		LUA->SetField( -2, "clc_CmdKeyValues" );
+
+		LUA->PushNumber( clc_FileMD5Check );
+		LUA->SetField( -2, "clc_FileMD5Check" );
+
+		LUA->PushNumber( clc_GMod_ClientToServer );
+		LUA->SetField( -2, "clc_GMod_ClientToServer" );
+
+		LUA->PushNumber( CLC_LASTMSG );
+		LUA->SetField( -2, "CLC_LASTMSG" );
+
+
+
+		LUA->PushNumber( RES_FATALIFMISSING );
+		LUA->SetField( -2, "RES_FATALIFMISSING" );
+
+		LUA->PushNumber( RES_PRELOAD );
+		LUA->SetField( -2, "RES_PRELOAD" );
+
+
+
+		LUA->PushNumber( SIGNONSTATE_NONE );
+		LUA->SetField( -2, "SIGNONSTATE_NONE" );
+
+		LUA->PushNumber( SIGNONSTATE_CHALLENGE );
+		LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
+
+		LUA->PushNumber( SIGNONSTATE_CONNECTED );
+		LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
+
+		LUA->PushNumber( SIGNONSTATE_NEW );
+		LUA->SetField( -2, "SIGNONSTATE_NEW" );
+
+		LUA->PushNumber( SIGNONSTATE_PRESPAWN );
+		LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
+
+		LUA->PushNumber( SIGNONSTATE_SPAWN );
+		LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
+
+		LUA->PushNumber( SIGNONSTATE_FULL );
+		LUA->SetField( -2, "SIGNONSTATE_FULL" );
+
+		LUA->PushNumber( SIGNONSTATE_CHANGELEVEL );
+		LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
+
+
+
+		LUA->PushNumber( MAX_STREAMS );
+		LUA->SetField( -2, "MAX_STREAMS" );
+
+		LUA->PushNumber( FRAG_NORMAL_STREAM );
+		LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
+
+		LUA->PushNumber( FRAG_FILE_STREAM );
+		LUA->SetField( -2, "FRAG_FILE_STREAM" );
+
+
+
+		LUA->PushNumber( MAX_RATE );
+		LUA->SetField( -2, "MAX_RATE" );
+
+		LUA->PushNumber( MIN_RATE );
+		LUA->SetField( -2, "MIN_RATE" );
+
+		LUA->PushNumber( DEFAULT_RATE );
+		LUA->SetField( -2, "DEFAULT_RATE" );
+
+
+
+		LUA->PushNumber( MAX_FRAGMENT_SIZE );
+		LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
+
+		LUA->PushNumber( MAX_SUBCHANNELS );
+		LUA->SetField( -2, "MAX_SUBCHANNELS" );
+
+		LUA->PushNumber( MAX_FILE_SIZE );
+		LUA->SetField( -2, "MAX_FILE_SIZE" );
+
+
+
+		LUA->PushNumber( FLOW_OUTGOING );
+		LUA->SetField( -2, "FLOW_OUTGOING" );
+
+		LUA->PushNumber( FLOW_INCOMING );
+		LUA->SetField( -2, "FLOW_INCOMING" );
+
+		LUA->PushNumber( MAX_FLOWS );
+		LUA->SetField( -2, "MAX_FLOWS" );
+
+
+
+		LUA->PushNumber( MAX_CUSTOM_FILES );
+		LUA->SetField( -2, "MAX_CUSTOM_FILES" );
+
+	LUA->Pop( 1 );
+
+	sn4_bf_write::Initialize( state );
+
+	sn4_bf_read::Initialize( state );
+
+	NetChannel::Initialize( state );
+
+	subchannel::Initialize( state );
+
+	dataFragments::Initialize( state );
+
+	FileHandle::Initialize( state );
+
+	UCHARPTR::Initialize( state );
+
+	netadr::Initialize( state );
+
+	NetChannelHandler::Initialize( state );
+
+	NetworkStringTableContainer::Initialize( state );
+
+	NetworkStringTable::Initialize( state );
+
+	GameEventManager::Initialize( state );
+
+	GameEvent::Initialize( state );
+
+	Hooks::Initialize( state );
 
 	return 0;
 }
 
 GMOD_MODULE_CLOSE( )
 {
-	UnloadHooks( state );
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "UpdateType" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FHDR_ZERO" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FHDR_LEAVEPVS" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FHDR_DELETE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FHDR_ENTERPVS" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "INSTANCE_BASELINE_TABLENAME" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "LIGHT_STYLES_TABLENAME" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "USER_INFO_TABLENAME" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SERVER_STARTUP_DATA_TABLENAME" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "NET_MESSAGE_BITS" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_NOP" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_Disconnect" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_File" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_LastControlMessage" );
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_Tick" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_StringCmd" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_SetConVar" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "net_SignonState" );
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_ServerInfo" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_SendTable" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_ClassInfo" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_SetPause" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_CreateStringTable" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_UpdateStringTable" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_VoiceInit" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_VoiceData" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_Print" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_Sounds" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_SetView" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_FixAngle" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_CrosshairAngle" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_BSPDecal" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_UserMessage" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_EntityMessage" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_GameEvent" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_PacketEntities" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_TempEntities" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_Prefetch" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_Menu" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_GameEventList" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_GetCvarValue" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_CmdKeyValues" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "svc_GMod_ServerToClient" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SVC_LASTMSG" );
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_ClientInfo" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_Move" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_VoiceData" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_BaselineAck" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_ListenEvents" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_RespondCvarValue" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_FileCRCCheck" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_CmdKeyValues" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_FileMD5Check" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "clc_GMod_ClientToServer" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "CLC_LASTMSG" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "RES_FATALIFMISSING" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "RES_PRELOAD" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_NONE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_NEW" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_FULL" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_STREAMS" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FRAG_FILE_STREAM" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_RATE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MIN_RATE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "DEFAULT_RATE" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_SUBCHANNELS" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_FILE_SIZE" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FLOW_OUTGOING" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "FLOW_INCOMING" );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_FLOWS" );
+
+
+
+		LUA->PushNil( );
+		LUA->SetField( -2, "MAX_CUSTOM_FILES" );
+
+	LUA->Pop( 1 );
+
+	sn4_bf_write::Deinitialize( state );
+
+	sn4_bf_read::Deinitialize( state );
+
+	NetChannel::Deinitialize( state );
+
+	subchannel::Deinitialize( state );
+
+	dataFragments::Deinitialize( state );
+
+	FileHandle::Deinitialize( state );
+
+	UCHARPTR::Deinitialize( state );
+
+	netadr::Deinitialize( state );
+
+	NetChannelHandler::Deinitialize( state );
+
+	NetworkStringTableContainer::Deinitialize( state );
+
+	NetworkStringTable::Deinitialize( state );
+
+	GameEventManager::Deinitialize( state );
+
+	GameEvent::Deinitialize( state );
+
+	Hooks::Deinitialize( state );
 
 #if defined SOURCENET_SERVER
 
-	SymbolFinder symfinder;
-
-	void *netthread = symfinder.ResolveOnBinary( engine_lib, netchunk_sig, netchunk_siglen );
-	if( netthread != nullptr )
-	{
-		BEGIN_MEMEDIT( netthread, netpatch_len );
-			memcpy( netthread, netpatch_old, netpatch_len );
-		FINISH_MEMEDIT( netthread, netpatch_len );
-	}
+	BEGIN_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+		memcpy( Global::net_thread_chunk, Global::netpatch_old, Global::netpatch_len );
+	FINISH_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
 
 #endif
 

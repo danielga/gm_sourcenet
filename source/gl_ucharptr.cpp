@@ -1,15 +1,21 @@
 #include <gl_ucharptr.hpp>
 #include <GarrysMod/Lua/LuaInterface.h>
 
-struct UCHARPTR_userdata
+namespace UCHARPTR
 {
-	UCHARPTR data;
+
+struct userdata
+{
+	uint8_t *data;
 	uint8_t type;
 	int32_t bits;
 	bool own;
 };
 
-UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data )
+const uint8_t metaid = Global::metabase + 7;
+const char *metaname = "UCHARPTR";
+
+uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 {
 	if( bits < 0 )
 		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua(
@@ -25,103 +31,154 @@ UCHARPTR Push_UCHARPTR( lua_State *state, int32_t bits, UCHARPTR data )
 			LUA->ThrowError( "failed to allocate buffer" );
 	}
 
-	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>(
-		LUA->NewUserdata( sizeof( UCHARPTR_userdata ) )
-	);
-	userdata->type = GET_META_ID( UCHARPTR );
-	userdata->data = data;
-	userdata->bits = bits;
-	userdata->own = own;
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->data = data;
+	udata->bits = bits;
+	udata->own = own;
 
-	LUA->CreateMetaTableType( GET_META_NAME( UCHARPTR ), GET_META_ID( UCHARPTR ) );
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 
 	return data;
 }
 
-UCHARPTR Get_UCHARPTR( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
+uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
 {
-	CheckType( state, index, GET_META_ID( UCHARPTR ), GET_META_NAME( UCHARPTR ) );
+	Global::CheckType( state, index, metaid, metaname );
 
-	UCHARPTR_userdata *userdata = static_cast<UCHARPTR_userdata *>( LUA->GetUserdata( index ) );
-
-	UCHARPTR ptr = userdata->data;
+	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	uint8_t *ptr = udata->data;
 	if( ptr == nullptr && !cleanup )
-		LUA->ThrowError( "invalid UCHARPTR" );
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
 
 	if( bits != nullptr )
-		*bits = userdata->bits;
+		*bits = udata->bits;
 
 	if( own != nullptr )
-		*own = userdata->own;
+		*own = udata->own;
 
 	if( cleanup )
 	{
-		userdata->data = nullptr;
-		userdata->bits = 0;
-		userdata->own = false;
+		udata->data = nullptr;
+		udata->bits = 0;
+		udata->own = false;
 	}
 
 	return ptr;
 }
 
-META_ID( UCHARPTR, 7 );
-
-META_FUNCTION( UCHARPTR, __gc )
+LUA_FUNCTION_STATIC( gc )
 {
 	bool own = false;
-	UCHARPTR data = Get_UCHARPTR( state, 1, nullptr, true, &own );
-	if( !own )
-		return 0;
+	uint8_t *data = Get( state, 1, nullptr, true, &own );
 
-	delete[] data;
+	if( own )
+		delete[] data;
 
 	return 0;
 }
 
-META_FUNCTION( UCHARPTR, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	UCHARPTR ptr1 = Get_UCHARPTR( state, 1 );
-	UCHARPTR ptr2 = Get_UCHARPTR( state, 2 );
+	uint8_t *ptr1 = Get( state, 1 );
+	uint8_t *ptr2 = Get( state, 2 );
 
 	LUA->PushBool( ptr1 == ptr2 );
 
 	return 1;
 }
 
-META_FUNCTION( UCHARPTR, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	UCHARPTR ptr = Get_UCHARPTR( state, 1 );
+	uint8_t *ptr = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( UCHARPTR ), ptr );
+	lua_pushfstring( state, "%s: 0x%p", metaname, ptr );
 
 	return 1;
 }
 
-META_FUNCTION( UCHARPTR, IsValid )
+LUA_FUNCTION_STATIC( IsValid )
 {
-	CheckType( state, 1, GET_META_ID( UCHARPTR ), GET_META_NAME( UCHARPTR ) );
+	Global::CheckType( state, 1, metaid, metaname );
 
-	LUA->PushBool( static_cast<UCHARPTR_userdata *>( LUA->GetUserdata( 1 ) )->data != nullptr );
+	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->data != nullptr );
 
 	return 1;
 }
 
-META_FUNCTION( UCHARPTR, Size )
+LUA_FUNCTION_STATIC( Size )
 {
 	int32_t bits = 0;
-	Get_UCHARPTR( state, 1, &bits );
+	Get( state, 1, &bits );
 
 	LUA->PushNumber( bits );
 
 	return 1;
 }
 
-GLBL_FUNCTION( UCHARPTR )
+LUA_FUNCTION_STATIC( Constructor )
 {
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	Push_UCHARPTR( state, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
+	Push( state, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( gc );
+		LUA->SetField( -2, "__gc" );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( IsValid );
+		LUA->SetField( -2, "IsValid" );
+
+		LUA->PushCFunction( Size );
+		LUA->SetField( -2, "Size" );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushCFunction( Constructor );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

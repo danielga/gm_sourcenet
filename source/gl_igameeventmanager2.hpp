@@ -2,13 +2,11 @@
 
 #include <main.hpp>
 
-EXT_META_ID( IGameEventManager2, 12 );
+namespace GameEventManager
+{
 
-EXT_META_FUNCTION( IGameEventManager2, __eq );
-EXT_META_FUNCTION( IGameEventManager2, __tostring );
+void Initialize( lua_State *state );
 
-EXT_META_FUNCTION( IGameEventManager2, CreateEvent );
-EXT_META_FUNCTION( IGameEventManager2, SerializeEvent );
-EXT_META_FUNCTION( IGameEventManager2, UnserializeEvent );
+void Deinitialize( lua_State *state );
 
-EXT_GLBL_FUNCTION( IGameEventManager2 );
+}

@@ -1,12 +1,18 @@
 #include <gl_filehandle_t.hpp>
 
-struct FileHandle_userdata
+namespace FileHandle
+{
+
+struct userdata
 {
 	FileHandle_t file;
 	uint8_t type;
 };
 
-void Push_FileHandle( lua_State *state, FileHandle_t file )
+const uint8_t metaid = Global::metabase + 6;
+const char *metaname = "FileHandle_t";
+
+void Push( lua_State *state, FileHandle_t file )
 {
 	if( file == nullptr )
 	{
@@ -14,39 +20,69 @@ void Push_FileHandle( lua_State *state, FileHandle_t file )
 		return;
 	}
 
-	FileHandle_userdata *userdata = static_cast<FileHandle_userdata *>(
-		LUA->NewUserdata( sizeof( FileHandle_userdata ) )
-	);
-	userdata->type = GET_META_ID( FileHandle_t );
-	userdata->file = file;
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->file = file;
 
-	LUA->CreateMetaTableType( GET_META_NAME( FileHandle_t ), GET_META_ID( FileHandle_t ) );
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 }
 
-FileHandle_t Get_FileHandle( lua_State *state, int32_t index )
+FileHandle_t Get( lua_State *state, int32_t index )
 {
-	CheckType( state, index, GET_META_ID( FileHandle_t ), GET_META_NAME( FileHandle_t ) );
-	return static_cast<FileHandle_userdata *>( LUA->GetUserdata( index ) )->file;
+	Global::CheckType( state, index, metaid, metaname );
+	return static_cast<userdata *>( LUA->GetUserdata( index ) )->file;
 }
 
-META_ID( FileHandle_t, 6 );
-
-META_FUNCTION( FileHandle_t, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	FileHandle_t handle1 = Get_FileHandle( state, 1 );
-	FileHandle_t handle2 = Get_FileHandle( state, 2 );
+	FileHandle_t handle1 = Get( state, 1 );
+	FileHandle_t handle2 = Get( state, 2 );
 
 	LUA->PushBool( handle1 == handle2 );
 
 	return 1;
 }
 
-META_FUNCTION( FileHandle_t, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	FileHandle_t ptr = Get_FileHandle( state, 1 );
+	FileHandle_t ptr = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( FileHandle_t ), ptr );
+	lua_pushfstring( state, "%s: 0x%p", metaname, ptr );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

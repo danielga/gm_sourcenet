@@ -1,124 +1,123 @@
 #include <gl_igameevent.hpp>
 #include <igameevents.h>
 
-struct IGameEvent_userdata
+namespace GameEvent
+{
+
+struct userdata
 {
 	IGameEvent *event;
 	uint8_t type;
 	IGameEventManager2 *manager;
 };
 
-void Push_IGameEvent( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
-{
-	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>(
-		LUA->NewUserdata( sizeof( IGameEvent_userdata ) )
-	);
-	userdata->type = GET_META_ID( IGameEvent );
-	userdata->event = event;
-	userdata->manager = manager;
+static const uint8_t metaid = Global::metabase + 13;
+static const char *metaname = "IGameEvent";
 
-	LUA->CreateMetaTableType( GET_META_NAME( IGameEvent ), GET_META_ID( IGameEvent ) );
+void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
+{
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->event = event;
+	udata->manager = manager;
+
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 }
 
-IGameEvent *Get_IGameEvent(
-	lua_State *state,
-	int32_t index,
-	IGameEventManager2 **manager,
-	bool cleanup
-)
+IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager, bool cleanup )
 {
-	CheckType( state, index, GET_META_ID( IGameEvent ), GET_META_NAME( IGameEvent ) );
+	Global::CheckType( state, index, metaid, metaname );
 
-	IGameEvent_userdata *userdata = static_cast<IGameEvent_userdata *>(
-		LUA->GetUserdata( index )
-	);
-	IGameEvent *event = userdata->event;
-	if( ( event == nullptr || userdata->manager == nullptr ) && !cleanup )
-		LUA->ThrowError( "invalid IGameEvent" );
+	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	IGameEvent *event = udata->event;
+	if( ( event == nullptr || udata->manager == nullptr ) && !cleanup )
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
 
 	if( manager != nullptr )
-		*manager = userdata->manager;
+		*manager = udata->manager;
 
 	if( cleanup )
 	{
-		userdata->event = nullptr;
-		userdata->manager = nullptr;
+		udata->event = nullptr;
+		udata->manager = nullptr;
 	}
 
 	return event;
 }
 
-META_ID( IGameEvent, 13 );
-
-META_FUNCTION( IGameEvent, __gc )
+LUA_FUNCTION_STATIC( gc )
 {
 	IGameEventManager2 *manager = nullptr;
-	IGameEvent *event = Get_IGameEvent( state, 1, &manager, true );
+	IGameEvent *event = Get( state, 1, &manager, true );
 
-	manager->FreeEvent( event );
+	if( manager != nullptr )
+		manager->FreeEvent( event );
 
 	return 0;
 }
 
-META_FUNCTION( IGameEvent, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	IGameEvent *event1 = Get_IGameEvent( state, 1 );
-	IGameEvent *event2 = Get_IGameEvent( state, 2 );
+	IGameEvent *event1 = Get( state, 1 );
+	IGameEvent *event2 = Get( state, 2 );
 
 	LUA->PushBool( event1 == event2 );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( IGameEvent ), event );
+	lua_pushfstring( state, "%s: 0x%p", metaname, event );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, GetName )
+LUA_FUNCTION_STATIC( GetName )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 
 	LUA->PushString( event->GetName( ) );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, IsReliable )
+LUA_FUNCTION_STATIC( IsReliable )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 
 	LUA->PushBool( event->IsReliable( ) );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, IsLocal )
+LUA_FUNCTION_STATIC( IsLocal )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 
 	LUA->PushBool( event->IsLocal( ) );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, IsEmpty )
+LUA_FUNCTION_STATIC( IsEmpty )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 
 	LUA->PushBool( event->IsEmpty( LUA->GetString( 2 ) ) );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, GetBool )
+LUA_FUNCTION_STATIC( GetBool )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushBool( event->GetBool( LUA->GetString( 2 ) ) );
@@ -126,9 +125,9 @@ META_FUNCTION( IGameEvent, GetBool )
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, GetInt )
+LUA_FUNCTION_STATIC( GetInt )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( event->GetInt( LUA->GetString( 2 ) ) );
@@ -136,9 +135,9 @@ META_FUNCTION( IGameEvent, GetInt )
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, GetFloat )
+LUA_FUNCTION_STATIC( GetFloat )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( event->GetFloat( LUA->GetString( 2 ) ) );
@@ -146,9 +145,9 @@ META_FUNCTION( IGameEvent, GetFloat )
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, GetString )
+LUA_FUNCTION_STATIC( GetString )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushString( event->GetString( LUA->GetString( 2 ) ) );
@@ -156,9 +155,9 @@ META_FUNCTION( IGameEvent, GetString )
 	return 1;
 }
 
-META_FUNCTION( IGameEvent, SetBool )
+LUA_FUNCTION_STATIC( SetBool )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::BOOL );
 
@@ -167,9 +166,9 @@ META_FUNCTION( IGameEvent, SetBool )
 	return 0;
 }
 
-META_FUNCTION( IGameEvent, SetInt )
+LUA_FUNCTION_STATIC( SetInt )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -178,9 +177,9 @@ META_FUNCTION( IGameEvent, SetInt )
 	return 0;
 }
 
-META_FUNCTION( IGameEvent, SetFloat )
+LUA_FUNCTION_STATIC( SetFloat )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -189,13 +188,83 @@ META_FUNCTION( IGameEvent, SetFloat )
 	return 0;
 }
 
-META_FUNCTION( IGameEvent, SetString )
+LUA_FUNCTION_STATIC( SetString )
 {
-	IGameEvent *event = Get_IGameEvent( state, 1 );
+	IGameEvent *event = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
 	event->SetString( LUA->GetString( 2 ), LUA->GetString( 3 ) );
 
 	return 0;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( gc );
+		LUA->SetField( -2, "__gc" );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( GetName );
+		LUA->SetField( -2, "GetName" );
+
+		LUA->PushCFunction( IsReliable );
+		LUA->SetField( -2, "IsReliable" );
+
+		LUA->PushCFunction( IsLocal );
+		LUA->SetField( -2, "IsLocal" );
+
+		LUA->PushCFunction( IsEmpty );
+		LUA->SetField( -2, "IsEmpty" );
+
+		LUA->PushCFunction( GetBool );
+		LUA->SetField( -2, "GetBool" );
+
+		LUA->PushCFunction( GetInt );
+		LUA->SetField( -2, "GetInt" );
+
+		LUA->PushCFunction( GetFloat );
+		LUA->SetField( -2, "GetFloat" );
+
+		LUA->PushCFunction( GetString );
+		LUA->SetField( -2, "GetString" );
+
+		LUA->PushCFunction( SetBool );
+		LUA->SetField( -2, "SetBool" );
+
+		LUA->PushCFunction( SetInt );
+		LUA->SetField( -2, "SetInt" );
+
+		LUA->PushCFunction( SetFloat );
+		LUA->SetField( -2, "SetFloat" );
+
+		LUA->PushCFunction( SetString );
+		LUA->SetField( -2, "SetString" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

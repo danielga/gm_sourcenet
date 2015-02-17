@@ -3,42 +3,16 @@
 #include <GarrysMod/Lua/Interface.h>
 #include <interface.h>
 #include <cstdint>
+#include <eiface.h>
+#include <cdll_int.h>
+#include <iserver.h>
 
 extern "C"
 {
 
 #include <lua.h>
-#include <lauxlib.h>
 
 }
-
-extern lua_State *global_state;
-
-extern CreateInterfaceFn fnEngineFactory;
-
-#if defined IVENGINESERVER_INTERFACE
-
-#include <eiface.h>
-
-extern IVEngineServer *g_pEngineServer;
-
-#endif
-
-#if defined IVENGINECLIENT_INTERFACE
-
-#include <cdll_int.h>
-
-extern IVEngineClient *g_pEngineClient;
-
-#endif
-
-#if defined ISERVER_INTERFACE
-
-#include <iserver.h>
-
-extern IServer *g_pServer;
-
-#endif
 
 #if defined __linux || defined __APPLE__
 
@@ -47,23 +21,46 @@ extern IServer *g_pServer;
 
 #endif
 
+#include <GarrysMod/Lua/LuaInterface.h>
+
+namespace Global
+{
+
+#if defined _WIN32
+
+static const char *engine_lib = "engine.dll";
+static const char *client_lib = "client.dll";
+static const char *server_lib = "server.dll";
+
+#elif defined __linux
+
+static const char *engine_lib = "engine.so";
+static const char *client_lib = "client.so";
+static const char *server_lib = "server.so";
+
+#elif defined __APPLE__
+
+static const char *engine_lib = "engine.dylib";
+static const char *client_lib = "client.dylib";
+static const char *server_lib = "server.dylib";
+
+#endif
+
+static const uint8_t metabase = 100;
+
+extern lua_State *lua_state;
+
+extern CreateInterfaceFn engine_factory;
+
+extern IVEngineServer *engine_server;
+
+extern IVEngineClient *engine_client;
+
+extern IServer *server;
+
+LUA_FUNCTION( index );
+LUA_FUNCTION( newindex );
+
 void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype );
 
-#define SOURCENET_META_BASE 100
-
-#define GLBL_FUNCTION( name ) LUA_FUNCTION( _G__##name )
-#define EXT_GLBL_FUNCTION( name ) extern GLBL_FUNCTION( name )
-
-#define META_FUNCTION( meta, name ) LUA_FUNCTION( meta##__##name )
-#define EXT_META_FUNCTION( meta, name ) extern META_FUNCTION( meta, name )
-
-#define	META_ID( name, id ) \
-	const uint8_t META_##name##_id = SOURCENET_META_BASE + id; \
-	const char *META_##name##_name = #name
-
-#define EXT_META_ID( name, id ) \
-	extern const uint8_t META_##name##_id; \
-	extern const char *META_##name##_name
-
-#define GET_META_ID( name ) META_##name##_id
-#define GET_META_NAME( name ) META_##name##_name
+}

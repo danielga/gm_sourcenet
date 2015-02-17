@@ -4,11 +4,18 @@
 
 typedef void *FileHandle_t;
 
-void Push_FileHandle( lua_State *state, FileHandle_t file );
+namespace FileHandle
+{
 
-FileHandle_t Get_FileHandle( lua_State *state, int32_t index );
+extern const uint8_t metaid;
+extern const char *metaname;
 
-EXT_META_ID( FileHandle_t, 6 );
+void Push( lua_State *state, FileHandle_t file );
 
-EXT_META_FUNCTION( FileHandle_t, __eq );
-EXT_META_FUNCTION( FileHandle_t, __tostring );
+FileHandle_t Get( lua_State *state, int32_t index );
+
+void Initialize( lua_State *state );
+
+void Deinitialize( lua_State *state );
+
+}

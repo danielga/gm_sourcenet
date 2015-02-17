@@ -1,38 +1,43 @@
 #include <gl_netadr_t.hpp>
 #include <netadr.h>
 
-struct netadr_userdata
+namespace netadr
+{
+
+struct userdata
 {
 	netadr_t *pnetadr;
 	uint8_t type;
 	netadr_t netadr;
 };
 
-void Push_netadr( lua_State *state, const netadr_t &netadr )
-{
-	netadr_userdata *userdata = static_cast<netadr_userdata *>(
-		LUA->NewUserdata( sizeof( netadr_userdata ) )
-	);
-	userdata->type = GET_META_ID( netadr_t );
-	userdata->pnetadr = &userdata->netadr;
-	new( &userdata->netadr ) netadr_t( netadr );
+static const uint8_t metaid = Global::metabase + 8;
+static const char *metaname = "netadr_t";
 
-	LUA->CreateMetaTableType( GET_META_NAME( netadr_t ), GET_META_ID( netadr_t ) );
+void Push( lua_State *state, const netadr_t &netadr )
+{
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->pnetadr = &udata->netadr;
+	new( &udata->netadr ) netadr_t( netadr );
+
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 }
 
-static netadr_t *Get_netadr( lua_State *state, int32_t index )
+static netadr_t *Get( lua_State *state, int32_t index )
 {
-	CheckType( state, index, GET_META_ID( netadr_t ), GET_META_NAME( netadr_t ) );
-	return static_cast<netadr_userdata *>( LUA->GetUserdata( index ) )->pnetadr;
+	Global::CheckType( state, index, metaid, metaname );
+	return static_cast<userdata *>( LUA->GetUserdata( index ) )->pnetadr;
 }
 
-META_ID( netadr_t, 8 );
-
-META_FUNCTION( netadr_t, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	netadr_t *adr1 = Get_netadr( state, 1 );
-	netadr_t *adr2 = Get_netadr( state, 2 );
+	netadr_t *adr1 = Get( state, 1 );
+	netadr_t *adr2 = Get( state, 2 );
 
 	bool baseonly = false;
 	if( LUA->IsType( 3, GarrysMod::Lua::Type::BOOL ) )
@@ -43,9 +48,9 @@ META_FUNCTION( netadr_t, __eq )
 	return 1;
 }
 
-META_FUNCTION( netadr_t, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	bool baseonly = false;
 	if( LUA->IsType( 2, GarrysMod::Lua::Type::BOOL ) )
@@ -56,45 +61,45 @@ META_FUNCTION( netadr_t, __tostring )
 	return 1;
 }
 
-META_FUNCTION( netadr_t, IsLocalhost )
+LUA_FUNCTION_STATIC( IsLocalhost )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushBool( adr->IsLocalhost( ) );
 
 	return 1;
 }
 
-META_FUNCTION( netadr_t, IsLoopback )
+LUA_FUNCTION_STATIC( IsLoopback )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushBool( adr->IsLoopback( ) );
 
 	return 1;
 }
 
-META_FUNCTION( netadr_t, IsReservedAdr )
+LUA_FUNCTION_STATIC( IsReservedAdr )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushBool( adr->IsReservedAdr( ) );
 
 	return 1;
 }
 
-META_FUNCTION( netadr_t, IsValid )
+LUA_FUNCTION_STATIC( IsValid )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushBool( adr->IsValid( ) );
 
 	return 1;
 }
 
-META_FUNCTION( netadr_t, GetIP )
+LUA_FUNCTION_STATIC( GetIP )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushString( adr->ToString( true ) );
 	LUA->PushNumber( adr->GetIPHostByteOrder( ) );
@@ -102,20 +107,72 @@ META_FUNCTION( netadr_t, GetIP )
 	return 2;
 }
 
-META_FUNCTION( netadr_t, GetPort )
+LUA_FUNCTION_STATIC( GetPort )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushNumber( adr->GetPort( ) );
 
 	return 1;
 }
 
-META_FUNCTION( netadr_t, GetType )
+LUA_FUNCTION_STATIC( GetType )
 {
-	netadr_t *adr = Get_netadr( state, 1 );
+	netadr_t *adr = Get( state, 1 );
 
 	LUA->PushNumber( adr->GetType( ) );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( IsLocalhost );
+		LUA->SetField( -2, "IsLocalhost" );
+
+		LUA->PushCFunction( IsLoopback );
+		LUA->SetField( -2, "IsLoopback" );
+
+		LUA->PushCFunction( IsReservedAdr );
+		LUA->SetField( -2, "IsReservedAdr" );
+
+		LUA->PushCFunction( IsValid );
+		LUA->SetField( -2, "IsValid" );
+
+		LUA->PushCFunction( GetIP );
+		LUA->SetField( -2, "GetIP" );
+
+		LUA->PushCFunction( GetPort );
+		LUA->SetField( -2, "GetPort" );
+
+		LUA->PushCFunction( GetType );
+		LUA->SetField( -2, "GetType" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

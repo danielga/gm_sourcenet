@@ -1,54 +1,82 @@
 #include <gl_inetchannelhandler.hpp>
 
-struct INetChannelHandler_userdata
+namespace NetChannelHandler
+{
+
+struct userdata
 {
 	INetChannelHandler *handler;
 	uint8_t type;
 };
 
-void Push_INetChannelHandler( lua_State *state, INetChannelHandler *handler )
-{
-	INetChannelHandler_userdata *userdata = static_cast<INetChannelHandler_userdata *>(
-		LUA->NewUserdata( sizeof( INetChannelHandler_userdata ) )
-	);
-	userdata->type = GET_META_ID( INetChannelHandler );
-	userdata->handler = handler;
+const uint8_t metaid = Global::metabase + 9;
+const char *metaname = "INetChannelHandler";
 
-	LUA->CreateMetaTableType(
-		GET_META_NAME( INetChannelHandler ),
-		GET_META_ID( INetChannelHandler )
-	);
+void Push( lua_State *state, INetChannelHandler *handler )
+{
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->handler = handler;
+
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
 }
 
-INetChannelHandler *Get_INetChannelHandler( lua_State *state, int32_t index )
+INetChannelHandler *Get( lua_State *state, int32_t index )
 {
-	CheckType(
-		state,
-		index,
-		GET_META_ID( INetChannelHandler ),
-		GET_META_NAME( INetChannelHandler )
-	);
-	return static_cast<INetChannelHandler_userdata *>( LUA->GetUserdata( index ) )->handler;
+	Global::CheckType( state, index, metaid, metaname );
+	return static_cast<userdata *>( LUA->GetUserdata( index ) )->handler;
 }
 
-META_ID( INetChannelHandler, 9 );
-
-META_FUNCTION( INetChannelHandler, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	INetChannelHandler *handler1 = Get_INetChannelHandler( state, 1 );
-	INetChannelHandler *handler2 = Get_INetChannelHandler( state, 2 );
+	INetChannelHandler *handler1 = Get( state, 1 );
+	INetChannelHandler *handler2 = Get( state, 2 );
 
 	LUA->PushBool( handler1 == handler2 );
 
 	return 1;
 }
 
-META_FUNCTION( INetChannelHandler, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	INetChannelHandler *handler = Get_INetChannelHandler( state, 1 );
+	INetChannelHandler *handler = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( INetChannelHandler ), handler );
+	lua_pushfstring( state, "%s: 0x%p", metaname, handler );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

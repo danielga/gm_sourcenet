@@ -2,62 +2,65 @@
 #include <gl_ucharptr.hpp>
 #include <bitbuf.h>
 
-struct sn4_bf_write_userdata
+namespace sn4_bf_write
 {
-	sn4_bf_write *pwriter;
+
+struct userdata
+{
+	bf_write *pwriter;
 	uint8_t type;
-	sn4_bf_write writer;
+	bf_write writer;
 	int32_t bufref;
 };
 
-sn4_bf_write **Push_sn4_bf_write( lua_State *state, sn4_bf_write *writer, int32_t bufref )
+static const uint8_t metaid = Global::metabase + 1;
+static const char *metaname = "sn4_bf_write";
+
+bf_write **Push( lua_State *state, bf_write *writer, int32_t bufref )
 {
-	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>(
-		LUA->NewUserdata( sizeof( sn4_bf_write_userdata ) )
-	);
-	userdata->type = GET_META_ID( sn4_bf_write );
-	userdata->bufref = bufref;
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->bufref = bufref;
 
 	if( writer == nullptr )
-		userdata->pwriter = new( &userdata->writer ) sn4_bf_write;
+		udata->pwriter = new( &udata->writer ) bf_write;
 	else
-		userdata->pwriter = writer;
+		udata->pwriter = writer;
 
-	LUA->CreateMetaTableType( GET_META_NAME( sn4_bf_write ), GET_META_ID( sn4_bf_write ) );
+	LUA->CreateMetaTableType( metaname, metaid );
 	LUA->SetMetaTable( -2 );
 
-	return &userdata->pwriter;
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
+
+	return &udata->pwriter;
 }
 
-sn4_bf_write *Get_sn4_bf_write( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
+bf_write *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	CheckType( state, index, GET_META_ID( sn4_bf_write ), GET_META_NAME( sn4_bf_write ) );
+	Global::CheckType( state, index, metaid, metaname );
 
-	sn4_bf_write_userdata *userdata = static_cast<sn4_bf_write_userdata *>(
-		LUA->GetUserdata( index )
-	);
-	sn4_bf_write *writer = userdata->pwriter;
+	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	bf_write *writer = udata->pwriter;
 	if( writer == nullptr && !cleanup )
-		LUA->ThrowError( "invalid sn4_bf_write" );
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
 
 	if( bufref != nullptr )
-		*bufref = userdata->bufref;
+		*bufref = udata->bufref;
 
 	if( cleanup )
 	{
-		userdata->pwriter = nullptr;
-		userdata->bufref = -1;
+		udata->pwriter = nullptr;
+		udata->bufref = -1;
 	}
 
 	return writer;
 }
 
-META_ID( sn4_bf_write, 1 );
-
-META_FUNCTION( sn4_bf_write, __gc )
+LUA_FUNCTION_STATIC( gc )
 {
 	int32_t bufref = -1;
-	Get_sn4_bf_write( state, 1, &bufref, true );
+	Get( state, 1, &bufref, true );
 
 	if( bufref != -1 )
 		LUA->ReferenceFree( bufref );
@@ -65,105 +68,104 @@ META_FUNCTION( sn4_bf_write, __gc )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, __eq )
+LUA_FUNCTION_STATIC( eq )
 {
-	sn4_bf_write *buf1 = Get_sn4_bf_write( state, 1 );
-	sn4_bf_write *buf2 = Get_sn4_bf_write( state, 2 );
+	bf_write *buf1 = Get( state, 1 );
+	bf_write *buf2 = Get( state, 2 );
 
 	LUA->PushBool( buf1 == buf2 );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( sn4_bf_write ), buf );
+	lua_pushfstring( state, "%s: 0x%p", metaname, buf );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, IsValid )
+LUA_FUNCTION_STATIC( IsValid )
 {
-	CheckType( state, 1, GET_META_ID( sn4_bf_write ), GET_META_NAME( sn4_bf_write ) );
+	Global::CheckType( state, 1, metaid, metaname );
 
-	void *userdata = LUA->GetUserdata( 1 );
-	LUA->PushBool( static_cast<sn4_bf_write_userdata *>( userdata )->pwriter != nullptr );
+	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->pwriter != nullptr );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetBasePointer )
+LUA_FUNCTION_STATIC( GetBasePointer )
 {
 	int32_t bufref = -1;
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1, &bufref );
+	bf_write *buf = Get( state, 1, &bufref );
 
 	if( bufref != -1 )
 		LUA->ReferencePush( bufref );
 	else
-		Push_UCHARPTR( state, buf->m_nDataBits, buf->GetBasePointer( ) );
+		UCHARPTR::Push( state, buf->m_nDataBits, buf->GetBasePointer( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetMaxNumBits )
+LUA_FUNCTION_STATIC( GetMaxNumBits )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushNumber( buf->GetMaxNumBits( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetNumBitsWritten )
+LUA_FUNCTION_STATIC( GetNumBitsWritten )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBitsWritten( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetNumBytesWritten )
+LUA_FUNCTION_STATIC( GetNumBytesWritten )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBytesWritten( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetNumBitsLeft )
+LUA_FUNCTION_STATIC( GetNumBitsLeft )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBitsLeft( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, GetNumBytesLeft )
+LUA_FUNCTION_STATIC( GetNumBytesLeft )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushNumber( buf->GetNumBytesLeft( ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, IsOverflowed )
+LUA_FUNCTION_STATIC( IsOverflowed )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 
 	LUA->PushBool( buf->IsOverflowed() );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, Seek )
+LUA_FUNCTION_STATIC( Seek )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->SeekToBit( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -171,9 +173,9 @@ META_FUNCTION( sn4_bf_write, Seek )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteBitAngle )
+LUA_FUNCTION_STATIC( WriteBitAngle )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -182,9 +184,9 @@ META_FUNCTION( sn4_bf_write, WriteBitAngle )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteAngle )
+LUA_FUNCTION_STATIC( WriteAngle )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::ANGLE );
 
 	buf->WriteBitAngles( *static_cast<QAngle *>(
@@ -194,20 +196,20 @@ META_FUNCTION( sn4_bf_write, WriteAngle )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteBits )
+LUA_FUNCTION_STATIC( WriteBits )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	int32_t bits = 0;
-	UCHARPTR ptr = Get_UCHARPTR( state, 2, &bits );
+	uint8_t *ptr = UCHARPTR::Get( state, 2, &bits );
 
 	LUA->PushBool( buf->WriteBits( ptr, bits ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, WriteVector )
+LUA_FUNCTION_STATIC( WriteVector )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
 	buf->WriteBitVec3Coord( *static_cast<Vector *>(
@@ -217,9 +219,9 @@ META_FUNCTION( sn4_bf_write, WriteVector )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteNormal )
+LUA_FUNCTION_STATIC( WriteNormal )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
 	buf->WriteBitVec3Normal( *static_cast<Vector *>(
@@ -229,9 +231,9 @@ META_FUNCTION( sn4_bf_write, WriteNormal )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteByte )
+LUA_FUNCTION_STATIC( WriteByte )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteByte( static_cast<uint8_t>( LUA->GetNumber( 2 ) ) );
@@ -239,20 +241,20 @@ META_FUNCTION( sn4_bf_write, WriteByte )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteBytes )
+LUA_FUNCTION_STATIC( WriteBytes )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	int32_t bits = 0;
-	UCHARPTR ptr = Get_UCHARPTR( state, 2, &bits );
+	uint8_t *ptr = UCHARPTR::Get( state, 2, &bits );
 
 	LUA->PushBool( buf->WriteBytes( ptr, BitByte( bits ) ) );
 
 	return 1;
 }
 
-META_FUNCTION( sn4_bf_write, WriteChar )
+LUA_FUNCTION_STATIC( WriteChar )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteChar( static_cast<int8_t>( LUA->GetNumber( 2 ) ) );
@@ -260,9 +262,9 @@ META_FUNCTION( sn4_bf_write, WriteChar )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteFloat )
+LUA_FUNCTION_STATIC( WriteFloat )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteFloat( LUA->GetNumber( 2 ) );
@@ -270,9 +272,9 @@ META_FUNCTION( sn4_bf_write, WriteFloat )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteDouble )
+LUA_FUNCTION_STATIC( WriteDouble )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	const double num = LUA->GetNumber( 2 );
@@ -281,9 +283,9 @@ META_FUNCTION( sn4_bf_write, WriteDouble )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteLong )
+LUA_FUNCTION_STATIC( WriteLong )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteLong( static_cast<long>( LUA->GetNumber( 2 ) ) );
@@ -291,9 +293,9 @@ META_FUNCTION( sn4_bf_write, WriteLong )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteLongLong )
+LUA_FUNCTION_STATIC( WriteLongLong )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteLongLong( static_cast<int64_t>( LUA->GetNumber( 2 ) ) );
@@ -301,9 +303,9 @@ META_FUNCTION( sn4_bf_write, WriteLongLong )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteBit )
+LUA_FUNCTION_STATIC( WriteBit )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteOneBit( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -311,9 +313,9 @@ META_FUNCTION( sn4_bf_write, WriteBit )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteShort )
+LUA_FUNCTION_STATIC( WriteShort )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteShort( static_cast<int16_t>( LUA->GetNumber( 2 ) ) );
@@ -321,9 +323,9 @@ META_FUNCTION( sn4_bf_write, WriteShort )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteString )
+LUA_FUNCTION_STATIC( WriteString )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	buf->WriteString( LUA->GetString( 2 ) );
@@ -331,9 +333,9 @@ META_FUNCTION( sn4_bf_write, WriteString )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteInt )
+LUA_FUNCTION_STATIC( WriteInt )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -345,9 +347,9 @@ META_FUNCTION( sn4_bf_write, WriteInt )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteUInt )
+LUA_FUNCTION_STATIC( WriteUInt )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -359,9 +361,9 @@ META_FUNCTION( sn4_bf_write, WriteUInt )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteWord )
+LUA_FUNCTION_STATIC( WriteWord )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteWord( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -369,9 +371,9 @@ META_FUNCTION( sn4_bf_write, WriteWord )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteSignedVarInt32 )
+LUA_FUNCTION_STATIC( WriteSignedVarInt32 )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteSignedVarInt32( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -379,9 +381,9 @@ META_FUNCTION( sn4_bf_write, WriteSignedVarInt32 )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteVarInt32 )
+LUA_FUNCTION_STATIC( WriteVarInt32 )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteVarInt32( static_cast<uint32_t>( LUA->GetNumber( 2 ) ) );
@@ -389,9 +391,9 @@ META_FUNCTION( sn4_bf_write, WriteVarInt32 )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteSignedVarInt64 )
+LUA_FUNCTION_STATIC( WriteSignedVarInt64 )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteSignedVarInt64( static_cast<int64_t>( LUA->GetNumber( 2 ) ) );
@@ -399,9 +401,9 @@ META_FUNCTION( sn4_bf_write, WriteSignedVarInt64 )
 	return 0;
 }
 
-META_FUNCTION( sn4_bf_write, WriteVarInt64 )
+LUA_FUNCTION_STATIC( WriteVarInt64 )
 {
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 1 );
+	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	buf->WriteVarInt64( static_cast<uint64_t>( LUA->GetNumber( 2 ) ) );
@@ -409,14 +411,155 @@ META_FUNCTION( sn4_bf_write, WriteVarInt64 )
 	return 0;
 }
 
-GLBL_FUNCTION( sn4_bf_write )
+LUA_FUNCTION_STATIC( Constructor )
 {
 	int32_t bits = 0;
-	UCHARPTR ptr = Get_UCHARPTR( state, 1, &bits );
+	uint8_t *ptr = UCHARPTR::Get( state, 1, &bits );
 
 	LUA->Push( 1 );
-	sn4_bf_write *writer = *Push_sn4_bf_write( state, nullptr, LUA->ReferenceCreate( ) );
+	bf_write *writer = *Push( state, nullptr, LUA->ReferenceCreate( ) );
 	writer->StartWriting( ptr, BitByte( bits ), 0, bits );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( gc );
+		LUA->SetField( -2, "__gc" );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( IsValid );
+		LUA->SetField( -2, "IsValid" );
+
+		LUA->PushCFunction( GetBasePointer );
+		LUA->SetField( -2, "GetBasePointer" );
+
+		LUA->PushCFunction( GetMaxNumBits );
+		LUA->SetField( -2, "GetMaxNumBits" );
+
+		LUA->PushCFunction( GetNumBitsWritten );
+		LUA->SetField( -2, "GetNumBitsWritten" );
+
+		LUA->PushCFunction( GetNumBytesWritten );
+		LUA->SetField( -2, "GetNumBytesWritten" );
+
+		LUA->PushCFunction( GetNumBitsLeft );
+		LUA->SetField( -2, "GetNumBitsLeft" );
+
+		LUA->PushCFunction( GetNumBytesLeft );
+		LUA->SetField( -2, "GetNumBytesLeft" );
+
+		LUA->PushCFunction( IsOverflowed );
+		LUA->SetField( -2, "IsOverflowed" );
+
+		LUA->PushCFunction( Seek );
+		LUA->SetField( -2, "Seek" );
+
+		LUA->PushCFunction( WriteBitAngle );
+		LUA->SetField( -2, "WriteBitAngle" );
+
+		LUA->PushCFunction( WriteAngle );
+		LUA->SetField( -2, "WriteAngle" );
+
+		LUA->PushCFunction( WriteBits );
+		LUA->SetField( -2, "WriteBits" );
+
+		LUA->PushCFunction( WriteVector );
+		LUA->SetField( -2, "WriteVector" );
+
+		LUA->PushCFunction( WriteNormal );
+		LUA->SetField( -2, "WriteNormal" );
+
+		LUA->PushCFunction( WriteByte );
+		LUA->SetField( -2, "WriteByte" );
+
+		LUA->PushCFunction( WriteBytes );
+		LUA->SetField( -2, "WriteBytes" );
+
+		LUA->PushCFunction( WriteChar );
+		LUA->SetField( -2, "WriteChar" );
+
+		LUA->PushCFunction( WriteFloat );
+		LUA->SetField( -2, "WriteFloat" );
+
+		LUA->PushCFunction( WriteDouble );
+		LUA->SetField( -2, "WriteDouble" );
+
+		LUA->PushCFunction( WriteLong );
+		LUA->SetField( -2, "WriteLong" );
+
+		LUA->PushCFunction( WriteLongLong );
+		LUA->SetField( -2, "WriteLongLong" );
+
+		LUA->PushCFunction( WriteBit );
+		LUA->SetField( -2, "WriteBit" );
+
+		LUA->PushCFunction( WriteShort );
+		LUA->SetField( -2, "WriteShort" );
+
+		LUA->PushCFunction( WriteString );
+		LUA->SetField( -2, "WriteString" );
+
+		LUA->PushCFunction( WriteInt );
+		LUA->SetField( -2, "WriteInt" );
+
+		LUA->PushCFunction( WriteUInt );
+		LUA->SetField( -2, "WriteUInt" );
+
+		LUA->PushCFunction( WriteWord );
+		LUA->SetField( -2, "WriteWord" );
+
+		LUA->PushCFunction( WriteSignedVarInt32 );
+		LUA->SetField( -2, "WriteSignedVarInt32" );
+
+		LUA->PushCFunction( WriteVarInt32 );
+		LUA->SetField( -2, "WriteVarInt32" );
+
+		LUA->PushCFunction( WriteSignedVarInt64 );
+		LUA->SetField( -2, "WriteSignedVarInt64" );
+
+		LUA->PushCFunction( WriteVarInt64 );
+		LUA->SetField( -2, "WriteVarInt64" );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushCFunction( Constructor );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }

@@ -4,11 +4,15 @@
 
 class INetChannelHandler;
 
-void Push_INetChannelHandler( lua_State *state, INetChannelHandler *handler );
+namespace NetChannelHandler
+{
 
-INetChannelHandler *Get_INetChannelHandler( lua_State *state, int32_t index );
+void Push( lua_State *state, INetChannelHandler *handler );
 
-EXT_META_ID( INetChannelHandler, 9 );
+INetChannelHandler *Get( lua_State *state, int32_t index );
 
-EXT_META_FUNCTION( INetChannelHandler, __eq );
-EXT_META_FUNCTION( INetChannelHandler, __tostring );
+void Initialize( lua_State *state );
+
+void Deinitialize( lua_State *state );
+
+}

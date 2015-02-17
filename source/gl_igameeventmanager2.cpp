@@ -1,104 +1,158 @@
-#include <gl_igameeventmanager2.hpp>
+#include <main.hpp>
 #include <gl_igameevent.hpp>
 #include <gl_bitbuf_read.hpp>
 #include <gl_bitbuf_write.hpp>
 #include <igameevents.h>
 
-struct IGameEventManager2_userdata
+namespace GameEventManager
+{
+
+struct userdata
 {
 	IGameEventManager2 *manager;
 	uint8_t type;
 };
 
-static void Push_IGameEventManager2( lua_State *state, IGameEventManager2 *manager )
-{
-	IGameEventManager2_userdata *userdata = static_cast<IGameEventManager2_userdata *>(
-		LUA->NewUserdata( sizeof( IGameEventManager2_userdata ) )
-	);
-	userdata->type = GET_META_ID( IGameEventManager2 );
-	userdata->manager = manager;
+static const uint8_t metaid = Global::metabase + 12;
+static const char *metaname = "IGameEventManager2";
 
-	LUA->CreateMetaTableType(
-		GET_META_NAME( IGameEventManager2 ),
-		GET_META_ID( IGameEventManager2 )
-	);
-	LUA->SetMetaTable( -2 );
+static int32_t manager_ref = -1;
+
+static IGameEventManager2 *Get( lua_State *state, int32_t index )
+{
+	Global::CheckType( state, index, metaid, metaname );
+	return static_cast<userdata *>( LUA->GetUserdata( index ) )->manager;
 }
 
-static IGameEventManager2 *Get_IGameEventManager2( lua_State *state, int32_t index )
+LUA_FUNCTION_STATIC( eq )
 {
-	CheckType(
-		state,
-		index,
-		GET_META_ID( IGameEventManager2 ),
-		GET_META_NAME( IGameEventManager2 )
-	);
-	return static_cast<IGameEventManager2_userdata *>( LUA->GetUserdata( index ) )->manager;
-}
-
-META_ID( IGameEventManager2, 12 );
-
-META_FUNCTION( IGameEventManager2, __eq )
-{
-	Get_IGameEventManager2( state, 1 );
-	Get_IGameEventManager2( state, 2 );
+	Get( state, 1 );
+	Get( state, 2 );
 
 	LUA->PushBool( true );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEventManager2, __tostring )
+LUA_FUNCTION_STATIC( tostring )
 {
-	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
+	IGameEventManager2 *manager = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", GET_META_NAME( IGameEventManager2 ), manager );
+	lua_pushfstring( state, "%s: 0x%p", metaname, manager );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEventManager2, CreateEvent )
+LUA_FUNCTION_STATIC( CreateEvent )
 {
-	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
+	IGameEventManager2 *manager = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	IGameEvent *event = manager->CreateEvent( LUA->GetString( 2 ), true );
 
-	Push_IGameEvent( state, event, manager );
+	GameEvent::Push( state, event, manager );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEventManager2, SerializeEvent )
+LUA_FUNCTION_STATIC( SerializeEvent )
 {
-	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
-	IGameEvent *event = Get_IGameEvent( state, 2 );
-	sn4_bf_write *buf = Get_sn4_bf_write( state, 3 );
+	IGameEventManager2 *manager = Get( state, 1 );
+	IGameEvent *event = GameEvent::Get( state, 2 );
+	bf_write *buf = sn4_bf_write::Get( state, 3 );
 
 	LUA->PushBool( manager->SerializeEvent( event, buf ) );
 
 	return 1;
 }
 
-META_FUNCTION( IGameEventManager2, UnserializeEvent )
+LUA_FUNCTION_STATIC( UnserializeEvent )
 {
-	IGameEventManager2 *manager = Get_IGameEventManager2( state, 1 );
-	sn4_bf_read *buf = Get_sn4_bf_read( state, 2 );
+	IGameEventManager2 *manager = Get( state, 1 );
+	bf_read *buf = sn4_bf_read::Get( state, 2 );
 
 	IGameEvent *event = manager->UnserializeEvent( buf );
 
-	Push_IGameEvent( state, event, manager );
+	GameEvent::Push( state, event, manager );
 
 	return 1;
 }
 
-GLBL_FUNCTION( IGameEventManager2 )
+LUA_FUNCTION_STATIC( Constructor )
 {
-	IGameEventManager2 *manager = static_cast<IGameEventManager2 *>(
-		fnEngineFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr )
-	);
-
-	Push_IGameEventManager2( state, manager );
+	LUA->ReferencePush( manager_ref );
 
 	return 1;
+}
+
+void Initialize( lua_State *state )
+{
+	IGameEventManager2 *manager = static_cast<IGameEventManager2 *>(
+		Global::engine_factory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr )
+	);
+
+	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
+	udata->type = metaid;
+	udata->manager = manager;
+
+	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( state, -2 );
+
+	manager_ref = LUA->ReferenceCreate( );
+
+	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( eq );
+		LUA->SetField( -2, "__eq" );
+
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "__tostring" );
+
+		LUA->PushCFunction( Global::index );
+		LUA->SetField( -2, "__index" );
+
+		LUA->PushCFunction( Global::newindex );
+		LUA->SetField( -2, "__newindex" );
+
+		LUA->PushCFunction( CreateEvent );
+		LUA->SetField( -2, "CreateEvent" );
+
+		LUA->PushCFunction( SerializeEvent );
+		LUA->SetField( -2, "SerializeEvent" );
+
+		LUA->PushCFunction( UnserializeEvent );
+		LUA->SetField( -2, "UnserializeEvent" );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushCFunction( Constructor );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
+void Deinitialize( lua_State *state )
+{
+	LUA->ReferenceFree( manager_ref );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+}
+
 }
