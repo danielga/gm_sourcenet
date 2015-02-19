@@ -39,7 +39,7 @@ static subchannel_t *Get( lua_State *state, int32_t index )
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	if( !IsValid( udata->subchan, udata->netchan ) )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	return udata->subchan;
 }

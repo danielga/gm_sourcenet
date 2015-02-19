@@ -21,8 +21,6 @@ extern "C"
 
 #endif
 
-#include <GarrysMod/Lua/LuaInterface.h>
-
 namespace Global
 {
 
@@ -62,5 +60,7 @@ LUA_FUNCTION( index );
 LUA_FUNCTION( newindex );
 
 void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype );
+
+void ThrowError( lua_State *state, const char *fmt, ... );
 
 }

@@ -43,7 +43,7 @@ bf_write *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	bf_write *writer = udata->pwriter;
 	if( writer == nullptr && !cleanup )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
@@ -158,7 +158,7 @@ LUA_FUNCTION_STATIC( IsOverflowed )
 {
 	bf_write *buf = Get( state, 1 );
 
-	LUA->PushBool( buf->IsOverflowed() );
+	LUA->PushBool( buf->IsOverflowed( ) );
 
 	return 1;
 }
@@ -179,7 +179,11 @@ LUA_FUNCTION_STATIC( WriteBitAngle )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	buf->WriteBitAngle( LUA->GetNumber( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
+	if( bits < 0 )
+		Global::ThrowError( state, "invalid number of bits to write (%d is less than 0)", bits );
+
+	buf->WriteBitAngle( LUA->GetNumber( 2 ), bits );
 
 	return 0;
 }
@@ -278,9 +282,9 @@ LUA_FUNCTION_STATIC( WriteDouble )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	const double num = LUA->GetNumber( 2 );
-	buf->WriteBits( &num, sizeof( double ) * 8 );
+	LUA->PushBool( buf->WriteBits( &num, sizeof( double ) * 8 ) );
 
-	return 0;
+	return 1;
 }
 
 LUA_FUNCTION_STATIC( WriteLong )
@@ -328,9 +332,9 @@ LUA_FUNCTION_STATIC( WriteString )
 	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	buf->WriteString( LUA->GetString( 2 ) );
+	LUA->PushBool( buf->WriteString( LUA->GetString( 2 ) ) );
 
-	return 0;
+	return 1;
 }
 
 LUA_FUNCTION_STATIC( WriteInt )
@@ -339,10 +343,15 @@ LUA_FUNCTION_STATIC( WriteInt )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	buf->WriteSBitLong(
-		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
-		static_cast<int32_t>( LUA->GetNumber( 3 ) )
-	);
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
+	if( bits < 0 || bits > 32 )
+		Global::ThrowError(
+			state,
+			"invalid number of bits to write (%d is not between 0 and 32)",
+			bits
+		);
+
+	buf->WriteSBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ), bits );
 
 	return 0;
 }
@@ -353,10 +362,15 @@ LUA_FUNCTION_STATIC( WriteUInt )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	buf->WriteUBitLong(
-		static_cast<uint32_t>( LUA->GetNumber( 2 ) ),
-		static_cast<int32_t>( LUA->GetNumber( 3 ) )
-	);
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
+	if( bits < 0 || bits > 32 )
+		Global::ThrowError(
+			state,
+			"invalid number of bits to write (%d is not between 0 and 32)",
+			bits
+		);
+
+	buf->WriteUBitLong( static_cast<uint32_t>( LUA->GetNumber( 2 ) ), bits );
 
 	return 0;
 }

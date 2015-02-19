@@ -55,7 +55,7 @@ dataFragments_t *Get( lua_State *state, int32_t index, CNetChan **netchan, bool 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	dataFragments_t *datafrag = udata->datafrag;
 	if( !IsValid( datafrag, udata->netchan ) && !cleanup )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;

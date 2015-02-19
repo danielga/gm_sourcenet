@@ -18,6 +18,7 @@
 #include <gl_inetworkstringtable.hpp>
 #include <gl_igameeventmanager2.hpp>
 #include <gl_igameevent.hpp>
+#include <gl_inetmessage.hpp>
 #include <symbolfinder.hpp>
 
 extern "C"
@@ -172,6 +173,15 @@ void CheckType( lua_State *state, int32_t index, int32_t type, const char *namet
 {
 	if( !LUA->IsType( index, type ) )
 		luaL_typerror( state, index, nametype );
+}
+
+void ThrowError( lua_State *state, const char *fmt, ... )
+{
+	va_list args;
+	va_start( args, fmt );
+	const char *error = lua_pushvfstring( state, fmt, args );
+	va_end( args );
+	LUA->ThrowError( error );
 }
 
 }
@@ -534,6 +544,8 @@ GMOD_MODULE_OPEN( )
 
 	GameEvent::Initialize( state );
 
+	NetMessage::Initialize( state );
+
 	Hooks::Initialize( state );
 
 	return 0;
@@ -827,6 +839,8 @@ GMOD_MODULE_CLOSE( )
 	GameEventManager::Deinitialize( state );
 
 	GameEvent::Deinitialize( state );
+
+	NetMessage::Deinitialize( state );
 
 	Hooks::Deinitialize( state );
 

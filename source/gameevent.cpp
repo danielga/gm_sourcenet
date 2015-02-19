@@ -35,7 +35,7 @@ IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager, 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	IGameEvent *event = udata->event;
 	if( ( event == nullptr || udata->manager == nullptr ) && !cleanup )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( manager != nullptr )
 		*manager = udata->manager;

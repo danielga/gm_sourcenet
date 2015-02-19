@@ -1,5 +1,4 @@
 #include <gl_ucharptr.hpp>
-#include <GarrysMod/Lua/LuaInterface.h>
 
 namespace UCHARPTR
 {
@@ -18,8 +17,10 @@ const char *metaname = "UCHARPTR";
 uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 {
 	if( bits < 0 )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua(
-			"invalid amount of bits for a buffer (requested %d, less than zero)", bits
+		Global::ThrowError(
+			state,
+			"invalid amount of bits for a buffer (%d is less than zero)",
+			bits
 		);
 
 	bool own = false;
@@ -53,7 +54,7 @@ uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	uint8_t *ptr = udata->data;
 	if( ptr == nullptr && !cleanup )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( bits != nullptr )
 		*bits = udata->bits;
@@ -120,6 +121,17 @@ LUA_FUNCTION_STATIC( Size )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( Copy )
+{
+	int32_t bits = 0;
+	uint8_t *src = Get( state, 1, &bits );
+
+	uint8_t *data = Push( state, bits );
+	memcpy( data, src, ( bits + 7 ) >> 3 );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( Constructor )
 {
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
@@ -153,6 +165,9 @@ void Initialize( lua_State *state )
 
 		LUA->PushCFunction( Size );
 		LUA->SetField( -2, "Size" );
+
+		LUA->PushCFunction( Copy );
+		LUA->SetField( -2, "Copy" );
 
 	LUA->Pop( 1 );
 

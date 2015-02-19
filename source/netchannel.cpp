@@ -8,8 +8,11 @@
 #include <gl_datafragments_t.hpp>
 #include <gl_bitbuf_write.hpp>
 #include <gl_netadr_t.hpp>
+#include <gl_hooks.hpp>
+#include <gl_inetmessage.hpp>
 #include <net.h>
 #include <inetmessage.h>
+#include <unordered_map>
 
 namespace NetChannel
 {
@@ -23,12 +26,14 @@ struct userdata
 static const uint8_t metaid = Global::metabase + 3;
 static const char *metaname = "CNetChan";
 
+static std::unordered_map<CNetChan *, int32_t> netchannels;
+
 bool IsValid( CNetChan *netchan )
 {
 	if( netchan == nullptr )
 		return false;
 
-	for( int32_t i = 1; i <= Global::server->GetClientCount( ); ++i )
+	/*for( int32_t i = 1; i <= Global::server->GetClientCount( ); ++i )
 		if( netchan == Global::engine_server->GetPlayerNetInfo( i ) )
 			return true;
 
@@ -36,7 +41,9 @@ bool IsValid( CNetChan *netchan )
 		netchan == Global::engine_client->GetNetChannelInfo( ) )
 		return true;
 
-	return false;
+	return false;*/
+
+	return netchannels.find( netchan ) != netchannels.end( );
 }
 
 void Push( lua_State *state, CNetChan *netchan )
@@ -47,6 +54,16 @@ void Push( lua_State *state, CNetChan *netchan )
 		return;
 	}
 
+	auto it = netchannels.find( netchan );
+	if( it != netchannels.end( ) )
+	{
+		//Msg( "Pushed CNetChan from reference %i\n", ( *it ).second );
+		LUA->ReferencePush( ( *it ).second );
+		return;
+	}
+
+	//Msg( "Created reference to CNetChan from object 0x%p\n", netchan );
+
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
 	udata->netchan = netchan;
@@ -56,6 +73,11 @@ void Push( lua_State *state, CNetChan *netchan )
 
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
+
+	LUA->Push( -1 );
+	netchannels[netchan] = LUA->ReferenceCreate( );
+
+	Hooks::HookCNetChan( state, netchan );
 }
 
 CNetChan *Get( lua_State *state, int32_t index )
@@ -64,20 +86,22 @@ CNetChan *Get( lua_State *state, int32_t index )
 
 	CNetChan *netchan = static_cast<userdata *>( LUA->GetUserdata( index ) )->netchan;
 	if( !IsValid( netchan ) )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	return netchan;
 }
 
-inline int32_t VerifyStream( lua_State *state, int32_t stream )
+void Destroy( lua_State *state, CNetChan *netchan )
 {
-	if( stream < 0 || stream >= MAX_STREAMS )
+	auto it = netchannels.find( netchan );
+	if( it != netchannels.end( ) )
 	{
-		LUA->PushNil( );
-		return 1;
+		//Msg( "Destroyed CNetChan reference %i\n", ( *it ).second );
+		LUA->ReferenceFree( ( *it ).second );
+		netchannels.erase( it );
 	}
-
-	return 0;
+	//else
+	//	Msg( "Tried to destroy CNetChan reference from object 0x%p\n", netchan );
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -108,7 +132,7 @@ LUA_FUNCTION_STATIC( IsValid )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( DumpMessages )
+LUA_FUNCTION_STATIC( DumpNetMessages )
 {
 	CNetChan *netchan = Get( state, 1 );
 	for( int32_t i = 0; i < netchan->netmessages.Count( ); ++i )
@@ -118,6 +142,29 @@ LUA_FUNCTION_STATIC( DumpMessages )
 	}
 
 	return 0;
+}
+
+LUA_FUNCTION_STATIC( GetNetMessageNum )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->netmessages.Count( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( GetNetMessage )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	int32_t idx = static_cast<int32_t>( LUA->GetNumber( 2 ) ) - 1;
+	if( idx < 0 || idx >= netchan->netmessages.Count( ) )
+		LUA->ThrowError( "invalid netmessage index" );
+
+	NetMessage::Push( state, netchan->netmessages.Element( idx ), netchan );
+
+	return 1;
 }
 
 LUA_FUNCTION_STATIC( Reset )
@@ -203,8 +250,8 @@ LUA_FUNCTION_STATIC( GetOutgoingQueueSize )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
-	VerifyStream( state, stream );
+	if( stream < 0 || stream >= MAX_STREAMS )
+		return 0;
 
 	LUA->PushNumber( netchan->waitlist[stream].Count( ) );
 
@@ -218,17 +265,12 @@ LUA_FUNCTION_STATIC( GetOutgoingQueueFragments )
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
-	int32_t ret = VerifyStream( state, stream );
-	if( ret != 0 )
-		return ret;
+	if( stream < 0 || stream >= MAX_STREAMS )
+		return 0;
 
 	int32_t offset = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( offset < 0 || offset >= netchan->waitlist[stream].Count( ) )
-	{
-		LUA->PushNil( );
-		return 1;
-	}
+		return 0;
 
 	dataFragments::Push( state, netchan->waitlist[stream].Element( offset ), netchan );
 
@@ -241,10 +283,8 @@ LUA_FUNCTION_STATIC( QueueOutgoingFragments )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
-	int32_t ret = VerifyStream( state, stream );
-	if( ret != 0 )
-		return ret;
+	if( stream < 0 || stream >= MAX_STREAMS )
+		return 0;
 
 	dataFragments_t *fragments = dataFragments::Get( state, 3 );
 
@@ -259,10 +299,8 @@ LUA_FUNCTION_STATIC( GetIncomingFragments )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
-	int32_t ret = VerifyStream( state, stream );
-	if( ret != 0 )
-		return ret;
+	if( stream < 0 || stream >= MAX_STREAMS )
+		return 0;
 
 	dataFragments::Push( state, &netchan->recvlist[stream], netchan );
 
@@ -772,8 +810,14 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( IsValid );
 		LUA->SetField( -2, "IsValid" );
 
-		LUA->PushCFunction( DumpMessages );
-		LUA->SetField( -2, "DumpMessages" );
+		LUA->PushCFunction( DumpNetMessages );
+		LUA->SetField( -2, "DumpNetMessages" );
+
+		LUA->PushCFunction( GetNetMessageNum );
+		LUA->SetField( -2, "GetNetMessageNum" );
+
+		LUA->PushCFunction( GetNetMessage );
+		LUA->SetField( -2, "GetNetMessage" );
 
 		LUA->PushCFunction( Reset );
 		LUA->SetField( -2, "Reset" );

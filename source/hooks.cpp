@@ -15,6 +15,7 @@
 #include <inetmsghandler.h>
 #include <sstream>
 #include <symbolfinder.hpp>
+#include <GarrysMod/Lua/LuaInterface.h>
 
 namespace Hooks
 {
@@ -244,6 +245,8 @@ void VFUNC CNetChan_Shutdown_D( CNetChan *netchan, const char *reason )
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
+	NetChannel::Destroy( Global::lua_state, netchan );
+
 	CNetChan_Shutdown_O( netchan, reason );
 
 	INIT_HOOK( "PostNetChannelShutdown" );
@@ -287,6 +290,8 @@ void VFUNC INetChannelHandler_ConnectionClosing_D(
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
+	NetChannelHandler::Destroy( Global::lua_state, handler );
+
 	INetChannelHandler_ConnectionClosing_O( handler, reason );
 }
 
@@ -307,6 +312,8 @@ void VFUNC INetChannelHandler_ConnectionCrashed_D(
 		DO_HOOK( LUA->PushString( reason ) );
 		CALL_HOOK( 0 );
 	END_HOOK( );
+
+	NetChannelHandler::Destroy( Global::lua_state, handler );
 
 	INetChannelHandler_ConnectionCrashed_O( handler, reason );
 }
@@ -437,7 +444,7 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, bf_read &buf )
 #endif
 
 {
-	static uint8_t data[96000] = { 0 };
+	static uint8_t data[100000] = { 0 };
 	if( !buf.IsOverflowed( ) )
 	{
 		memcpy( data, buf.m_pData, buf.GetNumBytesRead( ) );
@@ -476,7 +483,7 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, bf_read &buf )
 
 MONITOR_HOOK( CNetChan_ProcessMessages );
 
-LUA_FUNCTION( Attach__CNetChan_ProcessMessages )
+LUA_FUNCTION_STATIC( Attach__CNetChan_ProcessMessages )
 {
 	if( !IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
@@ -494,7 +501,7 @@ LUA_FUNCTION( Attach__CNetChan_ProcessMessages )
 	return 0;
 }
 
-LUA_FUNCTION( Detach__CNetChan_ProcessMessages )
+LUA_FUNCTION_STATIC( Detach__CNetChan_ProcessMessages )
 {
 	if( IS_ATTACHED( CNetChan_ProcessMessages ) )
 	{
@@ -504,6 +511,11 @@ LUA_FUNCTION( Detach__CNetChan_ProcessMessages )
 		REGISTER_DETACH( CNetChan_ProcessMessages );
 	}
 
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( Empty )
+{
 	return 0;
 }
 
@@ -537,7 +549,8 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Attach__CNetChan_Shutdown );
 		LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
 
-		LUA->PushCFunction( Detach__CNetChan_Shutdown );
+		//LUA->PushCFunction( Detach__CNetChan_Shutdown );
+		LUA->PushCFunction( Empty );
 		LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
 
 		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionStart );
@@ -549,13 +562,15 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
 		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
+		//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
+		LUA->PushCFunction( Empty );
 		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
 
 		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
 		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
+		//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
+		LUA->PushCFunction( Empty );
 		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
 
 		LUA->PushCFunction( Attach__INetChannelHandler_PacketStart );
@@ -570,8 +585,8 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Detach__INetChannelHandler_PacketEnd );
 		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+		LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
 		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
 		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
@@ -665,7 +680,7 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
 
 		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
 		LUA->PushNil( );
 		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
@@ -689,6 +704,24 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
 
 	LUA->Pop( 1 );
+}
+
+void HookCNetChan( lua_State *state, CNetChan *netchan )
+{
+	LUA->PushCFunction( Attach__CNetChan_Shutdown );
+	LUA->Push( -2 );
+	LUA->Call( 1, 0 );
+}
+
+void HookINetChannelHandler( lua_State *state, INetChannelHandler *handler )
+{
+	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
+	LUA->Push( -2 );
+	LUA->Call( 1, 0 );
+
+	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
+	LUA->Push( -2 );
+	LUA->Call( 1, 0 );
 }
 
 }

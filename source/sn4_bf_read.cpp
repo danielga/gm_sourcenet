@@ -43,7 +43,7 @@ bf_read *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	bf_read *reader = udata->preader;
 	if( udata->preader == nullptr && !cleanup )
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorFromLua( "invalid %s", metaname );
+		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
@@ -212,7 +212,11 @@ LUA_FUNCTION_STATIC( ReadBitAngle )
 	bf_read *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->Push( buf->ReadBitAngle( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+	if( bits < 0 )
+		Global::ThrowError( state, "invalid number of bits to read (%d is less than 0)", bits );
+
+	LUA->Push( buf->ReadBitAngle( bits ) );
 
 	return 1;
 }
@@ -294,9 +298,9 @@ LUA_FUNCTION_STATIC( ReadBytes )
 
 	uint8_t *data = UCHARPTR::Push( state, bytes * 8 );
 
-	buf->ReadBytes( data, bytes );
+	LUA->PushBool( buf->ReadBytes( data, bytes ) );
 
-	return 1;
+	return 2;
 }
 
 LUA_FUNCTION_STATIC( ReadChar )
@@ -368,14 +372,13 @@ LUA_FUNCTION_STATIC( ReadString )
 {
 	bf_read *buf = Get( state, 1 );
 
-	char str[1024] = { 0 };
+	char str[2048] = { 0 };
+	bool success = buf->ReadString( str, sizeof( str ) );
 
-	if( buf->ReadString( str, sizeof( str ) ) )
-		LUA->PushString( str );
-	else
-		LUA->PushNil( );
+	LUA->PushString( str );
+	LUA->PushBool( success );
 
-	return 1;
+	return 2;
 }
 
 LUA_FUNCTION_STATIC( ReadInt )
@@ -383,7 +386,15 @@ LUA_FUNCTION_STATIC( ReadInt )
 	bf_read *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushNumber( buf->ReadSBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+	if( bits < 0 || bits > 32 )
+		Global::ThrowError(
+			state,
+			"invalid number of bits to read (%d is not between 0 and 32)",
+			bits
+		);
+
+	LUA->PushNumber( buf->ReadSBitLong( bits ) );
 
 	return 1;
 }
@@ -393,7 +404,15 @@ LUA_FUNCTION_STATIC( ReadUInt )
 	bf_read *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	LUA->PushNumber( buf->ReadUBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
+	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+	if( bits < 0 || bits > 32 )
+		Global::ThrowError(
+			state,
+			"invalid number of bits to read (%d is not between 0 and 32)",
+			bits
+		);
+
+	LUA->PushNumber( buf->ReadUBitLong( bits ) );
 
 	return 1;
 }
@@ -544,10 +563,10 @@ void Initialize( lua_State *state )
 		LUA->SetField( -2, "ReadBit" );
 
 		LUA->PushCFunction( ReadShort );
-		LUA->SetField( -2, "WriteShort" );
+		LUA->SetField( -2, "ReadShort" );
 
 		LUA->PushCFunction( ReadString );
-		LUA->SetField( -2, "WriteString" );
+		LUA->SetField( -2, "ReadString" );
 
 		LUA->PushCFunction( ReadInt );
 		LUA->SetField( -2, "ReadInt" );
