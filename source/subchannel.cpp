@@ -1,6 +1,6 @@
-#include <gl_subchannel_t.hpp>
-#include <gl_cnetchan.hpp>
-#include <net.h>
+#include <subchannel.hpp>
+#include <netchannel.hpp>
+#include <net.hpp>
 
 namespace subchannel
 {

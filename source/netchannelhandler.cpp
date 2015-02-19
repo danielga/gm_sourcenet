@@ -1,5 +1,5 @@
-#include <gl_inetchannelhandler.hpp>
-#include <gl_hooks.hpp>
+#include <netchannelhandler.hpp>
+#include <hooks.hpp>
 #include <unordered_map>
 
 namespace NetChannelHandler

@@ -1,5 +1,5 @@
-#include <gl_inetworkstringtablecontainer.hpp>
-#include <gl_inetworkstringtable.hpp>
+#include <networkstringtablecontainer.hpp>
+#include <networkstringtable.hpp>
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTableContainer

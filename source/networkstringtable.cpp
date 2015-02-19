@@ -1,4 +1,4 @@
-#include <gl_inetworkstringtable.hpp>
+#include <networkstringtable.hpp>
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTable

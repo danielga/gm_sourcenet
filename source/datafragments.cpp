@@ -1,7 +1,7 @@
-#include <gl_datafragments_t.hpp>
-#include <gl_filehandle_t.hpp>
-#include <gl_ucharptr.hpp>
-#include <gl_cnetchan.hpp>
+#include <datafragments.hpp>
+#include <filehandle.hpp>
+#include <ucharptr.hpp>
+#include <netchannel.hpp>
 
 extern "C"
 {

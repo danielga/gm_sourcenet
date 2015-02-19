@@ -1,4 +1,4 @@
-#include <gl_netadr_t.hpp>
+#include <netadr.hpp>
 #include <netadr.h>
 
 namespace netadr

@@ -1,7 +1,7 @@
 #include <main.hpp>
-#include <gl_igameevent.hpp>
-#include <gl_bitbuf_read.hpp>
-#include <gl_bitbuf_write.hpp>
+#include <gameevent.hpp>
+#include <sn4_bf_read.hpp>
+#include <sn4_bf_write.hpp>
 #include <igameevents.h>
 
 namespace GameEventManager

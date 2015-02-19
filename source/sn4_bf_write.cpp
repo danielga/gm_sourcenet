@@ -1,5 +1,5 @@
-#include <gl_bitbuf_write.hpp>
-#include <gl_ucharptr.hpp>
+#include <sn4_bf_write.hpp>
+#include <ucharptr.hpp>
 #include <bitbuf.h>
 
 namespace sn4_bf_write

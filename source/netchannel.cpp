@@ -2,15 +2,15 @@
 #define IVENGINECLIENT_INTERFACE
 #define ISERVER_INTERFACE
 
-#include <gl_cnetchan.hpp>
-#include <gl_inetchannelhandler.hpp>
-#include <gl_subchannel_t.hpp>
-#include <gl_datafragments_t.hpp>
-#include <gl_bitbuf_write.hpp>
-#include <gl_netadr_t.hpp>
-#include <gl_hooks.hpp>
-#include <gl_inetmessage.hpp>
-#include <net.h>
+#include <netchannel.hpp>
+#include <netchannelhandler.hpp>
+#include <subchannel.hpp>
+#include <datafragments.hpp>
+#include <sn4_bf_write.hpp>
+#include <netadr.hpp>
+#include <hooks.hpp>
+#include <netmessage.hpp>
+#include <net.hpp>
 #include <inetmessage.h>
 #include <unordered_map>
 

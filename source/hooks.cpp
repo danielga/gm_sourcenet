@@ -3,14 +3,14 @@
 
 #include <detours.h>
 #include <vfnhook.h>
-#include <gl_hooks.hpp>
-#include <gl_cnetchan.hpp>
-#include <gl_inetchannelhandler.hpp>
-#include <gl_ucharptr.hpp>
-#include <gl_bitbuf_read.hpp>
-#include <gl_bitbuf_write.hpp>
-#include <net.h>
-#include <protocol.h>
+#include <hooks.hpp>
+#include <netchannel.hpp>
+#include <netchannelhandler.hpp>
+#include <ucharptr.hpp>
+#include <sn4_bf_read.hpp>
+#include <sn4_bf_write.hpp>
+#include <net.hpp>
+#include <protocol.hpp>
 #include <inetmessage.h>
 #include <inetmsghandler.h>
 #include <sstream>

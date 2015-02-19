@@ -1,4 +1,4 @@
-#include <gl_ucharptr.hpp>
+#include <ucharptr.hpp>
 
 namespace UCHARPTR
 {

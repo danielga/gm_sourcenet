@@ -1,8 +1,8 @@
-#include <gl_inetmessage.hpp>
-#include <gl_bitbuf_write.hpp>
-#include <gl_bitbuf_read.hpp>
-#include <gl_cnetchan.hpp>
-#include <net.h>
+#include <netmessage.hpp>
+#include <sn4_bf_write.hpp>
+#include <sn4_bf_read.hpp>
+#include <netchannel.hpp>
+#include <net.hpp>
 #include <inetmessage.h>
 
 namespace NetMessage

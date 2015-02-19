@@ -1,4 +1,4 @@
-#include <gl_igameevent.hpp>
+#include <gameevent.hpp>
 #include <igameevents.h>
 
 namespace GameEvent
