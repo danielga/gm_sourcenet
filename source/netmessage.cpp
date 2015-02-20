@@ -265,6 +265,25 @@ static bool PossibleVTable( uint8_t first, uint8_t second )
 	return false;
 }
 
+inline bool IsEndOfFunction( uintptr_t code )
+{
+
+#if defined _WIN32
+
+	return code == 0xCCCCCCCC;
+
+#elif defined __linux
+
+	return code == 0x5FC9FFE0 || code == 0x500CC9C3;
+
+#elif defined __APPLE__
+
+	return code == 0x8901C366 || code == 0x5F5B5DC3;
+
+#endif
+
+}
+
 static void ResolveMessagesFromFunctionCode( uint8_t *funcCode )
 {
 	if( funcCode == nullptr )
@@ -272,21 +291,7 @@ static void ResolveMessagesFromFunctionCode( uint8_t *funcCode )
 
 	for(
 		uintptr_t code = *reinterpret_cast<uintptr_t *>( funcCode );
-
-#if defined _WIN32
-
-		code != 0xCCCCCCCC;
-
-#elif defined __linux
-
-		code != 0x5FC9FFE0 && code != 0x500CC9C3;
-
-#elif defined __APPLE__
-
-		code != 0x8901C366 && code != 0x5F5B5DC3;
-
-#endif 
-
+		IsEndOfFunction( code );
 		code = *reinterpret_cast<uintptr_t *>( funcCode )
 	)
 	{

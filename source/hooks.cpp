@@ -29,7 +29,7 @@ static const size_t CNetChan_ProcessMessages_siglen = 10;
 
 #elif defined __linux
 
-typedef bool ( *CNetChan_ProcessMessages_T )( NetChan *netchan, bf_read &buf );
+typedef bool ( *CNetChan_ProcessMessages_T )( CNetChan *netchan, bf_read &buf );
 
 static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
 static const size_t CNetChan_ProcessMessages_siglen = 0;
@@ -126,7 +126,7 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 	{ \
 		if( !IS_ATTACHED( name ) ) \
 		{ \
-			meta *temp = namespc##::Get( state, 1 ); \
+			meta *temp = namespc::Get( state, 1 ); \
 			meta##_vtable = VTBL( temp ); \
 			HOOKVFUNC( temp, offset, name##_O, name##_D ); \
 			REGISTER_ATTACH( name ); \
@@ -188,7 +188,7 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, bf_write *data )
 
 SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_SendDatagram, 46 );
 
-#else
+#elif defined __linux || defined __APPLE__
 
 SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_SendDatagram, 47 );
 
@@ -219,7 +219,7 @@ void VFUNC CNetChan_ProcessPacket_D( CNetChan *netchan, netpacket_t *packet, boo
 
 SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_ProcessPacket, 39 );
 
-#else
+#elif defined __linux || defined __APPLE__
 
 SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_ProcessPacket, 40 );
 

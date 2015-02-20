@@ -42,16 +42,10 @@ namespace Global
 #define BEGIN_MEMEDIT( addr, size ) \
 { \
 	DWORD previous = 0; \
-	VirtualProtect( addr, \
-			size, \
-			PAGE_EXECUTE_READWRITE, \
-			&previous )
+	VirtualProtect( addr, size, PAGE_EXECUTE_READWRITE, &previous )
 
 #define FINISH_MEMEDIT( addr, size ) \
-	VirtualProtect( addr, \
-			size, \
-			previous, \
-			nullptr ); \
+	VirtualProtect( addr, size, previous, nullptr ); \
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
@@ -80,12 +74,10 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 #define BEGIN_MEMEDIT( addr, size ) \
 { \
 	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( PageAlign( addr, page ), \
-			page, PROT_EXEC | PROT_READ | PROT_WRITE )
+	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ | PROT_WRITE )
 
 #define FINISH_MEMEDIT( addr, size ) \
-	mprotect( PageAlign( addr, page ), \
-			page, PROT_EXEC | PROT_READ ); \
+	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ ); \
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x7D\x88\xC7\x85\x78\xFF";
@@ -93,7 +85,7 @@ static const size_t IServer_siglen = 16;
 
 static const size_t netpatch_len = 6;
 static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
+static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xFF\x74\x2A\x8B\x47\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
 static const size_t netchunk_siglen = 16;
@@ -114,12 +106,10 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 #define BEGIN_MEMEDIT( addr, size ) \
 { \
 	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( PageAlign( addr, page ), \
-			page, PROT_EXEC | PROT_READ | PROT_WRITE )
+	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ | PROT_WRITE )
 
 #define FINISH_MEMEDIT( addr, size ) \
-	mprotect( PageAlign( addr, page ), \
-			page, PROT_EXEC | PROT_READ ); \
+	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ ); \
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
@@ -127,7 +117,7 @@ static const size_t IServer_siglen = 16;
 
 static const size_t netpatch_len = 6;
 static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\90";
+static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xD2\x74\x2A\x8B\x42\x0C\x83\xC0\x07\xC1\xf8\x03\x85";
 static const size_t netchunk_siglen = 16;
@@ -137,7 +127,7 @@ static const size_t netchunk_siglen = 16;
 lua_State *lua_state = nullptr;
 
 static CDllDemandLoader engine_loader( engine_lib );
-static void *net_thread_chunk = nullptr;
+static uint8_t *net_thread_chunk = nullptr;
 CreateInterfaceFn engine_factory = nullptr;
 
 IVEngineServer *engine_server = nullptr;
@@ -211,9 +201,9 @@ GMOD_MODULE_OPEN( )
 
 	SymbolFinder symfinder;
 
-	IServer **pserver = reinterpret_cast<IServer **>(
-		symfinder.ResolveOnBinary( Global::engine_lib, Global::IServer_sig, Global::IServer_siglen )
-	);
+	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
+		Global::engine_lib, Global::IServer_sig, Global::IServer_siglen
+	) );
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
 
@@ -225,9 +215,9 @@ GMOD_MODULE_OPEN( )
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
-	Global::net_thread_chunk = symfinder.ResolveOnBinary(
+	Global::net_thread_chunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib, Global::netchunk_sig, Global::netchunk_siglen
-	);
+	) );
 	if( Global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
