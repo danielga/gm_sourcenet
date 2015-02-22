@@ -7,6 +7,7 @@
 #include <net.hpp>
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
+#include <hde.h>
 
 namespace NetMessage
 {
@@ -300,45 +301,47 @@ LUA_FUNCTION_STATIC( Constructor )
 	return 1;
 }
 
-inline bool IsEndOfFunction( uint8_t *funcCode )
+inline bool IsEndOfFunction( const hde32s &hs )
 {
-
-	uintptr_t ops = *reinterpret_cast<uintptr_t *>( funcCode );
 
 #if defined _WIN32
 
-	return ops == 0xCCCCCCCC;
+	return hs.opcode == 0xC3 || hs.opcode == 0xC2;
 
 #elif defined __linux
 
-	return ops == 0x5FC9FFE0 || ops == 0x500CC9C3;
+	return hs.opcode == 0xC9;
 
 #elif defined __APPLE__
 
-	return ops == 0x8901C366 || ops == 0x5F5B5DC3;
+	return hs.opcode == 0xC3;
 
 #endif
 
 }
 
-inline bool PossibleVTable( uint8_t first, uint8_t second )
+inline bool PossibleVTable( const hde32s &hs )
 {
+	if( hs.len != 6 )
+		return false;
+
+	uint8_t opcode = hs.opcode, modrm = hs.modrm;
 
 #if defined _WIN32
 
-	return first == 0xC7 && ( second == 0x00 || second == 0x06 || second == 0x07 );
+	return opcode == 0xC7 && ( modrm == 0x00 || modrm == 0x06 || modrm == 0x07 );
 
 #elif defined __linux
 
-	return first == 0xC7 && ( second == 0x00 || second == 0x02 || second == 0x03 || second == 0x06 );
+	return opcode == 0xC7 && ( modrm == 0x00 || modrm == 0x02 || modrm == 0x03 || modrm == 0x06 );
 
 #elif defined __APPLE__
 
-	if( first == 0x8D && ( second == 0x80 ) )
+	if( opcode == 0x8D && ( modrm == 0x80 ) )
 		return true;
 
-	return first == 0x8B && ( second == 0x80 || second == 0x83 || second == 0x87 || second == 0x8A ||
-		second == 0x8B || second == 0x8E || second == 0x8F || second == 0x97 );
+	return opcode == 0x8B && ( modrm == 0x80 || modrm == 0x83 || modrm == 0x87 || modrm == 0x8A ||
+		modrm == 0x8B || modrm == 0x8E || modrm == 0x8F || modrm == 0x97 );
 
 #endif
 
@@ -347,62 +350,41 @@ inline bool PossibleVTable( uint8_t first, uint8_t second )
 static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
 	CNetMessage *msg = new CNetMessage;
-	Msg( "Constructed\n" );
 	void **msgvtable = msg->GetVTable( );
-	Msg( "Got original VTable\n" );
-	while( !IsEndOfFunction( funcCode ) )
-	{
-		uint8_t first = *funcCode;
-		uint8_t second = *++funcCode;
-		if( PossibleVTable( first, second ) )
-		{
-			Msg( "Possible VTable\n" );
-			void **vtable = *reinterpret_cast<void ***>( ++funcCode );
-			Msg( "Got VTable\n" );
-			msg->InstallVTable( vtable );
-			Msg( "Installed VTable\n" );
 
-			Msg( "Found netmessage %s\n", msg->GetName( ) );
+	hde32s hs;
+	for(
+		uint32_t len = hde32_disasm( funcCode, &hs );
+		!IsEndOfFunction( hs );
+		funcCode += len, len = hde32_disasm( funcCode, &hs )
+	)
+		if( PossibleVTable( hs ) )
+		{
+			void **vtable = reinterpret_cast<void **>( hs.imm.imm32 );
+			msg->InstallVTable( vtable );
 
 			int32_t type = msg->GetType( );
 			if( netmessages_vtables.find( type ) == netmessages_vtables.end( ) )
 				netmessages_vtables[type] = vtable;
-
-			funcCode += 4;
 		}
-	}
 
-	Msg( "Installing original VTable\n" );
 	msg->InstallVTable( msgvtable );
-	Msg( "Installed VTable\n" );
 	delete msg;
-	Msg( "Deleted netmessage\n" );
 }
 
 void PreInitialize( lua_State *state )
 {
-	Msg( "PreInitialize\n" );
-
 	SymbolFinder symfinder;
-
-	Msg( "ResolveOnBinary\n" );
 
 	uint8_t *CBaseClientState_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib,
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen
 	) );
-
-	Msg( "%p\n", CBaseClientState_ConnectionStart );
-
 	if( CBaseClientState_ConnectionStart == nullptr )
 		LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
 
-	Msg( "Before ResolveMessagesFromFunctionCode\n" );
-
 	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
-
-	Msg( "After ResolveMessagesFromFunctionCode\n" );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib,
