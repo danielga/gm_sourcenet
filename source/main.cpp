@@ -77,8 +77,17 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ ); \
 }
 
-static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x7D\x88\xC7\x85\x78\xFF";
-static const size_t IServer_siglen = 16;
+#if defined SOURCENET_SERVER
+
+static const char *IServer_sig = "@sv";
+static const size_t IServer_siglen = 0;
+
+#elif defined SOURCENET_CLIENT
+
+static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8D\x5D\x80\xC7";
+static const size_t IServer_siglen = 13;
+
+#endif
 
 static const size_t netpatch_len = 6;
 static char netpatch_old[netpatch_len] = { 0 };
@@ -207,7 +216,7 @@ GMOD_MODULE_OPEN( )
 	Global::server = *pserver;
 	if( Global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
-	
+
 #if defined SOURCENET_SERVER
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
@@ -224,6 +233,10 @@ GMOD_MODULE_OPEN( )
 	FINISH_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
 
 #endif
+
+	NetMessage::PreInitialize( state );
+
+	Hooks::PreInitialize( state );
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 

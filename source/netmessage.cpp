@@ -27,11 +27,23 @@ static const uintptr_t CLC_CmdKeyValues_offset = 858;
 
 #elif defined __linux
 
+#if defined SOURCENET_SERVER
+
+static const char *CBaseClientState_ConnectionStart_sig = "@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
+static const size_t CBaseClientState_ConnectionStart_siglen = 0;
+
+static const char *CBaseClient_ConnectionStart_sig = "@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
+static const size_t CBaseClient_ConnectionStart_siglen = 0;
+
+#elif defined SOURCENET_CLIENT
+
 static const char *CBaseClientState_ConnectionStart_sig = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D";
 static const size_t CBaseClientState_ConnectionStart_siglen = 11;
 
 static const char *CBaseClient_ConnectionStart_sig = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D";
 static const size_t CBaseClient_ConnectionStart_siglen = 11;
+
+#endif
 
 static const uintptr_t SVC_CreateStringTable_offset = 576;
 
@@ -65,6 +77,7 @@ struct userdata
 const uint8_t metaid = Global::metabase + 14;
 const char *metaname = "INetMessage";
 
+static std::unordered_map<int32_t, void **> netmessages_vtables;
 static std::unordered_map< CNetChan *, std::unordered_map<INetMessage *, int32_t> > netmessages;
 static std::unordered_map<int32_t, int32_t> static_netmessages;
 
@@ -333,47 +346,72 @@ inline bool PossibleVTable( uint8_t first, uint8_t second )
 
 static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
-	if( funcCode == nullptr )
-		return;
-
 	CNetMessage *msg = new CNetMessage;
+	Msg( "Constructed\n" );
 	void **msgvtable = msg->GetVTable( );
+	Msg( "Got original VTable\n" );
 	while( !IsEndOfFunction( funcCode ) )
-		if( PossibleVTable( *funcCode++, *funcCode ) )
+	{
+		uint8_t first = *funcCode;
+		uint8_t second = *++funcCode;
+		if( PossibleVTable( first, second ) )
 		{
+			Msg( "Possible VTable\n" );
 			void **vtable = *reinterpret_cast<void ***>( ++funcCode );
+			Msg( "Got VTable\n" );
 			msg->InstallVTable( vtable );
+			Msg( "Installed VTable\n" );
+
+			Msg( "Found netmessage %s\n", msg->GetName( ) );
 
 			int32_t type = msg->GetType( );
-			if( static_netmessages.find( type ) == static_netmessages.end( ) )
-			{
-				Push( state, CreateNetMessage( type, vtable ) );
-				static_netmessages[type] = LUA->ReferenceCreate( );
-			}
+			if( netmessages_vtables.find( type ) == netmessages_vtables.end( ) )
+				netmessages_vtables[type] = vtable;
 
 			funcCode += 4;
 		}
+	}
 
+	Msg( "Installing original VTable\n" );
 	msg->InstallVTable( msgvtable );
+	Msg( "Installed VTable\n" );
 	delete msg;
+	Msg( "Deleted netmessage\n" );
 }
 
-void Initialize( lua_State *state )
+void PreInitialize( lua_State *state )
 {
+	Msg( "PreInitialize\n" );
+
 	SymbolFinder symfinder;
+
+	Msg( "ResolveOnBinary\n" );
 
 	uint8_t *CBaseClientState_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib,
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen
 	) );
+
+	Msg( "%p\n", CBaseClientState_ConnectionStart );
+
+	if( CBaseClientState_ConnectionStart == nullptr )
+		LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
+
+	Msg( "Before ResolveMessagesFromFunctionCode\n" );
+
 	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
+
+	Msg( "After ResolveMessagesFromFunctionCode\n" );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib,
 		CBaseClient_ConnectionStart_sig,
 		CBaseClient_ConnectionStart_siglen
 	) );
+	if( CBaseClient_ConnectionStart == nullptr )
+		LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
+
 	ResolveMessagesFromFunctionCode( state, CBaseClient_ConnectionStart );
 
 	uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
@@ -396,7 +434,10 @@ void Initialize( lua_State *state )
 	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
 		CLC_CmdKeyValues + 4 + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
 	) );
+}
 
+void Initialize( lua_State *state )
+{
 	LUA->CreateMetaTableType( metaname, metaid );
 
 		LUA->PushCFunction( gc );
@@ -455,6 +496,12 @@ void Initialize( lua_State *state )
 		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
+
+	for( auto pair : netmessages_vtables )
+	{
+		Push( state, CreateNetMessage( pair.first, pair.second ) );
+		static_netmessages[pair.first] = LUA->ReferenceCreate( );
+	}
 }
 
 void Deinitialize( lua_State *state )

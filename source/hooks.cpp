@@ -29,8 +29,17 @@ static const size_t CNetChan_ProcessMessages_siglen = 10;
 
 typedef bool ( *CNetChan_ProcessMessages_T )( CNetChan *netchan, bf_read &buf );
 
+#if defined SOURCENET_SERVER
+
 static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
 static const size_t CNetChan_ProcessMessages_siglen = 0;
+
+#elif defined SOURCENET_CLIENT
+
+static const char *CNetChan_ProcessMessages_sig = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x35\x2A\x2A\x2A\x2A\x8B";
+static const size_t CNetChan_ProcessMessages_siglen = 16;
+
+#endif
 
 #elif defined __APPLE__
 
@@ -517,7 +526,7 @@ LUA_FUNCTION_STATIC( Empty )
 	return 0;
 }
 
-void Initialize( lua_State *state )
+void PreInitialize( lua_State *state )
 {
 	SymbolFinder symfinder;
 
@@ -529,7 +538,10 @@ void Initialize( lua_State *state )
 		) );
 	if( CNetChan_ProcessMessages_O == nullptr )
 		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
+}
 
+void Initialize( lua_State *state )
+{
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
 		LUA->PushCFunction( Attach__CNetChan_ProcessPacket );

@@ -19,6 +19,8 @@ INetMessage *Get(
 
 void Destroy( lua_State *state, CNetChan *netchan );
 
+void PreInitialize( lua_State *state );
+
 void Initialize( lua_State *state );
 
 void Deinitialize( lua_State *state );

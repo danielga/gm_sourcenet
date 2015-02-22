@@ -32,9 +32,19 @@ static const char *server_lib = "server.dll";
 
 #elif defined __linux
 
-static const char *engine_lib = "engine.so";
-static const char *client_lib = "client.so";
-static const char *server_lib = "server.so";
+#if defined SOURCENET_SERVER
+
+static const char *engine_lib = "bin/engine_srv.so";
+static const char *server_lib = "garrysmod/bin/server_srv.so";
+
+#elif defined SOURCENET_CLIENT
+
+static const char *engine_lib = "bin/engine.so";
+static const char *server_lib = "garrysmod/bin/server.so";
+
+#endif
+
+static const char *client_lib = "garrysmod/bin/client.so";
 
 #elif defined __APPLE__
 
