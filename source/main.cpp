@@ -1,6 +1,3 @@
-﻿#define IVENGINESERVER_INTERFACE
-#define IVENGINECLIENT_INTERFACE
-
 #include <main.hpp>
 #include <net.hpp>
 #include <protocol.hpp>

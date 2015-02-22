@@ -1,7 +1,3 @@
-#define IVENGINESERVER_INTERFACE
-#define IVENGINECLIENT_INTERFACE
-#define ISERVER_INTERFACE
-
 #include <netchannel.hpp>
 #include <netchannelhandler.hpp>
 #include <subchannel.hpp>

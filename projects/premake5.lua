@@ -49,8 +49,7 @@ solution("gm_sourcenet4")
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
 			SCANNING_FOLDER .. "/symbolfinder.cpp",
-			DETOURING_FOLDER .. "/hde.cpp",
-			SDK_FOLDER .. "/public/tier0/memoverride.cpp"
+			DETOURING_FOLDER .. "/hde.cpp"
 		})
 		vpaths({
 			["Header files"] = {
@@ -69,6 +68,7 @@ solution("gm_sourcenet4")
 		targetextension(".dll")
 
 		filter("system:windows")
+			files({SDK_FOLDER .. "/public/tier0/memoverride.cpp"})
 			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
@@ -81,13 +81,12 @@ solution("gm_sourcenet4")
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0_srv"})
 			prelinkcommands({
-				"cp " .. SDK_FOLDER .. "/lib/public/linux32/libtier0.so ./libtier0_srv.so",
-				"cp ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared_srv.so ./"
+				"mkdir -p garrysmod/bin",
+				"cp -f ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared_srv.so garrysmod/bin"
 			})
 			linkoptions({
 				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
-				"-Wl,-rpath,garrysmod/bin",
-				"-l:lua_shared_srv.so"
+				"-l:garrysmod/bin/lua_shared_srv.so"
 			})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_linux")
@@ -120,8 +119,7 @@ solution("gm_sourcenet4")
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
 			SCANNING_FOLDER .. "/symbolfinder.cpp",
-			DETOURING_FOLDER .. "/hde.cpp",
-			SDK_FOLDER .. "/public/tier0/memoverride.cpp"
+			DETOURING_FOLDER .. "/hde.cpp"
 		})
 		vpaths({
 			["Header files"] = {
@@ -141,6 +139,7 @@ solution("gm_sourcenet4")
 		targetextension(".dll")
 
 		filter("system:windows")
+			files({SDK_FOLDER .. "/public/tier0/memoverride.cpp"})
 			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
 			links({"ws2_32", "tier0", "tier1", "lua_shared"})
 			targetsuffix("_win32")
@@ -153,13 +152,12 @@ solution("gm_sourcenet4")
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0"})
 			prelinkcommands({
-				"cp -s " .. SDK_FOLDER .. "/lib/public/linux32/libtier0.so ./",
-				"cp -s ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared.so ./"
+				"mkdir -p garrysmod/bin",
+				"cp -f ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared.so garrysmod/bin"
 			})
 			linkoptions({
 				SDK_FOLDER .. "/lib/public/linux32/tier1.a",
-				"-Wl,-rpath,garrysmod/bin",
-				"-l:lua_shared.so"
+				"-l:garrysmod/bin/lua_shared.so"
 			})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_linux")

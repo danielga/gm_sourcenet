@@ -1,6 +1,3 @@
-#define IVENGINESERVER_INTERFACE
-#define IVENGINECLIENT_INTERFACE
-
 #include <detours.h>
 #include <vfnhook.h>
 #include <hooks.hpp>
