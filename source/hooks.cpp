@@ -6,6 +6,7 @@
 #include <hooks.hpp>
 #include <netchannel.hpp>
 #include <netchannelhandler.hpp>
+#include <netmessage.hpp>
 #include <ucharptr.hpp>
 #include <sn4_bf_read.hpp>
 #include <sn4_bf_write.hpp>
@@ -113,11 +114,9 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 	attach_status__##name
 
 #define REGISTER_ATTACH( name ) \
-	Msg( "Attach: %s\n", #name ); \
 	attach_status__##name = true
 
 #define REGISTER_DETACH( name ) \
-	Msg( "Detach: %s\n", #name ); \
 	attach_status__##name = false
 
 #define SIMPLE_VHOOK_BINDING( meta, namespc, name, offset ) \
@@ -244,6 +243,8 @@ void VFUNC CNetChan_Shutdown_D( CNetChan *netchan, const char *reason )
 
 		CALL_HOOK( 0 );
 	END_HOOK( );
+
+	NetMessage::Destroy( Global::lua_state, netchan );
 
 	NetChannel::Destroy( Global::lua_state, netchan );
 

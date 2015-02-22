@@ -13,6 +13,7 @@
 #include <net.hpp>
 #include <inetmessage.h>
 #include <unordered_map>
+#include <sstream>
 
 namespace NetChannel
 {
@@ -30,20 +31,7 @@ static std::unordered_map<CNetChan *, int32_t> netchannels;
 
 bool IsValid( CNetChan *netchan )
 {
-	if( netchan == nullptr )
-		return false;
-
-	/*for( int32_t i = 1; i <= Global::server->GetClientCount( ); ++i )
-		if( netchan == Global::engine_server->GetPlayerNetInfo( i ) )
-			return true;
-
-	if( !Global::engine_server->IsDedicatedServer( ) &&
-		netchan == Global::engine_client->GetNetChannelInfo( ) )
-		return true;
-
-	return false;*/
-
-	return netchannels.find( netchan ) != netchannels.end( );
+	return netchan == nullptr && netchannels.find( netchan ) != netchannels.end( );
 }
 
 void Push( lua_State *state, CNetChan *netchan )
@@ -57,12 +45,9 @@ void Push( lua_State *state, CNetChan *netchan )
 	auto it = netchannels.find( netchan );
 	if( it != netchannels.end( ) )
 	{
-		//Msg( "Pushed CNetChan from reference %i\n", ( *it ).second );
 		LUA->ReferencePush( ( *it ).second );
 		return;
 	}
-
-	//Msg( "Created reference to CNetChan from object 0x%p\n", netchan );
 
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
@@ -96,12 +81,9 @@ void Destroy( lua_State *state, CNetChan *netchan )
 	auto it = netchannels.find( netchan );
 	if( it != netchannels.end( ) )
 	{
-		//Msg( "Destroyed CNetChan reference %i\n", ( *it ).second );
 		LUA->ReferenceFree( ( *it ).second );
 		netchannels.erase( it );
 	}
-	//else
-	//	Msg( "Tried to destroy CNetChan reference from object 0x%p\n", netchan );
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -135,13 +117,19 @@ LUA_FUNCTION_STATIC( IsValid )
 LUA_FUNCTION_STATIC( DumpNetMessages )
 {
 	CNetChan *netchan = Get( state, 1 );
+
+	std::ostringstream stream;
 	for( int32_t i = 0; i < netchan->netmessages.Count( ); ++i )
 	{
+		if( i != 0 )
+			stream << '\n';
+
 		INetMessage *netmsg = netchan->netmessages.Element( i );
-		Msg( "%d. %s (%d)\n", i + 1, netmsg->GetName( ), netmsg->GetType( ) );
+		stream << i + 1 << ". " << netmsg->GetName( ) << " (" << netmsg->GetType( ) << ')';
 	}
 
-	return 0;
+	LUA->PushString( stream.str( ).c_str( ) );
+	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetNetMessageNum )
@@ -1003,6 +991,9 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
+
+	for( auto pair : netchannels )
+		LUA->ReferenceFree( pair.second );
 }
 
 }

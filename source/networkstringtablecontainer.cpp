@@ -143,8 +143,6 @@ void Initialize( lua_State *state )
 
 void Deinitialize( lua_State *state )
 {
-	LUA->ReferenceFree( container_ref );
-
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
 
 		LUA->PushNil( );
@@ -158,6 +156,9 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
+
+	LUA->ReferenceFree( container_ref );
+	container_ref = -1;
 }
 
 }

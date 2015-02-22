@@ -116,8 +116,6 @@ enum
 #define svc_VoiceInit		14		// inits used voice codecs & quality
 #define svc_VoiceData		15		// Voicestream data from the server
 
-// #define svc_HLTV			16		// HLTV control messages
-
 #define	svc_Sounds			17		// starts playing sound
 
 #define	svc_SetView			18		// sets entity as point of view
@@ -125,10 +123,6 @@ enum
 #define	svc_CrosshairAngle	20		// adjusts crosshair in auto aim mode to lock on traget
 
 #define	svc_BSPDecal		21		// add a static decal to the world BSP
-
-#define	svc_SplitScreen		22		// split screen style message
-// NOTE: This is now unused!
-//#define	svc_TerrainMod		22		// modification to the terrain/displacement
 
 // Message from server side to client side entity
 #define svc_UserMessage		23	// a game specific message 
@@ -151,8 +145,7 @@ enum
 
 #define svc_GMod_ServerToClient 33
 
-#define svc_blank35			35
-#define SVC_LASTMSG			35	// last known server message
+#define SVC_LASTMSG			33	// last known server message
 
 //
 // client to server
@@ -181,17 +174,3 @@ enum
 #define SIGNONSTATE_SPAWN		5	// ready to receive entity packets
 #define SIGNONSTATE_FULL		6	// we are fully connected, first non-delta packet received
 #define SIGNONSTATE_CHANGELEVEL	7	// server is changing level, please wait
-
-//
-// matchmaking
-//
-
-#define mm_Heartbeat		16		// send a mm_Heartbeat
-#define mm_ClientInfo		17		// information about a player
-#define mm_JoinResponse		18		// response to a matchmaking join request
-#define mm_RegisterResponse	19		// response to a matchmaking join request
-#define mm_Migrate			20		// tell a client to migrate
-#define mm_Mutelist			21		// send mutelist info to other clients
-#define mm_Checkpoint		22		// game state checkpoints (start, connect, etc)
-
-#define MM_LASTMSG			22		// last known matchmaking message

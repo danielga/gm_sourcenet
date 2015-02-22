@@ -21,12 +21,9 @@ void Push( lua_State *state, INetChannelHandler *handler )
 	auto it = handlers.find( handler );
 	if( it != handlers.end( ) )
 	{
-		Msg( "Pushed INetChannelHandler from reference %i\n", ( *it ).second );
 		LUA->ReferencePush( ( *it ).second );
 		return;
 	}
-
-	Msg( "Created reference to INetChannelHandler from object 0x%p\n", handler );
 
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
@@ -55,12 +52,9 @@ void Destroy( lua_State *state, INetChannelHandler *handler )
 	auto it = handlers.find( handler );
 	if( it != handlers.end( ) )
 	{
-		Msg( "Destroyed INetChannelHandler reference %i\n", ( *it ).second );
 		LUA->ReferenceFree( ( *it ).second );
 		handlers.erase( it );
 	}
-	else
-		Msg( "Tried to destroy INetChannelHandler reference from object 0x%p\n", handler );
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -109,6 +103,9 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
+
+	for( auto pair : handlers )
+		LUA->ReferenceFree( pair.second );
 }
 
 }

@@ -77,7 +77,7 @@ solution("gm_sourcenet4")
 				linkoptions({"/NODEFAULTLIB:\"libcmt\""})
 
 		filter("system:linux")
-			defines({"POSIX", "GNUC", "_LINUX"})
+			defines({"COMPILER_GCC", "POSIX", "LINUX", "_LINUX", "GNUC", "NO_MALLOC_OVERRIDE"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0_srv"})
 			prelinkcommands({
@@ -149,7 +149,7 @@ solution("gm_sourcenet4")
 				linkoptions({"/NODEFAULTLIB:\"libcmt\""})
 
 		filter("system:linux")
-			defines({"POSIX", "GNUC", "_LINUX"})
+			defines({"COMPILER_GCC", "POSIX", "LINUX", "_LINUX", "GNUC", "NO_MALLOC_OVERRIDE"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
 			links({"dl", "tier0"})
 			prelinkcommands({

@@ -1,11 +1,12 @@
 #include <netmessage.hpp>
+#include <netmessages.hpp>
 #include <sn4_bf_write.hpp>
 #include <sn4_bf_read.hpp>
 #include <netchannel.hpp>
+#include <hooks.hpp>
 #include <net.hpp>
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
-#include <unordered_map>
 
 namespace NetMessage
 {
@@ -54,41 +55,6 @@ static const uintptr_t CLC_CmdKeyValues_offset = 1258;
 
 #endif
 
-class CNetMessage : public INetMessage
-{
-public:
-	CNetMessage( )
-	{
-		m_bReliable = true;
-		m_NetChannel = nullptr;
-		m_pMessageHandler = nullptr;
-	}
-
-	virtual ~CNetMessage( ) { };
-
-	virtual void SetNetChannel( INetChannel *netchan ) { };
-	virtual void SetReliable( bool state ) { };
-
-	virtual bool Process( ) { return false; }
-
-	virtual bool ReadFromBuffer( bf_read &buffer ) { return false; }
-	virtual bool WriteToBuffer( bf_write &buffer ) { return false; }
-
-	virtual bool IsReliable( ) const { return false; }
-
-	virtual int GetType( ) const { return 0; }
-	virtual int GetGroup( ) const { return 0; }
-	virtual const char *GetName( ) const { return nullptr; }
-
-	virtual INetChannel *GetNetChannel( ) const { return nullptr; }
-	virtual const char *ToString( ) const { return nullptr; }
-
-protected:
-	bool m_bReliable;
-	INetChannel *m_NetChannel;
-	void *m_pMessageHandler;
-};
-
 struct userdata
 {
 	INetMessage *msg;
@@ -99,13 +65,31 @@ struct userdata
 const uint8_t metaid = Global::metabase + 14;
 const char *metaname = "INetMessage";
 
+static std::unordered_map< CNetChan *, std::unordered_map<INetMessage *, int32_t> > netmessages;
+static std::unordered_map<int32_t, int32_t> static_netmessages;
+
 static bool IsValid( INetMessage *msg, CNetChan *netchan )
 {
-	return msg != nullptr && NetChannel::IsValid( netchan );
+	return msg != nullptr && ( netchan == nullptr || NetChannel::IsValid( netchan ) );
 }
 
 void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 {
+	if( netchan != nullptr )
+	{
+		auto it = netmessages.find( netchan );
+		if( it != netmessages.end( ) )
+		{
+			auto &map = ( *it ).second;
+			auto it2 = map.find( msg );
+			if( it2 != map.end( ) )
+			{
+				LUA->ReferencePush( ( *it2 ).second );
+				return;
+			}
+		}
+	}
+
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
 	udata->msg = msg;
@@ -116,24 +100,55 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
+
+	LUA->Push( -1 );
+	netmessages[netchan][msg] = LUA->ReferenceCreate( );
 }
 
-INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan )
+INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
 {
 	Global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	INetMessage *msg = udata->msg;
-	if( !IsValid( msg, udata->netchan ) )
+	if( !IsValid( msg, udata->netchan ) && !cleanup )
 		Global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
 
+	if( cleanup )
+	{
+		udata->msg = nullptr;
+		udata->netchan = nullptr;
+	}
+
 	return msg;
 }
 
-//void Destroy( lua_State *state, INetMessage *msg ) { }
+void Destroy( lua_State *state, CNetChan *netchan )
+{
+	auto it = netmessages.find( netchan );
+	if( it != netmessages.end( ) )
+	{
+		auto &map = ( *it ).second;
+		for( auto pair : map )
+			LUA->ReferenceFree( pair.second );
+
+		netmessages.erase( it );
+	}
+}
+
+LUA_FUNCTION_STATIC( gc )
+{
+	CNetChan *netchan = nullptr;
+	INetMessage *msg = Get( state, 1, &netchan, true );
+
+	if( netchan == nullptr )
+		delete msg;
+
+	return 0;
+}
 
 LUA_FUNCTION_STATIC( eq )
 {
@@ -239,6 +254,17 @@ LUA_FUNCTION_STATIC( WriteToBuffer )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( Clear )
+{
+	CNetChan *netchan = nullptr;
+	CNetMessage *msg = static_cast<CNetMessage *>( Get( state, 1, &netchan ) );
+
+	if( netchan == nullptr )
+		msg->Destroy( );
+
+	return 0;
+}
+
 LUA_FUNCTION_STATIC( Process )
 {
 	INetMessage *msg = Get( state, 1 );
@@ -248,65 +274,88 @@ LUA_FUNCTION_STATIC( Process )
 	return 1;
 }
 
-static std::unordered_map<int32_t, void **> netmessages_vtables;
-
-static void InstallVTable( void *obj, void **vtable )
+LUA_FUNCTION_STATIC( Constructor )
 {
-	*reinterpret_cast<void ***>( obj ) = vtable;
+	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
+
+	auto it = static_netmessages.find( static_cast<int32_t>( LUA->GetNumber( 1 ) ) );
+	if( it == static_netmessages.end( ) )
+		return 0;
+
+	LUA->ReferencePush( ( *it ).second );
+
+	return 1;
 }
 
-static bool PossibleVTable( uint8_t first, uint8_t second )
+inline bool IsEndOfFunction( uint8_t *funcCode )
 {
-	if( first == 0xC7 )
-		return second == 0x00 || second == 0x02 || second == 0x06 || second == 0x07;
-	else if( first == 0x8B )
-		return second == 0x80 || second == 0x87 || second == 0x8E || second == 0x8F || second == 0x97;
 
-	return false;
-}
-
-inline bool IsEndOfFunction( uintptr_t code )
-{
+	uintptr_t ops = *reinterpret_cast<uintptr_t *>( funcCode );
 
 #if defined _WIN32
 
-	return code == 0xCCCCCCCC;
+	return ops == 0xCCCCCCCC;
 
 #elif defined __linux
 
-	return code == 0x5FC9FFE0 || code == 0x500CC9C3;
+	return ops == 0x5FC9FFE0 || ops == 0x500CC9C3;
 
 #elif defined __APPLE__
 
-	return code == 0x8901C366 || code == 0x5F5B5DC3;
+	return ops == 0x8901C366 || ops == 0x5F5B5DC3;
 
 #endif
 
 }
 
-static void ResolveMessagesFromFunctionCode( uint8_t *funcCode )
+inline bool PossibleVTable( uint8_t first, uint8_t second )
+{
+
+#if defined _WIN32
+
+	return first == 0xC7 && ( second == 0x00 || second == 0x06 || second == 0x07 );
+
+#elif defined __linux
+
+	return first == 0xC7 && ( second == 0x00 || second == 0x02 || second == 0x03 || second == 0x06 );
+
+#elif defined __APPLE__
+
+	if( first == 0x8D && ( second == 0x80 ) )
+		return true;
+
+	return first == 0x8B && ( second == 0x80 || second == 0x83 || second == 0x87 || second == 0x8A ||
+		second == 0x8B || second == 0x8E || second == 0x8F || second == 0x97 );
+
+#endif
+
+}
+
+static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
 	if( funcCode == nullptr )
 		return;
 
-	for(
-		uintptr_t code = *reinterpret_cast<uintptr_t *>( funcCode );
-		IsEndOfFunction( code );
-		code = *reinterpret_cast<uintptr_t *>( funcCode )
-	)
-	{
-		uint8_t current = *funcCode;
-		uint8_t next = *++funcCode;
-
-		if( PossibleVTable( current, next ) )
+	CNetMessage *msg = new CNetMessage;
+	void **msgvtable = msg->GetVTable( );
+	while( !IsEndOfFunction( funcCode ) )
+		if( PossibleVTable( *funcCode++, *funcCode ) )
 		{
-			++funcCode;
-			void **vtable = *reinterpret_cast<void ***>( funcCode );
+			void **vtable = *reinterpret_cast<void ***>( ++funcCode );
+			msg->InstallVTable( vtable );
+
+			int32_t type = msg->GetType( );
+			if( static_netmessages.find( type ) == static_netmessages.end( ) )
+			{
+				Push( state, CreateNetMessage( type, vtable ) );
+				static_netmessages[type] = LUA->ReferenceCreate( );
+			}
+
 			funcCode += 4;
-			INetMessage *msg = reinterpret_cast<INetMessage *>( &vtable );
-			netmessages_vtables[msg->GetType( )] = vtable;
 		}
-	}
+
+	msg->InstallVTable( msgvtable );
+	delete msg;
 }
 
 void Initialize( lua_State *state )
@@ -318,37 +367,40 @@ void Initialize( lua_State *state )
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen
 	) );
-	ResolveMessagesFromFunctionCode( CBaseClientState_ConnectionStart );
+	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		Global::engine_lib,
 		CBaseClient_ConnectionStart_sig,
 		CBaseClient_ConnectionStart_siglen
 	) );
-	ResolveMessagesFromFunctionCode( CBaseClient_ConnectionStart );
+	ResolveMessagesFromFunctionCode( state, CBaseClient_ConnectionStart );
 
 	uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CreateStringTable_offset;
-	ResolveMessagesFromFunctionCode( reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
 		SVC_CreateStringTable + 4 + *reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
 	) );
 
 	uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
 		SVC_CmdKeyValues + 4 + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
 	) );
 
 	uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClient_ConnectionStart
 	) + CLC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
 		CLC_CmdKeyValues + 4 + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
 	) );
 
 	LUA->CreateMetaTableType( metaname, metaid );
+
+		LUA->PushCFunction( gc );
+		LUA->SetField( -2, "__gc" );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -389,8 +441,18 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( WriteToBuffer );
 		LUA->SetField( -2, "WriteToBuffer" );
 
+		LUA->PushCFunction( Clear );
+		LUA->SetField( -2, "Clear" );
+
 		LUA->PushCFunction( Process );
 		LUA->SetField( -2, "Process" );
+
+	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushCFunction( Constructor );
+		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
 }
@@ -403,6 +465,20 @@ void Deinitialize( lua_State *state )
 		LUA->SetField( -2, metaname );
 
 	LUA->Pop( 1 );
+
+	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+
+		LUA->PushNil( );
+		LUA->SetField( -2, metaname );
+
+	LUA->Pop( 1 );
+
+	for( auto pair : static_netmessages )
+		LUA->ReferenceFree( pair.second );
+
+	for( auto pair : netmessages )
+		for( auto pair2 : pair.second )
+			LUA->ReferenceFree( pair2.second );
 }
 
 }
