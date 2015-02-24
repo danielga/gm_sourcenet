@@ -216,7 +216,7 @@ LUA_FUNCTION_STATIC( ReadBitAngle )
 	if( bits < 0 )
 		Global::ThrowError( state, "invalid number of bits to read (%d is less than 0)", bits );
 
-	LUA->Push( buf->ReadBitAngle( bits ) );
+	LUA->PushNumber( buf->ReadBitAngle( bits ) );
 
 	return 1;
 }

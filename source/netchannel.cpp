@@ -27,7 +27,7 @@ static std::unordered_map<CNetChan *, int32_t> netchannels;
 
 bool IsValid( CNetChan *netchan )
 {
-	return netchan == nullptr && netchannels.find( netchan ) != netchannels.end( );
+	return netchan != nullptr && netchannels.find( netchan ) != netchannels.end( );
 }
 
 void Push( lua_State *state, CNetChan *netchan )
