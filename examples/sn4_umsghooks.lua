@@ -20,8 +20,8 @@ function ReadUserMessageString(buf)
 	end
 end
 
-function ProcessUserMessage(msg, data, bits)
-	local buf = sn4_bf_read(data, bits)
+function ProcessUserMessage(msg, data)
+	local buf = sn4_bf_read(data)
 
 	if msg == 34 then
 		local umsgName = ReadUserMessageString(buf)
@@ -58,7 +58,7 @@ FilterIncomingMessage(svc_UserMessage, function(netchan, read, write)
 	local bits = read:ReadUInt(11)
 	local data = read:ReadBits(bits)
 
-	ProcessUserMessage(msg, data, bits)
+	ProcessUserMessage(msg, data)
 
 	write:WriteByte(msg)
 	write:WriteUInt(bits, 11)

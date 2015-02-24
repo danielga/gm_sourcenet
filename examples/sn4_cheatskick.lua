@@ -1,10 +1,8 @@
 include("sn4_base_querycvar.lua")
 
 function FindPlayerByNetChannel(netchan)
-	local adr = netchan:GetAddress():ToString()
-
 	for k, v in pairs(player.GetAll()) do
-		if adr == v:IPAddress() then
+		if netchan == CNetChan(v:EntIndex()) then
 			return v
 		end
 	end

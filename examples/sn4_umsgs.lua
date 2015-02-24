@@ -15,7 +15,7 @@ function _R.Player:Test()
 	reliablebuffer:WriteByte(19)
 
 	local msgdata = UCHARPTR(256)
-	local msgbuffer = sn4_bf_write(msgdata, 256 * 8)
+	local msgbuffer = sn4_bf_write(msgdata)
 
 	msgbuffer:WriteLong(-1)
 	msgbuffer:WriteShort(100)
