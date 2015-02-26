@@ -3,24 +3,23 @@ require("sourcenet4")
 -- Debug ConVar
 local sourcenet_netmessage_info = CreateConVar("sourcenet_netmessage_info", "0")
 
+local function log2(val)
+	return math.ceil(math.log(val) / math.log(2))
+end
+
 -- Engine definitions
 NET_MESSAGE_BITS = 6
 NUM_NEW_COMMAND_BITS = 4
 NUM_BACKUP_COMMAND_BITS = 3
-MAX_TABLES = 32
+MAX_TABLES_BITS = log2(32)
 MAX_USERMESSAGE_BITS = 11
 MAX_ENTITYMESSAGE_BITS = 11
 MAX_SERVER_CLASS_BITS = 9
 MAX_EDICT_BITS = 13
 
-function math.log2(val)
-	return math.log(val) / math.log(2)
-end
-
-function SourceNetMsg(...)
+function SourceNetMsg(msg)
 	if sourcenet_netmessage_info:GetInt() ~= 0 then
-		Msg("[snmi] " .. ...)
-		--print("[snmi] " .. ...)
+		Msg("[snmi] " .. msg)
 	end
 end
 
@@ -66,13 +65,13 @@ NET_MESSAGES = {
 			local tick = read:ReadLong()
 			write:WriteLong(tick)
 
-			local unk1 = read:ReadUInt(16) -- 14h
-			write:WriteUInt(unk1, 16)
+			local hostframetime = read:ReadUInt(16)
+			write:WriteUInt(hostframetime, 16)
 
-			local unk2 = read:ReadUInt(16) -- 18h
-			write:WriteUInt(unk2, 16)
+			local hostframetimedeviation = read:ReadUInt(16)
+			write:WriteUInt(hostframetimedeviation, 16)
 
-			SourceNetMsg(string.format("net_Tick %i,%i,%i\n", tick, unk1, unk2))
+			SourceNetMsg(string.format("net_Tick %i,%i,%i\n", tick, hostframetime, hostframetimedeviation))
 		end
 	},
 
@@ -125,42 +124,34 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_ClientInfo, NET_MESSAGE_BITS)
 
-				local spawncount = read:ReadLong() -- 14h, server spawn count - reconnects client if incorrect
+				local spawncount = read:ReadLong()
 				write:WriteLong(spawncount)
 
-				local sendTableCRC = read:ReadLong() -- 10h
+				local sendTableCRC = read:ReadLong()
 				write:WriteLong(sendTableCRC)
 
-				local ishltv = read:ReadBit() -- 18h, requires tv_enable
+				local ishltv = read:ReadBit()
 				write:WriteBit(ishltv)
 
-				local friendsID = read:ReadLong() -- 1Ch
+				local friendsID = read:ReadLong()
 				write:WriteLong(friendsID)
 
-				local guid = read:ReadString() -- 20h, hashed CD Key (32 hex alphabetic chars + 0 terminator)
+				local guid = read:ReadString()
 				write:WriteString(guid)
 
 				for i = 1, MAX_CUSTOM_FILES do
-					local useFile = read:ReadBit() -- 40h, 44h, 48h, 4Ch
+					local useFile = read:ReadBit()
 					write:WriteBit(useFile)
 
-					local fileCRC
-
 					if useFile == 1 then
-						fileCRC = read:ReadUInt(32)
-
+						local fileCRC = read:ReadUInt(32)
 						write:WriteUInt(fileCRC, 32)
 
 						SourceNetMsg("clc_ClientInfo \t> customization file " .. i .. " = " .. fileCRC .. "\n")
-					else
-						fileCRC = 0
 					end
 				end
 
-				local unk = read:ReadBit() -- 19h, probably replay related
-				write:WriteBit(unk)
-
-				SourceNetMsg(string.format("clc_ClientInfo %i,%i,%i,%i,%s,%i\n", spawncount, sendTableCRC, ishltv, friendsID, guid, unk))
+				SourceNetMsg(string.format("clc_ClientInfo %i,%i,%i,%i,%s\n", spawncount, sendTableCRC, ishltv, friendsID, guid))
 			end
 		},
 
@@ -202,13 +193,13 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_BaselineAck, NET_MESSAGE_BITS)
 
-				local tick = read:ReadLong() -- 10h
+				local tick = read:ReadLong()
 				write:WriteLong(tick)
 
-				local unk2 = read:ReadUInt(1) -- 14h
-				write:WriteUInt(unk2, 1)
+				local num = read:ReadUInt(1)
+				write:WriteUInt(num, 1)
 
-				SourceNetMsg(string.format("clc_BaselineAck %i,%i\n", tick, unk2))
+				SourceNetMsg(string.format("clc_BaselineAck %i,%i\n", tick, num))
 			end
 		},
 
@@ -217,8 +208,8 @@ NET_MESSAGES = {
 				write:WriteUInt(clc_ListenEvents, NET_MESSAGE_BITS)
 
 				for i = 1, 16 do
-					local unk1 = read:ReadUInt(32)
-					write:WriteUInt(unk1, 32)
+					local event = read:ReadUInt(32)
+					write:WriteUInt(event, 32)
 				end
 
 				SourceNetMsg(string.format("clc_ListenEvents\n"))
@@ -229,49 +220,49 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_RespondCvarValue, NET_MESSAGE_BITS)
 
-				local cookie = read:ReadInt(32) -- 10h
+				local cookie = read:ReadInt(32)
 				write:WriteInt(cookie, 32)
 
-				local status = read:ReadInt(4) -- 1Ch
+				local status = read:ReadInt(4)
 				write:WriteInt(status, 4)
 
-				local cvarname = read:ReadString() -- 14h
+				local cvarname = read:ReadString()
 				write:WriteString(cvarname)
 
-				local cvarvalue = read:ReadString() -- 18h
+				local cvarvalue = read:ReadString()
 				write:WriteString(cvarvalue)
 
 				SourceNetMsg(string.format("clc_RespondCvarValue %i,%i,%s,%s\n", cookie, status, cvarname, cvarvalue))
 			end
 		},
 
-		[clc_FileCRCCheck] = { -- 14 (Untested)
+		[clc_FileCRCCheck] = { -- 14
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_FileCRCCheck, NET_MESSAGE_BITS)
 
-				local unk1 = read:ReadBit()
-				write:WriteBit(unk1)
+				local reserved = read:ReadBit()
+				write:WriteBit(reserved)
 
-				local gamepath = read:ReadUInt( 2 )
+				local gamepath = read:ReadUInt(2)
 				write:WriteUInt(gamepath, 2)
 
-				local unk3
+				local pathid = "commonpath"
 
 				if gamepath == 0 then
-					unk3 = read:ReadString() -- 10h
-					write:WriteString(unk3)
+					pathid = read:ReadString()
+					write:WriteString(pathid)
 				end
 
-				local unk4 = read:ReadUInt(3)
-				write:WriteUInt(unk4, 3)
+				local prefixid = read:ReadUInt(3)
+				write:WriteUInt(prefixid, 3)
 
 				local filename = read:ReadString()
 				write:WriteString(filename)
 
-				local unk6 = read:ReadUInt(32)
-				write:WriteUInt(unk6, 32)
+				local crc = read:ReadUInt(32)
+				write:WriteUInt(crc, 32)
 
-				SourceNetMsg(string.format("clc_FileCRCCheck %i,%s,%s,%i,%s,%i", unk1, gamepath, unk3, unk4, filename, unk6))
+				SourceNetMsg(string.format("clc_FileCRCCheck %i,%s,%s,%i,%s,%i", reserved, gamepath, pathid, prefixid, filename, crc))
 			end
 		},
 
@@ -289,34 +280,34 @@ NET_MESSAGES = {
 			end
 		},
 
-		[clc_FileMD5Check] = { -- 17 (Untested, seems to just copy FileCRCCheck?)
+		[clc_FileMD5Check] = { -- 17
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_FileMD5Check, NET_MESSAGE_BITS)
 
-				local unk1 = read:ReadBit()
-				write:WriteBit(unk1)
+				local reserved = read:ReadBit()
+				write:WriteBit(reserved)
 
 				local gamepath = read:ReadUInt(2)
 				write:WriteUInt(gamepath, 2)
-				
-				local unk3
+
+				local pathid = "commonpath"
 
 				if gamepath == 0 then
-					unk3 = read:ReadString() -- 10h
-					write:WriteString(unk3)
+					pathid = read:ReadString()
+					write:WriteString(pathid)
 				end
 
-				local unk4 = read:ReadUInt(3)
-				write:WriteUInt(unk4, 3)
+				local prefixid = read:ReadUInt(3)
+				write:WriteUInt(prefixid, 3)
 
 				local filename = read:ReadString()
 				write:WriteString(filename)
 
-				local unk6 = read:ReadUInt(32)
-				write:WriteUInt(unk6, 32)
+				local md5 = read:ReadBytes(16)
+				write:WriteUInt(md5, 16)
 
-				SourceNetMsg(string.format("clc_FileMD5Check %i,%s,%s,%i,%s,%i", unk1, gamepath, unk3, unk4, filename, unk6))
-			end			
+				SourceNetMsg(string.format("clc_FileMD5Check %i,%s,%s,%i,%s,%s", reserved, gamepath, pathid, prefixid, filename, md5))
+			end
 		},
 
 		[clc_GMod_ClientToServer] = { -- 18
@@ -326,13 +317,16 @@ NET_MESSAGES = {
 				local bits = read:ReadLong()
 				write:WriteLong(bits)
 
-				local id = read:ReadShort()
-				write:WriteShort(id)
+				local unk = read:ReadByte()
+				write:WriteByte(unk)
 
-				local data = read:ReadBits(bits - 16)
+				local id = read:ReadWord()
+				write:WriteWord(id)
+
+				local data = read:ReadBits(bits - 8 - 16)
 				write:WriteBits(data)
 
-				SourceNetMsg(string.format("clc_GMod_ClientToServer length=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id)))
+				SourceNetMsg(string.format("clc_GMod_ClientToServer length=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id) or "unknown message"))
 			end		
 		},
 	},
@@ -416,24 +410,26 @@ NET_MESSAGES = {
 				local hostname = read:ReadString()
 				write:WriteString(hostname)
 
-				local unk1 = read:ReadString()
-				write:WriteString(unk1)
+				-- Loading URL of the server
+				local loadingurl = read:ReadString()
+				write:WriteString(loadingurl)
 
-				local unk2 = read:ReadString()
-				write:WriteString(unk2)
+				-- Gamemode
+				local gamemode = read:ReadString()
+				write:WriteString(gamemode)
 
-				SourceNetMsg(string.format("svc_ServerInfo %s\n", hostname))
+				SourceNetMsg(string.format("svc_ServerInfo %i,%i,%i,%i,%i,%i,%s,%i,%i,%i,%s,%s,%s,%s,%s,%s,%s\n", version, servercount, sourcetv, dedicated, serverclientcrc, maxclasses, servermapmd5, playernum, maxclients, interval_per_tick, string.char(platform), gamedir, levelname, skyname, hostname, loadingurl, gamemode))
 			end
 		},
 
-		[svc_SendTable] = { -- 9 (Untested!)
+		[svc_SendTable] = { -- 9
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_SendTable, NET_MESSAGE_BITS)
 
 				local encoded = read:ReadBit()
 				write:WriteBit(encoded)
 
-				local bits = read:ReadShort() --14
+				local bits = read:ReadShort()
 				write:WriteShort(bits)
 
 				local data = read:ReadBits(bits)
@@ -453,18 +449,19 @@ NET_MESSAGES = {
 				local useclientclasses = read:ReadBit()
 				write:WriteBit(useclientclasses)
 
+				local size = log2(numclasses) + 1
 				if useclientclasses == 0 then
 					for i = 1, numclasses do
-						local unk3 = read:ReadUInt(math.log2(numclasses) + 1)
-						write:WriteUInt(unk3, math.log2(numclasses) + 1)
+						local classid = read:ReadUInt(size)
+						write:WriteUInt(classid, size)
 
-						local unk4 = read:ReadString()
-						write:WriteString(unk4)
+						local classname = read:ReadString()
+						write:WriteString(classname)
 
-						local unk5 = read:ReadString()
-						write:WriteString(unk5)
+						local dtname = read:ReadString()
+						write:WriteString(dtname)
 
-						SourceNetMsg(string.format("svc_ClassInfo full update,%i,%i,%i\n", unk3, unk4, unk5))
+						SourceNetMsg(string.format("svc_ClassInfo full update,%i,%s,%s\n", classid, classname, dtname))
 					end
 				end
 
@@ -493,11 +490,12 @@ NET_MESSAGES = {
 				local maxentries = read:ReadWord()
 				write:WriteWord(maxentries)
 
-				local entries = read:ReadUInt(math.log2(maxentries) + 1)
-				write:WriteUInt(entries, math.log2(maxentries) + 1)
+				local size = log2(maxentries) + 1
+				local entries = read:ReadUInt(size)
+				write:WriteUInt(entries, size)
 
-				--local bits = read:ReadUInt(MAX_STRINGTABLE_BITS)
-				--write:WriteUInt(bits, MAX_STRINGTABLE_BITS)
+				--local bits = read:ReadUInt(20)
+				--write:WriteUInt(bits, 20)
 
 				local bits = read:ReadVarInt32()
 				write:WriteVarInt32(bits)
@@ -527,28 +525,25 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_UpdateStringTable, NET_MESSAGE_BITS)
 
-				local tableid = read:ReadUInt(math.log2(MAX_TABLES)) -- 10h
-				write:WriteUInt(tableid, math.log2(MAX_TABLES))
+				local tableid = read:ReadUInt(MAX_TABLES_BITS)
+				write:WriteUInt(tableid, MAX_TABLES_BITS)
 
-				local unk2 = read:ReadBit()
-				write:WriteBit(unk2)
+				local morechanged = read:ReadBit()
+				write:WriteBit(morechanged)
 
-				local changed
-
-				if unk2 == 1 then
-					changed = read:ReadWord() -- 14h
+				local changed = 1
+				if morechanged == 1 then
+					changed = read:ReadWord()
 					write:WriteWord(changed)
-				else
-					changed = 1
 				end
 
-				local bits = read:ReadUInt(20) -- 18h
+				local bits = read:ReadUInt(20)
 				write:WriteUInt(bits, 20)
 
 				local data = read:ReadBits(bits)
 				write:WriteBits(data)
 
-				SourceNetMsg(string.format("svc_UpdateStringTable tableid=%i,unk2=%i,changed=%i,bits=%i\n", tableid, unk2, changed, bits))
+				SourceNetMsg(string.format("svc_UpdateStringTable tableid=%i,morechanged=%i,changed=%i,bits=%i\n", tableid, morechanged, changed, bits))
 			end
 		},
 
@@ -570,13 +565,13 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_VoiceData, NET_MESSAGE_BITS)
 
-				local client = read:ReadByte() -- 10h				
+				local client = read:ReadByte()
 				write:WriteByte(client)
 
-				local proximity = read:ReadByte() -- 14h				
+				local proximity = read:ReadByte()
 				write:WriteByte(proximity)
 
-				local bits = read:ReadWord() -- 18h
+				local bits = read:ReadWord()
 				write:WriteWord(bits)
 
 				local voicedata = read:ReadBits(bits)
@@ -610,7 +605,7 @@ NET_MESSAGES = {
 				end
 
 				local data = read:ReadBits(bits)
-				write:WriteBits(data) -- Check out SoundInfo_t::ReadDelta if you want to read this	
+				write:WriteBits(data)
 
 				SourceNetMsg(string.format("svc_Sounds reliable=%i,num=%i,bits=%i\n", reliable, num, bits))
 			end
@@ -651,13 +646,13 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_CrosshairAngle, NET_MESSAGE_BITS)
 
-				local p = read:ReadBitAngle(16)
+				local p = read:ReadBitAngle(16) or 0
 				write:WriteBitAngle(p, 16)
 
-				local y = read:ReadBitAngle(16)
+				local y = read:ReadBitAngle(16) or 0
 				write:WriteBitAngle(y, 16)
 
-				local r = read:ReadBitAngle(16)
+				local r = read:ReadBitAngle(16) or 0
 				write:WriteBitAngle(r, 16)
 
 				SourceNetMsg(string.format("svc_CrosshairAngle p=%i,y=%i,r=%i\n", p, y, r))
@@ -668,30 +663,30 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_BSPDecal, NET_MESSAGE_BITS)
 
-				local pos = read:ReadVector() -- 10h
+				local pos = read:ReadVector()
 				write:WriteVector(pos)
 
-				local texture = read:ReadUInt(9) -- 1Ch
+				local texture = read:ReadUInt(9)
 				write:WriteUInt(texture, 9)
 
 				local useentity = read:ReadBit()
 				write:WriteBit(useentity)
 
-				local ent -- 20h
-				local modulation -- 24h
+				local ent
+				local modulation
 
 				if useentity == 1 then
 					ent = read:ReadUInt(MAX_EDICT_BITS) 
 					write:WriteUInt(ent, MAX_EDICT_BITS)
 
-					modulation = read:ReadUInt(12) -- In engine build 4421 -> 4426 this changed from 11 to 12 bits
+					modulation = read:ReadUInt(12)
 					write:WriteUInt(modulation, 12)
 				else
 					ent = 0
 					modulation = 0
 				end
 
-				local lowpriority = read:ReadBit() -- "Replaceable", 28h
+				local lowpriority = read:ReadBit()
 				write:WriteBit(lowpriority)
 
 				SourceNetMsg(string.format("svc_BSPDecal %s, %d, %d, %d, %d, %d\n", tostring(pos), texture, useentity, ent, modulation, lowpriority))
@@ -702,10 +697,10 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_UserMessage, NET_MESSAGE_BITS)
 
-				local msgtype = read:ReadByte() -- 10h
+				local msgtype = read:ReadByte()
 				write:WriteByte(msgtype)
 
-				local bits = read:ReadUInt(MAX_USERMESSAGE_BITS) -- 14h
+				local bits = read:ReadUInt(MAX_USERMESSAGE_BITS)
 				write:WriteUInt(bits, MAX_USERMESSAGE_BITS)
 
 				local data = read:ReadBits(bits)
@@ -756,18 +751,18 @@ NET_MESSAGES = {
 				local max = read:ReadUInt(MAX_EDICT_BITS)
 				write:WriteUInt(max, MAX_EDICT_BITS)
 
-				local unk2 = read:ReadBit()
-				write:WriteBit(unk2)
+				local isdelta = read:ReadBit()
+				write:WriteBit(isdelta)
 
-				local delta = 0
+				local delta = -1
 
-				if unk2 == 1 then
+				if isdelta == 1 then
 					delta = read:ReadLong()
 					write:WriteLong(delta)
 				end
 
-				local unk4 = read:ReadUInt(1)
-				write:WriteUInt(unk4, 1)
+				local baseline = read:ReadUInt(1)
+				write:WriteUInt(baseline, 1)
 
 				local changed = read:ReadUInt(MAX_EDICT_BITS)
 				write:WriteUInt(changed, MAX_EDICT_BITS)
@@ -775,13 +770,13 @@ NET_MESSAGES = {
 				local bits = read:ReadUInt(20)
 				write:WriteUInt(bits, 20)
 
-				local unk7 = read:ReadBit()
-				write:WriteBit(unk7)
+				local updatebaseline = read:ReadBit()
+				write:WriteBit(updatebaseline)
 
-				local unk8 = read:ReadBits(bits)
-				write:WriteBits(unk8)
+				local data = read:ReadBits(bits)
+				write:WriteBits(data)
 
-				SourceNetMsg(string.format("svc_PacketEntities %i,%i,%i,%i,%i,%i,%i\n", max, unk2, delta, unk4, changed, bits, unk7))
+				SourceNetMsg(string.format("svc_PacketEntities %i,%i,%i,%i,%i,%i,%i\n", max, isdelta, delta, baseline, changed, bits, updatebaseline))
 			end
 		},
 
@@ -789,13 +784,13 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_TempEntities, NET_MESSAGE_BITS)
 
-				local num = read:ReadUInt(8) -- 10h
+				local num = read:ReadUInt(8)
 				write:WriteUInt(num, 8)
 
-				--local bits = read:ReadUInt(MAX_TEMPENTITIES_BITS) -- 14h
-				--write:WriteUInt(bits, MAX_TEMPENTITIES_BITS)
+				--local bits = read:ReadUInt(20)
+				--write:WriteUInt(bits, 20)
 
-				local bits = read:ReadVarInt32() -- 14h
+				local bits = read:ReadVarInt32()
 				write:WriteVarInt32(bits)
 
 				local data = read:ReadBits(bits)
@@ -809,8 +804,8 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_Prefetch, NET_MESSAGE_BITS)
 
-				local index = read:ReadUInt(13)
-				write:WriteUInt(index, 13)
+				local index = read:ReadUInt(14)
+				write:WriteUInt(index, 14)
 
 				SourceNetMsg(string.format("svc_Prefetch index=%i\n", index))
 			end
@@ -871,8 +866,6 @@ NET_MESSAGES = {
 				local length = read:ReadLong()
 				write:WriteLong(length)
 
-				print("svc_CmdKeyValues", length)
-
 				local keyvalues = read:ReadBits(length * 8)
 				write:WriteBits(keyvalues)
 
@@ -901,3 +894,104 @@ NET_MESSAGES = {
 		},
 	}
 }
+
+--[[NET_MESSAGES = {
+	[net_NOP] = {
+		DefaultCopy = function(netchan, read, write)
+			write:WriteUInt(net_NOP, NET_MESSAGE_BITS)
+		end
+	},
+
+	[net_Disconnect] = {
+		DefaultCopy = function(netchan, read, write)
+			write:WriteUInt(net_Disconnect, NET_MESSAGE_BITS)
+
+			local reason = read:ReadString()
+			write:WriteString(reason)
+
+			SourceNetMsg(string.format("net_Disconnect %s\n", reason))
+		end
+	},
+
+	[net_File] = {
+		DefaultCopy = function(netchan, read, write)
+			write:WriteUInt(net_File, NET_MESSAGE_BITS)
+
+			local transferid = read:ReadUInt(32)
+			write:WriteUInt(transferid, 32)
+
+			local filename = read:ReadString()
+			write:WriteString(filename)
+
+			local requested = read:ReadBit()
+			write:WriteBit(requested)
+
+			SourceNetMsg(string.format("net_File %i,%s,%i\n", transferid, filename, requested))
+		end
+	},
+
+	CLC = {},
+
+	SVC = {}
+}
+
+local function AddNetMessage(tbl, type)
+	local netmessage = INetMessage(type)
+	tbl[type] = {
+		DefaultCopy = function(netchan, read, write)
+			if not netmessage:ReadFromBuffer(read) then
+				print("failed to read " .. netmessage)
+				return
+			end
+
+			if not netmessage:WriteToBuffer(write) then
+				print("failed to write " .. netmessage)
+				return
+			end
+
+			SourceNetMsg(tostring(netmessage) .. "\n")
+		end
+	}
+end
+
+AddNetMessage(NET_MESSAGES, net_Tick)
+AddNetMessage(NET_MESSAGES, net_StringCmd)
+AddNetMessage(NET_MESSAGES, net_SetConVar)
+AddNetMessage(NET_MESSAGES, net_SignonState)
+
+AddNetMessage(NET_MESSAGES.SVC, svc_ServerInfo)
+AddNetMessage(NET_MESSAGES.SVC, svc_SendTable)
+AddNetMessage(NET_MESSAGES.SVC, svc_ClassInfo)
+AddNetMessage(NET_MESSAGES.SVC, svc_SetPause)
+AddNetMessage(NET_MESSAGES.SVC, svc_CreateStringTable)
+AddNetMessage(NET_MESSAGES.SVC, svc_UpdateStringTable)
+AddNetMessage(NET_MESSAGES.SVC, svc_VoiceInit)
+AddNetMessage(NET_MESSAGES.SVC, svc_VoiceData)
+AddNetMessage(NET_MESSAGES.SVC, svc_Print)
+AddNetMessage(NET_MESSAGES.SVC, svc_Sounds)
+AddNetMessage(NET_MESSAGES.SVC, svc_SetView)
+AddNetMessage(NET_MESSAGES.SVC, svc_FixAngle)
+AddNetMessage(NET_MESSAGES.SVC, svc_CrosshairAngle)
+AddNetMessage(NET_MESSAGES.SVC, svc_BSPDecal)
+AddNetMessage(NET_MESSAGES.SVC, svc_UserMessage)
+AddNetMessage(NET_MESSAGES.SVC, svc_EntityMessage)
+AddNetMessage(NET_MESSAGES.SVC, svc_GameEvent)
+AddNetMessage(NET_MESSAGES.SVC, svc_PacketEntities)
+AddNetMessage(NET_MESSAGES.SVC, svc_TempEntities)
+AddNetMessage(NET_MESSAGES.SVC, svc_Prefetch)
+AddNetMessage(NET_MESSAGES.SVC, svc_Menu)
+AddNetMessage(NET_MESSAGES.SVC, svc_GameEventList)
+AddNetMessage(NET_MESSAGES.SVC, svc_GetCvarValue)
+AddNetMessage(NET_MESSAGES.SVC, svc_CmdKeyValues)
+AddNetMessage(NET_MESSAGES.SVC, svc_GMod_ServerToClient)
+
+AddNetMessage(NET_MESSAGES.CLC, clc_ClientInfo)
+AddNetMessage(NET_MESSAGES.CLC, clc_Move)
+AddNetMessage(NET_MESSAGES.CLC, clc_VoiceData)
+AddNetMessage(NET_MESSAGES.CLC, clc_BaselineAck)
+AddNetMessage(NET_MESSAGES.CLC, clc_ListenEvents)
+AddNetMessage(NET_MESSAGES.CLC, clc_RespondCvarValue)
+AddNetMessage(NET_MESSAGES.CLC, clc_FileCRCCheck)
+AddNetMessage(NET_MESSAGES.CLC, clc_CmdKeyValues)
+AddNetMessage(NET_MESSAGES.CLC, clc_FileMD5Check)
+AddNetMessage(NET_MESSAGES.CLC, clc_GMod_ClientToServer)]]

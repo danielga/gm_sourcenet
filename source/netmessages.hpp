@@ -7,132 +7,74 @@
 #include <protocol.hpp>
 #include <unordered_map>
 
-#define SETUP_NETMESSAGE( name ) \
-	name( ) \
-	{ \
-		memset( this, 0, sizeof( name ) ); \
-	} \
-	virtual void Destroy( ) \
-	{ \
-		CNetMessage::Destroy( ); \
-		memset( this, 0, sizeof( name ) ); \
-	} \
-	static CNetMessage *Create( void **vtable ) \
-	{ \
-		CNetMessage *msg = new name; \
-		msg->InstallVTable( vtable ); \
-		return msg; \
-	}
-
-namespace NetMessage
+namespace NetMessages
 {
 
 class CNetMessage : public INetMessage
 {
 public:
-	virtual ~CNetMessage( )
-	{ };
+	CNetMessage( );
 
-	virtual void SetNetChannel( INetChannel *netchan )
-	{
-		m_NetChannel = netchan;
-	}
+	virtual void SetNetChannel( INetChannel *netchan );
+	virtual void SetReliable( bool state );
 
-	virtual void SetReliable( bool state )
-	{
-		m_bReliable = state;
-	}
+	virtual bool Process( );
+	virtual bool ReadFromBuffer( bf_read &buffer );
+	virtual bool WriteToBuffer( bf_write &buffer );
 
-	virtual bool Process( )
-	{
-		return false;
-	}
+	virtual bool IsReliable( ) const;
 
-	virtual bool ReadFromBuffer( bf_read &buffer )
-	{
-		return false;
-	}
+	virtual int32_t GetType( ) const;
+	virtual int32_t GetGroup( ) const;
+	virtual const char *GetName( ) const;
 
-	virtual bool WriteToBuffer( bf_write &buffer )
-	{
-		return false;
-	}
+	virtual INetChannel *GetNetChannel( ) const;
 
-	virtual bool IsReliable( ) const
-	{
-		return m_bReliable;
-	}
+	virtual const char *ToString( ) const;
 
-	virtual int32_t GetType( ) const
-	{
-		return -1;
-	}
+	void InstallVTable( void **vtable );
 
-	virtual int32_t GetGroup( ) const
-	{
-		return INetChannelInfo::GENERIC;
-	}
-
-	virtual const char *GetName( ) const
-	{
-		return nullptr;
-	}
-
-	virtual INetChannel *GetNetChannel( ) const
-	{
-		return m_NetChannel;
-	}
-
-	virtual const char *ToString( ) const
-	{
-		return nullptr;
-	}
-
-	virtual void Destroy( )
-	{
-		this->~CNetMessage( );
-	}
-
-	inline void InstallVTable( void **vtable )
-	{
-		*reinterpret_cast<void ***>( this ) = vtable;
-	}
-
-	inline void **GetVTable( )
-	{
-		return *reinterpret_cast<void ***>( this );
-	}
+	void **GetVTable( );
 
 protected:
 	bool m_bReliable;
 	INetChannel *m_NetChannel;
+	INetMessageHandler *m_pMessageHandler;
 };
 
 class NET_Tick : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( NET_Tick );
+	static CNetMessage *Create( );
 
-	int32_t m_nTick;
-	float m_flHostFrameTime;
-	float m_flHostFrameTimeStdDeviation;
+	static void SetupLua( lua_State *state );
+
+	int32_t Tick;
+	float HostFrameTime;
+	float HostFrameTimeStdDeviation;
 };
 
 class NET_StringCmd : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( NET_StringCmd );
+	NET_StringCmd( );
 
-	const char *m_szCommand;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	const char *Command;
 
 private:
-	char m_szCommandBuffer[1024];
+	char CommandBuffer[1024];
 };
 
 class NET_SetConVar : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( NET_SetConVar );
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
 
 	typedef struct cvar_s
 	{
@@ -140,76 +82,90 @@ public:
 		char value[260];
 	} cvar_t;
 
-	CUtlVector<cvar_t> m_ConVars;
+	CUtlVector<cvar_t> ConVars;
 };
 
 class NET_SignonState : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( NET_SignonState );
+	static CNetMessage *Create( );
 
-	int32_t m_nSignonState;
-	int32_t m_nSpawnCount;
+	static void SetupLua( lua_State *state );
+
+	int32_t SignonState;
+	int32_t SpawnCount;
 };
 
 class SVC_Print : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_Print );
+	SVC_Print( );
 
-	const char *m_szText;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	const char *Text;
 
 private:
-	char m_szTextBuffer[2048];
+	char TextBuffer[2048];
 };
 
 class SVC_ServerInfo : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_ServerInfo );
+	SVC_ServerInfo( );
 
-	int16_t m_nProtocol;
-	int32_t m_nServerCount;
-	bool m_bIsHLTV;
-	bool m_bIsDedicated;
-	CRC32_t m_nClientCRC;
-	int16_t m_nMaxClasses;
-	uint8_t m_nMapMD5[16];
-	uint8_t m_nPlayerSlot;
-	uint8_t m_nMaxClients;
-	float m_fTickInterval;
-	char m_cOS;
-	const char *m_szGameDir;
-	const char *m_szMapName;
-	const char *m_szSkyName;
-	const char *m_szHostName;
-	const char *m_szLoadingURL;
-	const char *m_szGameMode;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	int32_t Protocol;
+	int32_t ServerCount;
+	bool Dedicated;
+	bool HLTV;
+	char OS;
+	int32_t ClientCRC;
+	uint8_t MapMD5[16];
+	int32_t MaxClients;
+	int32_t MaxClasses;
+	int32_t PlayerSlot;
+	float TickInterval;
+	const char *GameDir;
+	const char *MapName;
+	const char *SkyName;
+	const char *HostName;
+	const char *LoadingURL;
+	const char *Gamemode;
 
 private:
-	char m_szGameDirBuffer[260];
-	char m_szMapNameBuffer[260];
-	char m_szSkyNameBuffer[260];
-	char m_szHostNameBuffer[260];
-	char m_szLoadingURLBuffer[260];
-	char m_szGameModeBuffer[260];
+	char GameDirBuffer[260];
+	char MapNameBuffer[260];
+	char SkyNameBuffer[260];
+	char HostNameBuffer[260];
+	char LoadingURLBuffer[260];
+	char GameModeBuffer[260];
 };
 
 class SVC_SendTable : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_SendTable );
+	static CNetMessage *Create( );
 
-	bool m_bNeedsDecoder;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	bool NeedsDecoder;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_ClassInfo : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_ClassInfo );
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
 
 	typedef struct class_s
 	{
@@ -218,405 +174,437 @@ public:
 		char classname[256];
 	} class_t;
 
-	bool m_bCreateOnClient;
-	CUtlVector<class_t> m_Classes;			
-	int32_t m_nNumServerClasses;
+	bool CreateOnClient;
+	CUtlVector<class_t> Classes;			
+	int32_t NumServerClasses;
 };
 
 class SVC_SetPause : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_SetPause );
+	static CNetMessage *Create( );
 
-	bool m_bPaused;
+	static void SetupLua( lua_State *state );
+
+	bool Paused;
 };
 
 class SVC_CreateStringTable : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_CreateStringTable );
+	SVC_CreateStringTable( );
 
-	const char *m_szTableName;
-	int32_t m_nMaxEntries;
-	int32_t m_nNumEntries;
-	bool m_bUserDataFixedSize;
-	int32_t m_nUserDataSize;
-	int32_t m_nUserDataSizeBits;
-	bool m_bIsFilenames;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	const char *TableName;
+	int32_t MaxEntries;
+	int32_t NumEntries;
+	bool UserDataFixedSize;
+	int32_t UserDataSize;
+	int32_t UserDataSizeBits;
+	bool IsFilenames;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 
 private:
-	char m_szTableNameBuffer[256];
+	char TableNameBuffer[256];
 };
 
 class SVC_UpdateStringTable : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_UpdateStringTable );
+	static CNetMessage *Create( );
 
-	int32_t m_nTableID;
-	int32_t m_nChangedEntries;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t TableID;
+	int32_t ChangedEntries;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_VoiceInit : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_VoiceInit );
+	SVC_VoiceInit( );
 
-	const char *m_szVoiceCodec;
-	int32_t m_nQuality;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	const char *VoiceCodec;
+	int32_t Quality;
 
 private:
-	char m_szVoiceCodecBuffer[260];
+	char VoiceCodecBuffer[260];
 };
 
 class SVC_VoiceData : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_VoiceData );
+	SVC_VoiceData( );
 
-	int32_t m_nFromClient;
-	bool m_bProximity;
-	int32_t m_nLength;
-	uint64_t m_xuid;
+	static CNetMessage *Create( );
 
-	bf_read m_DataIn;
-	void *m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t Client;
+	bool Proximity;
+	int32_t Length;
+	uint64_t XUID;
+	bf_read DataIn;
+	void *DataOut;
 };
 
 class SVC_Sounds : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_Sounds );
+	static CNetMessage *Create( );
 
-	bool m_bReliableSound;
-	int32_t m_nNumSounds;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	bool ReliableSound;
+	int32_t NumSounds;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_SetView : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_SetView );
+	static CNetMessage *Create( );
 
-	int32_t m_nEntityIndex;
+	static void SetupLua( lua_State *state );
+
+	int32_t EntityIndex;
 };
 
 class SVC_FixAngle: public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_FixAngle );
+	static CNetMessage *Create( );
 
-	bool m_bRelative; 
-	QAngle m_Angle;
+	static void SetupLua( lua_State *state );
+
+	bool Relative; 
+	QAngle Angle;
 };
 
 class SVC_CrosshairAngle : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_CrosshairAngle );
+	static CNetMessage *Create( );
 
-	QAngle m_Angle;
+	static void SetupLua( lua_State *state );
+
+	QAngle Angle;
 };
 
 class SVC_BSPDecal : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_BSPDecal );
+	static CNetMessage *Create( );
 
-	Vector m_Pos;
-	int32_t m_nDecalTextureIndex;
-	int32_t m_nEntityIndex;
-	int32_t m_nModelIndex;
-	bool m_bLowPriority;
+	static void SetupLua( lua_State *state );
+
+	Vector Pos;
+	int32_t DecalTextureIndex;
+	int32_t EntityIndex;
+	int32_t ModelIndex;
+	bool LowPriority;
 };
 
 class SVC_UserMessage: public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_UserMessage );
+	static CNetMessage *Create( );
 
-	int32_t m_nMsgType;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t MsgType;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_EntityMessage : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_EntityMessage );
+	static CNetMessage *Create( );
 
-	int32_t m_nEntityIndex;
-	int32_t m_nClassID;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t EntityIndex;
+	int32_t ClassID;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_GameEvent : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_GameEvent );
+	static CNetMessage *Create( );
 
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_PacketEntities : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_PacketEntities );
+	static CNetMessage *Create( );
 
-	int32_t m_nMaxEntries;
-	int32_t m_nUpdatedEntries;
-	bool m_bIsDelta;	
-	bool m_bUpdateBaseline;
-	int32_t m_nBaseline;
-	int32_t m_nDeltaFrom;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t MaxEntries;
+	int32_t UpdatedEntries;
+	bool Delta;	
+	bool UpdateBaseline;
+	int32_t Baseline;
+	int32_t DeltaFrom;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_TempEntities : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_TempEntities );
+	static CNetMessage *Create( );
 
-	int32_t m_nNumEntries;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t NumEntries;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_Prefetch : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_Prefetch );
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
 
 	enum
 	{
 		SOUND = 0,
 	};
 
-	uint16_t m_fType;
-	uint16_t m_nSoundIndex;
+	uint16_t Type;
+	uint16_t SoundIndex;
 };
 
 class SVC_Menu : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_Menu );
+	SVC_Menu( );
 
-	KeyValues *m_MenuKeyValues;
-	DIALOG_TYPE m_Type;
-	int32_t m_iLength;
+	~SVC_Menu( );
+
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	KeyValues *MenuKeyValues;
+	DIALOG_TYPE Type;
+	int32_t Length;
 };
 
 class SVC_GameEventList : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_GameEventList );
+	static CNetMessage *Create( );
 
-	int32_t m_nNumEvents;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t NumEvents;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class SVC_GetCvarValue : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_GetCvarValue );
+	SVC_GetCvarValue( );
 
-	QueryCvarCookie_t m_iCookie;
-	const char *m_szCvarName;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	QueryCvarCookie_t Cookie;
+	const char *CvarName;
 
 private:
-	char m_szCvarNameBuffer[256];
+	char CvarNameBuffer[256];
 };
 
 class SVC_CmdKeyValues : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_CmdKeyValues );
+	SVC_CmdKeyValues( );
 
-	KeyValues *m_CmdKeyValues;
+	~SVC_CmdKeyValues( );
+
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	KeyValues *CmdKeyValues;
 };
 
 class SVC_GMod_ServerToClient : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( SVC_GMod_ServerToClient );
+	static CNetMessage *Create( );
 
-	bf_read m_Data;
+	static void SetupLua( lua_State *state );
+
+	bf_read Data;
 };
 
 class CLC_ClientInfo : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_ClientInfo );
+	static CNetMessage *Create( );
 
-	CRC32_t m_nSendTableCRC;
-	int32_t m_nServerCount;
-	bool m_bIsHLTV;
-	uint32_t m_nFriendsID;
-	char m_FriendsName[MAX_PLAYER_NAME_LENGTH];
-	CRC32_t m_nCustomFiles[MAX_CUSTOM_FILES];
+	static void SetupLua( lua_State *state );
+
+	CRC32_t SendTableCRC;
+	int32_t ServerCount;
+	bool HLTV;
+	uint32_t FriendsID;
+	char FriendsName[MAX_PLAYER_NAME_LENGTH];
+	CRC32_t CustomFiles[MAX_CUSTOM_FILES];
 };
 
 class CLC_Move : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_Move );
+	static CNetMessage *Create( );
 
-	int32_t m_nBackupCommands;
-	int32_t m_nNewCommands;
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
+	static void SetupLua( lua_State *state );
+
+	int32_t BackupCommands;
+	int32_t NewCommands;
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
 };
 
 class CLC_VoiceData : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_VoiceData );
+	static CNetMessage *Create( );
 
-	int32_t m_nLength;
-	bf_read m_DataIn;
-	bf_write m_DataOut;
-	uint64_t m_xuid;
+	static void SetupLua( lua_State *state );
+
+	int32_t Length;
+	bf_read DataIn;
+	bf_write DataOut;
+	uint64_t XUID;
 };
 
 class CLC_BaselineAck : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_BaselineAck );
+	static CNetMessage *Create( );
 
-	int32_t m_nBaselineTick;
-	int32_t m_nBaselineNr;
+	static void SetupLua( lua_State *state );
+
+	int32_t BaselineTick;
+	int32_t BaselineNr;
 };
 
 class CLC_ListenEvents : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_ListenEvents );
+	static CNetMessage *Create( );
 
-	CBitVec<MAX_EVENT_NUMBER> m_EventArray;
+	static void SetupLua( lua_State *state );
+
+	CBitVec<MAX_EVENT_NUMBER> EventArray;
 };
 
 class CLC_RespondCvarValue : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_RespondCvarValue );
+	CLC_RespondCvarValue( );
 
-	QueryCvarCookie_t m_iCookie;
-	
-	const char *m_szCvarName;
-	const char *m_szCvarValue;
+	static CNetMessage *Create( );
 
-	EQueryCvarValueStatus m_eStatusCode;
+	static void SetupLua( lua_State *state );
+
+	QueryCvarCookie_t Cookie;
+	const char *CvarName;
+	const char *CvarValue;
+	EQueryCvarValueStatus StatusCode;
 
 private:
-	char m_szCvarNameBuffer[256];
-	char m_szCvarValueBuffer[256];
+	char CvarNameBuffer[256];
+	char CvarValueBuffer[256];
 };
 
 class CLC_FileCRCCheck : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_FileCRCCheck );
+	static CNetMessage *Create( );
 
-	char m_szPathID[260];
-	char m_szFilename[260];
-	CRC32_t m_CRC;
+	static void SetupLua( lua_State *state );
+
+	char PathID[260];
+	char Filename[260];
+	CRC32_t CRC;
 };
 
 class CLC_CmdKeyValues : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_CmdKeyValues );
+	CLC_CmdKeyValues( );
+	~CLC_CmdKeyValues( );
 
-	KeyValues *m_CmdKeyValues;
+	static CNetMessage *Create( );
+
+	static void SetupLua( lua_State *state );
+
+	KeyValues *CmdKeyValues;
 };
 
 class CLC_FileMD5Check : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_FileMD5Check );
+	static CNetMessage *Create( );
 
-	char m_szPathID[260];
-	char m_szFilename[260];
-	uint8_t m_MD5[16];
+	static void SetupLua( lua_State *state );
+
+	char PathID[260];
+	char Filename[260];
+	uint8_t MD5[16];
 };
 
 class CLC_GMod_ClientToServer : public CNetMessage
 {
 public:
-	SETUP_NETMESSAGE( CLC_GMod_ClientToServer );
+	static CNetMessage *Create( );
 
-	bf_read m_Data;
+	static void SetupLua( lua_State *state );
+
+	bf_read Data;
 };
 
-typedef CNetMessage *( *NetMessageCreator )( void **vtable );
-static std::unordered_map<int32_t, NetMessageCreator> netmessages_creators = {
-	{ net_Tick, NET_Tick::Create },
-	{ net_StringCmd, NET_StringCmd::Create },
-	{ net_SetConVar, NET_StringCmd::Create },
-	{ net_SignonState, NET_StringCmd::Create },
-	{ svc_Print, NET_StringCmd::Create },
-	{ svc_ServerInfo, SVC_ServerInfo::Create },
-	{ svc_SendTable, SVC_SendTable::Create },
-	{ svc_ClassInfo, SVC_ClassInfo::Create },
-	{ svc_SetPause, SVC_SetPause::Create },
-	{ svc_CreateStringTable, SVC_CreateStringTable::Create },
-	{ svc_UpdateStringTable, SVC_UpdateStringTable::Create },
-	{ svc_VoiceInit, SVC_VoiceInit::Create },
-	{ svc_VoiceData, SVC_VoiceData::Create },
-	{ svc_Sounds, SVC_Sounds::Create },
-	{ svc_SetView, SVC_SetView::Create },
-	{ svc_FixAngle, SVC_FixAngle::Create },
-	{ svc_CrosshairAngle, SVC_CrosshairAngle::Create },
-	{ svc_BSPDecal, SVC_BSPDecal::Create },
-	{ svc_UserMessage, SVC_UserMessage::Create },
-	{ svc_EntityMessage, SVC_EntityMessage::Create },
-	{ svc_GameEvent, SVC_GameEvent::Create },
-	{ svc_PacketEntities, SVC_PacketEntities::Create },
-	{ svc_TempEntities, SVC_TempEntities::Create },
-	{ svc_Prefetch, SVC_Prefetch::Create },
-	{ svc_Menu, SVC_Menu::Create },
-	{ svc_GameEventList, SVC_GameEventList::Create },
-	{ svc_GetCvarValue, SVC_GetCvarValue::Create },
-	{ svc_CmdKeyValues, SVC_CmdKeyValues::Create },
-	{ svc_GMod_ServerToClient, SVC_GMod_ServerToClient::Create },
-	{ clc_ClientInfo, CLC_ClientInfo::Create },
-	{ clc_Move, CLC_Move::Create },
-	{ clc_VoiceData, CLC_VoiceData::Create },
-	{ clc_BaselineAck, CLC_BaselineAck::Create },
-	{ clc_ListenEvents, CLC_ListenEvents::Create },
-	{ clc_RespondCvarValue, CLC_RespondCvarValue::Create },
-	{ clc_FileCRCCheck, CLC_FileCRCCheck::Create },
-	{ clc_CmdKeyValues, CLC_CmdKeyValues::Create },
-	{ clc_FileMD5Check, CLC_FileMD5Check::Create },
-	{ clc_GMod_ClientToServer, CLC_GMod_ClientToServer::Create }
-};
+CNetMessage *Create( const char *name );
 
-static CNetMessage *CreateNetMessage( int32_t type, void **vtable )
-{
-	auto it = netmessages_creators.find( type );
-	if( it != netmessages_creators.end( ) )
-		return ( *it ).second( vtable );
-
-	return nullptr;
-}
+void SetupLua( lua_State *state, const char *name );
 
 }

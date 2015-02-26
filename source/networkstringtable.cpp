@@ -15,6 +15,12 @@ static const char *metaname = "IGameEvent";
 
 void Push( lua_State *state, INetworkStringTable *table )
 {
+	if( table == nullptr )
+	{
+		LUA->PushNil( );
+		return;
+	}
+
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
 	udata->table = table;

@@ -70,7 +70,7 @@ solution("gm_sourcenet4")
 		filter("system:windows")
 			files({SDK_FOLDER .. "/public/tier0/memoverride.cpp"})
 			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
-			links({"ws2_32", "tier0", "tier1", "lua_shared"})
+			links({"ws2_32", "tier0", "tier1", "vstdlib", "lua_shared"})
 			targetsuffix("_win32")
 
 			filter({"system:windows", "configurations:Debug"})
@@ -79,7 +79,7 @@ solution("gm_sourcenet4")
 		filter("system:linux")
 			defines({"COMPILER_GCC", "POSIX", "LINUX", "_LINUX", "GNUC", "NO_MALLOC_OVERRIDE"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
-			links({"dl", "tier0_srv"})
+			links({"dl", "tier0_srv", "vstdlib_srv"})
 			prelinkcommands({
 				"mkdir -p garrysmod/bin",
 				"cp -f ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared_srv.so garrysmod/bin"
@@ -93,7 +93,7 @@ solution("gm_sourcenet4")
 
 		filter({"system:macosx"})
 			libdirs({SDK_FOLDER .. "/lib/public/osx32", GARRYSMOD_MODULE_BASE_FOLDER})
-			links({"dl", "tier0", "tier1", "lua_shared"})
+			links({"dl", "tier0", "tier1", "vstdlib", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")
 
@@ -141,7 +141,7 @@ solution("gm_sourcenet4")
 		filter("system:windows")
 			files({SDK_FOLDER .. "/public/tier0/memoverride.cpp"})
 			libdirs({SDK_FOLDER .. "/lib/public", GARRYSMOD_MODULE_BASE_FOLDER})
-			links({"ws2_32", "tier0", "tier1", "lua_shared"})
+			links({"ws2_32", "tier0", "tier1", "vstdlib", "lua_shared"})
 			targetsuffix("_win32")
 
 			filter({"system:windows", "configurations:Debug"})
@@ -150,7 +150,7 @@ solution("gm_sourcenet4")
 		filter("system:linux")
 			defines({"COMPILER_GCC", "POSIX", "LINUX", "_LINUX", "GNUC", "NO_MALLOC_OVERRIDE"})
 			libdirs({SDK_FOLDER .. "/lib/public/linux32"})
-			links({"dl", "tier0"})
+			links({"dl", "tier0", "vstdlib"})
 			prelinkcommands({
 				"mkdir -p garrysmod/bin",
 				"cp -f ../../" .. GARRYSMOD_MODULE_BASE_FOLDER .. "/lua_shared.so garrysmod/bin"
@@ -164,6 +164,6 @@ solution("gm_sourcenet4")
 
 		filter({"system:macosx"})
 			libdirs({SDK_FOLDER .. "/lib/public/osx32", GARRYSMOD_MODULE_BASE_FOLDER})
-			links({"dl", "tier0", "tier1", "lua_shared"})
+			links({"dl", "tier0", "tier1", "vstdlib", "lua_shared"})
 			buildoptions({"-std=c++11"})
 			targetsuffix("_mac")

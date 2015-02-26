@@ -180,6 +180,38 @@ void ThrowError( lua_State *state, const char *fmt, ... )
 	LUA->ThrowError( error );
 }
 
+void PushAngle( lua_State *state, const QAngle &ang )
+{
+	QAngle *angle = new( std::nothrow ) QAngle( ang );
+	if( angle == nullptr )
+		LUA->ThrowError( "failed to allocate Angle" );
+
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+	);
+	userdata->type = GarrysMod::Lua::Type::VECTOR;
+	userdata->data = angle;
+
+	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
+	LUA->SetMetaTable( -2 );
+}
+
+void PushVector( lua_State *state, const Vector &vec )
+{
+	Vector *vector = new( std::nothrow ) Vector( vec );
+	if( vector == nullptr )
+		LUA->ThrowError( "failed to allocate Vector" );
+
+	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+	);
+	userdata->type = GarrysMod::Lua::Type::VECTOR;
+	userdata->data = vector;
+
+	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
+	LUA->SetMetaTable( -2 );
+}
+
 }
 
 GMOD_MODULE_OPEN( )

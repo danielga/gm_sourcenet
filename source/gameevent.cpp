@@ -16,6 +16,12 @@ static const char *metaname = "IGameEvent";
 
 void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 {
+	if( event == nullptr )
+	{
+		LUA->PushNil( );
+		return;
+	}
+
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
 	udata->type = metaid;
 	udata->event = event;

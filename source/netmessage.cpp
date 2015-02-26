@@ -1,3 +1,4 @@
+#include <vfnhook.h>
 #include <netmessage.hpp>
 #include <netmessages.hpp>
 #include <sn4_bf_write.hpp>
@@ -8,6 +9,22 @@
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
 #include <hde.h>
+
+#define SETUP_LUA_CONSTRUCTOR( classname ) \
+	LUA_FUNCTION_STATIC( classname ) \
+	{ \
+		NetMessages::CNetMessage *msg = NetMessages::classname::Create( ); \
+		Push( state, msg ); \
+		return 1; \
+	}
+
+#define REGISTER_LUA_CONSTRUCTOR( classname ) \
+	LUA->PushCFunction( classname ); \
+	LUA->SetField( -2, #classname );
+
+#define UNREGISTER_LUA_CONSTRUCTOR( classname ) \
+	LUA->PushNil( ); \
+	LUA->SetField( -2, #classname );
 
 namespace NetMessage
 {
@@ -78,9 +95,7 @@ struct userdata
 const uint8_t metaid = Global::metabase + 14;
 const char *metaname = "INetMessage";
 
-static std::unordered_map<int32_t, void **> netmessages_vtables;
 static std::unordered_map< CNetChan *, std::unordered_map<INetMessage *, int32_t> > netmessages;
-static std::unordered_map<int32_t, int32_t> static_netmessages;
 
 static bool IsValid( INetMessage *msg, CNetChan *netchan )
 {
@@ -89,6 +104,12 @@ static bool IsValid( INetMessage *msg, CNetChan *netchan )
 
 void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 {
+	if( msg == nullptr )
+	{
+		LUA->PushNil( );
+		return;
+	}
+
 	if( netchan != nullptr )
 	{
 		auto it = netmessages.find( netchan );
@@ -113,10 +134,18 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
+	LUA->Push( -1 );
 	lua_setfenv( state, -2 );
 
-	LUA->Push( -1 );
-	netmessages[netchan][msg] = LUA->ReferenceCreate( );
+	NetMessages::SetupLua( state, msg->GetName( ) );
+
+	LUA->Pop( 1 );
+
+	if( netchan != nullptr )
+	{
+		LUA->Push( -1 );
+		netmessages[netchan][msg] = LUA->ReferenceCreate( );
+	}
 }
 
 INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
@@ -268,17 +297,6 @@ LUA_FUNCTION_STATIC( WriteToBuffer )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( Clear )
-{
-	CNetChan *netchan = nullptr;
-	CNetMessage *msg = static_cast<CNetMessage *>( Get( state, 1, &netchan ) );
-
-	if( netchan == nullptr )
-		msg->Destroy( );
-
-	return 0;
-}
-
 LUA_FUNCTION_STATIC( Process )
 {
 	INetMessage *msg = Get( state, 1 );
@@ -288,17 +306,81 @@ LUA_FUNCTION_STATIC( Process )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( Constructor )
+SETUP_LUA_CONSTRUCTOR( NET_Tick );
+SETUP_LUA_CONSTRUCTOR( NET_StringCmd );
+SETUP_LUA_CONSTRUCTOR( NET_SetConVar );
+SETUP_LUA_CONSTRUCTOR( NET_SignonState );
+
+SETUP_LUA_CONSTRUCTOR( SVC_Print );
+SETUP_LUA_CONSTRUCTOR( SVC_ServerInfo );
+SETUP_LUA_CONSTRUCTOR( SVC_SendTable );
+SETUP_LUA_CONSTRUCTOR( SVC_ClassInfo );
+SETUP_LUA_CONSTRUCTOR( SVC_SetPause );
+SETUP_LUA_CONSTRUCTOR( SVC_CreateStringTable );
+SETUP_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
+SETUP_LUA_CONSTRUCTOR( SVC_VoiceInit );
+SETUP_LUA_CONSTRUCTOR( SVC_VoiceData );
+SETUP_LUA_CONSTRUCTOR( SVC_Sounds );
+SETUP_LUA_CONSTRUCTOR( SVC_SetView );
+SETUP_LUA_CONSTRUCTOR( SVC_FixAngle );
+SETUP_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
+SETUP_LUA_CONSTRUCTOR( SVC_BSPDecal );
+SETUP_LUA_CONSTRUCTOR( SVC_UserMessage );
+SETUP_LUA_CONSTRUCTOR( SVC_EntityMessage );
+SETUP_LUA_CONSTRUCTOR( SVC_GameEvent );
+SETUP_LUA_CONSTRUCTOR( SVC_PacketEntities );
+SETUP_LUA_CONSTRUCTOR( SVC_TempEntities );
+SETUP_LUA_CONSTRUCTOR( SVC_Prefetch );
+SETUP_LUA_CONSTRUCTOR( SVC_Menu );
+SETUP_LUA_CONSTRUCTOR( SVC_GameEventList );
+SETUP_LUA_CONSTRUCTOR( SVC_GetCvarValue );
+SETUP_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
+SETUP_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+
+SETUP_LUA_CONSTRUCTOR( CLC_ClientInfo );
+SETUP_LUA_CONSTRUCTOR( CLC_Move );
+SETUP_LUA_CONSTRUCTOR( CLC_VoiceData );
+SETUP_LUA_CONSTRUCTOR( CLC_BaselineAck );
+SETUP_LUA_CONSTRUCTOR( CLC_ListenEvents );
+SETUP_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
+SETUP_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
+SETUP_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
+SETUP_LUA_CONSTRUCTOR( CLC_FileMD5Check );
+SETUP_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
+
+inline void BuildVTable( void **source, void **destination )
 {
-	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	auto it = static_netmessages.find( static_cast<int32_t>( LUA->GetNumber( 1 ) ) );
-	if( it == static_netmessages.end( ) )
-		return 0;
+#if defined _WIN32
 
-	LUA->ReferencePush( ( *it ).second );
+	static size_t offset = 0;
 
-	return 1;
+#elif defined __linux || defined __APPLE__
+
+	static size_t offset = 1;
+
+#endif
+
+	uintptr_t *src = reinterpret_cast<uintptr_t *>( source ), *dst = reinterpret_cast<uintptr_t *>( destination );
+
+	Protection( dst, ( 12 + offset ) * sizeof( uintptr_t ), false );
+
+	for( size_t k = 0; k < 12 + offset; ++k )
+		dst[k] = src[k];
+
+/*
+	dst[3 + offset] = src[3 + offset]; // Process
+	dst[4 + offset] = src[4 + offset]; // ReadFromBuffer
+	dst[5 + offset] = src[5 + offset]; // WriteToBuffer
+
+	dst[7 + offset] = src[7 + offset]; // GetType
+	dst[8 + offset] = src[8 + offset]; // GetGroup
+	dst[9 + offset] = src[9 + offset]; // GetName
+
+	dst[11 + offset] = src[11 + offset]; // ToString
+*/
+
+	Protection( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 }
 
 inline bool IsEndOfFunction( const hde32s &hs )
@@ -349,7 +431,7 @@ inline bool PossibleVTable( const hde32s &hs )
 
 static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
-	CNetMessage *msg = new CNetMessage;
+	NetMessages::CNetMessage *msg = new NetMessages::CNetMessage;
 	void **msgvtable = msg->GetVTable( );
 
 	hde32s hs;
@@ -363,9 +445,12 @@ static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode
 			void **vtable = reinterpret_cast<void **>( hs.imm.imm32 );
 			msg->InstallVTable( vtable );
 
-			int32_t type = msg->GetType( );
-			if( netmessages_vtables.find( type ) == netmessages_vtables.end( ) )
-				netmessages_vtables[type] = vtable;
+			NetMessages::CNetMessage *temp = NetMessages::Create( msg->GetName( ) );
+			if( temp != nullptr )
+			{
+				BuildVTable( vtable, temp->GetVTable( ) );
+				delete temp;
+			}
 		}
 
 	msg->InstallVTable( msgvtable );
@@ -400,21 +485,22 @@ void PreInitialize( lua_State *state )
 		CBaseClientState_ConnectionStart
 	) + SVC_CreateStringTable_offset;
 	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
-		SVC_CreateStringTable + 4 + *reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
+		SVC_CreateStringTable + sizeof( uintptr_t ) +
+			*reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
 	) );
 
 	uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CmdKeyValues_offset;
 	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
-		SVC_CmdKeyValues + 4 + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
+		SVC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
 	) );
 
 	uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClient_ConnectionStart
 	) + CLC_CmdKeyValues_offset;
 	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
-		CLC_CmdKeyValues + 4 + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
+		CLC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
 	) );
 }
 
@@ -464,9 +550,6 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( WriteToBuffer );
 		LUA->SetField( -2, "WriteToBuffer" );
 
-		LUA->PushCFunction( Clear );
-		LUA->SetField( -2, "Clear" );
-
 		LUA->PushCFunction( Process );
 		LUA->SetField( -2, "Process" );
 
@@ -474,16 +557,49 @@ void Initialize( lua_State *state )
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
-		LUA->PushCFunction( Constructor );
-		LUA->SetField( -2, metaname );
+		REGISTER_LUA_CONSTRUCTOR( NET_Tick );
+		REGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
+		REGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
+		REGISTER_LUA_CONSTRUCTOR( NET_SignonState );
+
+		REGISTER_LUA_CONSTRUCTOR( SVC_Print );
+		REGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
+		REGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
+		REGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
+		REGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
+		REGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
+		REGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
+		REGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
+		REGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
+		REGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
+		REGISTER_LUA_CONSTRUCTOR( SVC_SetView );
+		REGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
+		REGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
+		REGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
+		REGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
+		REGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
+		REGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
+		REGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
+		REGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
+		REGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
+		REGISTER_LUA_CONSTRUCTOR( SVC_Menu );
+		REGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
+		REGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
+		REGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
+		REGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+
+		REGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
+		REGISTER_LUA_CONSTRUCTOR( CLC_Move );
+		REGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
+		REGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
+		REGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
+		REGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
+		REGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
+		REGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
+		REGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
+		REGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
 
 	LUA->Pop( 1 );
-
-	for( auto pair : netmessages_vtables )
-	{
-		Push( state, CreateNetMessage( pair.first, pair.second ) );
-		static_netmessages[pair.first] = LUA->ReferenceCreate( );
-	}
 }
 
 void Deinitialize( lua_State *state )
@@ -497,13 +613,49 @@ void Deinitialize( lua_State *state )
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
+		UNREGISTER_LUA_CONSTRUCTOR( NET_Tick );
+		UNREGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
+		UNREGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
+		UNREGISTER_LUA_CONSTRUCTOR( NET_SignonState );
+
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_Print );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_SetView );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_Menu );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
+		UNREGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_Move );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
+		UNREGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
 
 	LUA->Pop( 1 );
-
-	for( auto pair : static_netmessages )
-		LUA->ReferenceFree( pair.second );
 
 	for( auto pair : netmessages )
 		for( auto pair2 : pair.second )

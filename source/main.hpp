@@ -73,4 +73,8 @@ void CheckType( lua_State *state, int32_t index, int32_t type, const char *namet
 
 void ThrowError( lua_State *state, const char *fmt, ... );
 
+void PushAngle( lua_State *state, const QAngle &ang );
+
+void PushVector( lua_State *state, const Vector &vec );
+
 }

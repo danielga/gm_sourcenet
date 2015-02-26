@@ -38,7 +38,7 @@ void Push( lua_State *state, INetChannelHandler *handler )
 	LUA->Push( -1 );
 	handlers[handler] = LUA->ReferenceCreate( );
 
-	Hooks::HookINetChannelHandler( state, handler );
+	Hooks::HookINetChannelHandler( state );
 }
 
 INetChannelHandler *Get( lua_State *state, int32_t index )

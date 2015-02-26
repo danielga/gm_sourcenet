@@ -57,30 +57,6 @@ bf_read *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 	return reader;
 }
 
-static void Push_Angle( lua_State *state, QAngle *ang )
-{
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
-		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-	);
-	userdata->type = GarrysMod::Lua::Type::VECTOR;
-	userdata->data = ang;
-
-	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
-	LUA->SetMetaTable( -2 );
-}
-
-static void Push_Vector( lua_State *state, Vector *vec )
-{
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
-		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-	);
-	userdata->type = GarrysMod::Lua::Type::VECTOR;
-	userdata->data = vec;
-
-	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
-	LUA->SetMetaTable( -2 );
-}
-
 LUA_FUNCTION_STATIC( gc )
 {
 	int32_t bufref = -1;
@@ -225,13 +201,10 @@ LUA_FUNCTION_STATIC( ReadAngle )
 {
 	bf_read *buf = Get( state, 1 );
 
-	QAngle *ang = new( std::nothrow ) QAngle;
-	if( ang == nullptr )
-		LUA->ThrowError( "failed to allocate Angle" );
+	QAngle ang;
+	buf->ReadBitAngles( ang );
 
-	buf->ReadBitAngles( *ang );
-
-	Push_Angle( state, ang );
+	Global::PushAngle( state, ang );
 
 	return 1;
 }
@@ -254,13 +227,10 @@ LUA_FUNCTION_STATIC( ReadVector )
 {
 	bf_read *buf = Get( state, 1 );
 
-	Vector *vec = new( std::nothrow ) Vector;
-	if( vec == nullptr )
-		LUA->ThrowError( "failed to allocate Vector" );
+	Vector vec;
+	buf->ReadBitVec3Coord( vec );
 
-	buf->ReadBitVec3Coord( *vec );
-
-	Push_Vector( state, vec );
+	Global::PushVector( state, vec );
 
 	return 1;
 }
@@ -269,13 +239,10 @@ LUA_FUNCTION_STATIC( ReadNormal )
 {
 	bf_read *buf = Get( state, 1 );
 
-	Vector *vec = new( std::nothrow ) Vector;
-	if( vec == nullptr )
-		LUA->ThrowError( "failed to allocate Vector" );
+	Vector vec;
+	buf->ReadBitVec3Normal( vec );
 
-	buf->ReadBitVec3Normal( *vec );
-
-	Push_Vector( state, vec );
+	Global::PushVector( state, vec );
 
 	return 1;
 }

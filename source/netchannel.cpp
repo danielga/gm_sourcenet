@@ -58,7 +58,7 @@ void Push( lua_State *state, CNetChan *netchan )
 	LUA->Push( -1 );
 	netchannels[netchan] = LUA->ReferenceCreate( );
 
-	Hooks::HookCNetChan( state, netchan );
+	Hooks::HookCNetChan( state );
 }
 
 CNetChan *Get( lua_State *state, int32_t index )

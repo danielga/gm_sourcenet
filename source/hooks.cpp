@@ -716,22 +716,31 @@ void Deinitialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void HookCNetChan( lua_State *state, CNetChan *netchan )
+void HookCNetChan( lua_State *state )
 {
-	LUA->PushCFunction( Attach__CNetChan_Shutdown );
-	LUA->Push( -2 );
-	LUA->Call( 1, 0 );
+	if( !IS_ATTACHED( CNetChan_Shutdown ) )
+	{
+		LUA->PushCFunction( Attach__CNetChan_Shutdown );
+		LUA->Push( -2 );
+		LUA->Call( 1, 0 );
+	}
 }
 
-void HookINetChannelHandler( lua_State *state, INetChannelHandler *handler )
+void HookINetChannelHandler( lua_State *state )
 {
-	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
-	LUA->Push( -2 );
-	LUA->Call( 1, 0 );
+	if( !IS_ATTACHED( INetChannelHandler_ConnectionClosing ) )
+	{
+		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
+		LUA->Push( -2 );
+		LUA->Call( 1, 0 );
+	}
 
-	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
-	LUA->Push( -2 );
-	LUA->Call( 1, 0 );
+	if( !IS_ATTACHED( INetChannelHandler_ConnectionCrashed ) )
+	{
+		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
+		LUA->Push( -2 );
+		LUA->Call( 1, 0 );
+	}
 }
 
 }
