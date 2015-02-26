@@ -542,84 +542,80 @@ void PreInitialize( lua_State *state )
 
 void Initialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
+	LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+	LUA->PushCFunction( Attach__CNetChan_SendDatagram );
+	LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
 
-		LUA->PushCFunction( Attach__CNetChan_SendDatagram );
-		LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
+	LUA->PushCFunction( Detach__CNetChan_SendDatagram );
+	LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
 
-		LUA->PushCFunction( Detach__CNetChan_SendDatagram );
-		LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
+	LUA->PushCFunction( Attach__CNetChan_Shutdown );
+	LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
 
-		LUA->PushCFunction( Attach__CNetChan_Shutdown );
-		LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
+	//LUA->PushCFunction( Detach__CNetChan_Shutdown );
+	LUA->PushCFunction( Empty );
+	LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
 
-		//LUA->PushCFunction( Detach__CNetChan_Shutdown );
-		LUA->PushCFunction( Empty );
-		LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
+	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionStart );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionStart );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
+	LUA->PushCFunction( Detach__INetChannelHandler_ConnectionStart );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_ConnectionStart );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
+	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
+	//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
+	LUA->PushCFunction( Empty );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
 
-		//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
-		LUA->PushCFunction( Empty );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
+	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
+	//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
+	LUA->PushCFunction( Empty );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
 
-		//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
-		LUA->PushCFunction( Empty );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
+	LUA->PushCFunction( Attach__INetChannelHandler_PacketStart );
+	LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_PacketStart );
-		LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
+	LUA->PushCFunction( Detach__INetChannelHandler_PacketStart );
+	LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_PacketStart );
-		LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
+	LUA->PushCFunction( Attach__INetChannelHandler_PacketEnd );
+	LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_PacketEnd );
-		LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
+	LUA->PushCFunction( Detach__INetChannelHandler_PacketEnd );
+	LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_PacketEnd );
-		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
+	LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
+	LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+	LUA->PushCFunction( Attach__INetChannelHandler_FileReceived );
+	LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_FileReceived );
-		LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
+	LUA->PushCFunction( Detach__INetChannelHandler_FileReceived );
+	LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_FileReceived );
-		LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
+	LUA->PushCFunction( Attach__INetChannelHandler_FileDenied );
+	LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
 
-		LUA->PushCFunction( Attach__INetChannelHandler_FileDenied );
-		LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
+	LUA->PushCFunction( Detach__INetChannelHandler_FileDenied );
+	LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
 
-		LUA->PushCFunction( Detach__INetChannelHandler_FileDenied );
-		LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
+	LUA->PushCFunction( Attach__CNetChan_ProcessMessages );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
 
-		LUA->PushCFunction( Attach__CNetChan_ProcessMessages );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
-
-		LUA->PushCFunction( Detach__CNetChan_ProcessMessages );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
-
-	LUA->Pop( 1 );
+	LUA->PushCFunction( Detach__CNetChan_ProcessMessages );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
 }
 
 void Deinitialize( lua_State *state )
@@ -639,81 +635,79 @@ void Deinitialize( lua_State *state )
 
 	Detach__CNetChan_ProcessMessages( state );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__CNetChan_SendDatagram" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__CNetChan_SendDatagram" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__CNetChan_Shutdown" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__CNetChan_Shutdown" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionClosing" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionClosing" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_ConnectionCrashed" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_ConnectionCrashed" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_PacketStart" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_PacketStart" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_FileReceived" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_FileReceived" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__INetChannelHandler_FileDenied" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__INetChannelHandler_FileDenied" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Attach__CNetChan_ProcessMessages" );
 
-	LUA->Pop( 1 );
+	LUA->PushNil( );
+	LUA->SetField( -2, "Detach__CNetChan_ProcessMessages" );
 }
 
 void HookCNetChan( lua_State *state )

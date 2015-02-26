@@ -141,6 +141,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( Global::GetTable );
+		LUA->SetField( -2, "GetTable" );
+
 		LUA->PushCFunction( IsLocalhost );
 		LUA->SetField( -2, "IsLocalhost" );
 
@@ -167,12 +170,8 @@ void Initialize( lua_State *state )
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
-
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
-
-	LUA->Pop( 1 );
+	LUA->PushNil( );
+	LUA->SetField( -3, metaname );
 }
 
 }

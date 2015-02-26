@@ -117,6 +117,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( Global::GetTable );
+		LUA->SetField( -2, "GetTable" );
+
 		LUA->PushCFunction( CreateEvent );
 		LUA->SetField( -2, "CreateEvent" );
 
@@ -128,29 +131,17 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
-
-		LUA->PushCFunction( Constructor );
-		LUA->SetField( -2, metaname );
-
-	LUA->Pop( 1 );
+	LUA->PushCFunction( Constructor );
+	LUA->SetField( -2, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+	LUA->PushNil( );
+	LUA->SetField( -3, metaname );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
-
-	LUA->Pop( 1 );
-
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
-
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
-
-	LUA->Pop( 1 );
+	LUA->PushNil( );
+	LUA->SetField( -2, metaname );
 
 	LUA->ReferenceFree( manager_ref );
 	manager_ref = -1;

@@ -791,6 +791,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( Global::GetTable );
+		LUA->SetField( -2, "GetTable" );
+
 		LUA->PushCFunction( IsValid );
 		LUA->SetField( -2, "IsValid" );
 
@@ -964,29 +967,95 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushNumber( MAX_RATE );
+	LUA->SetField( -2, "MAX_RATE" );
 
-		LUA->PushCFunction( Constructor );
-		LUA->SetField( -2, metaname );
+	LUA->PushNumber( MIN_RATE );
+	LUA->SetField( -2, "MIN_RATE" );
 
-	LUA->Pop( 1 );
+	LUA->PushNumber( DEFAULT_RATE );
+	LUA->SetField( -2, "DEFAULT_RATE" );
+
+
+
+	LUA->PushNumber( FLOW_OUTGOING );
+	LUA->SetField( -2, "FLOW_OUTGOING" );
+
+	LUA->PushNumber( FLOW_INCOMING );
+	LUA->SetField( -2, "FLOW_INCOMING" );
+
+	LUA->PushNumber( MAX_FLOWS );
+	LUA->SetField( -2, "MAX_FLOWS" );
+
+
+
+	LUA->PushNumber( MAX_SUBCHANNELS );
+	LUA->SetField( -2, "MAX_SUBCHANNELS" );
+
+
+
+	LUA->PushNumber( MAX_STREAMS );
+	LUA->SetField( -2, "MAX_STREAMS" );
+
+	LUA->PushNumber( FRAG_NORMAL_STREAM );
+	LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
+
+	LUA->PushNumber( FRAG_FILE_STREAM );
+	LUA->SetField( -2, "FRAG_FILE_STREAM" );
+
+
+
+	LUA->PushCFunction( Constructor );
+	LUA->SetField( -2, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+	LUA->PushNil( );
+	LUA->SetField( -3, metaname );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
 
-	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_RATE" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
+	LUA->PushNil( );
+	LUA->SetField( -2, "MIN_RATE" );
 
-	LUA->Pop( 1 );
+	LUA->PushNil( );
+	LUA->SetField( -2, "DEFAULT_RATE" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FLOW_OUTGOING" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FLOW_INCOMING" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_FLOWS" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_SUBCHANNELS" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_STREAMS" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FRAG_FILE_STREAM" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, metaname );
 
 	for( auto pair : netchannels )
 		LUA->ReferenceFree( pair.second );

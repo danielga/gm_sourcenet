@@ -68,6 +68,7 @@ extern IServer *server;
 
 LUA_FUNCTION( index );
 LUA_FUNCTION( newindex );
+LUA_FUNCTION( GetTable );
 
 void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype );
 

@@ -135,7 +135,7 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 
 	LUA->CreateTable( );
 	LUA->Push( -1 );
-	lua_setfenv( state, -2 );
+	lua_setfenv( state, -3 );
 
 	NetMessages::SetupLua( state, msg->GetName( ) );
 
@@ -187,6 +187,7 @@ LUA_FUNCTION_STATIC( gc )
 	CNetChan *netchan = nullptr;
 	INetMessage *msg = Get( state, 1, &netchan, true );
 
+	const char *name = msg->GetName( );
 	if( netchan == nullptr )
 		delete msg;
 
@@ -282,6 +283,7 @@ LUA_FUNCTION_STATIC( ReadFromBuffer )
 	INetMessage *msg = Get( state, 1 );
 	bf_read *reader = sn4_bf_read::Get( state, 2 );
 
+	const char *name = msg->GetName( );
 	LUA->PushBool( msg->ReadFromBuffer( *reader ) );
 
 	return 1;
@@ -292,6 +294,7 @@ LUA_FUNCTION_STATIC( WriteToBuffer )
 	INetMessage *msg = Get( state, 1 );
 	bf_write *writer = sn4_bf_write::Get( state, 2 );
 
+	const char *name = msg->GetName( );
 	LUA->PushBool( msg->WriteToBuffer( *writer ) );
 
 	return 1;
@@ -523,6 +526,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( Global::GetTable );
+		LUA->SetField( -2, "GetTable" );
+
 		LUA->PushCFunction( GetType );
 		LUA->SetField( -2, "GetType" );
 
@@ -555,107 +561,536 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->CreateTable( );
 
-		REGISTER_LUA_CONSTRUCTOR( NET_Tick );
-		REGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
-		REGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
-		REGISTER_LUA_CONSTRUCTOR( NET_SignonState );
+		LUA->PushNumber( UpdateType::EnterPVS );
+		LUA->SetField( -2, "EnterPVS" );
 
-		REGISTER_LUA_CONSTRUCTOR( SVC_Print );
-		REGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
-		REGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
-		REGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
-		REGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
-		REGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
-		REGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
-		REGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
-		REGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
-		REGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
-		REGISTER_LUA_CONSTRUCTOR( SVC_SetView );
-		REGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
-		REGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
-		REGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
-		REGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
-		REGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
-		REGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
-		REGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
-		REGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
-		REGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
-		REGISTER_LUA_CONSTRUCTOR( SVC_Menu );
-		REGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
-		REGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
-		REGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
-		REGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+		LUA->PushNumber( UpdateType::LeavePVS );
+		LUA->SetField( -2, "LeavePVS" );
 
-		REGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
-		REGISTER_LUA_CONSTRUCTOR( CLC_Move );
-		REGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
-		REGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
-		REGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
-		REGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
-		REGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
-		REGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
-		REGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
-		REGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
+		LUA->PushNumber( UpdateType::DeltaEnt );
+		LUA->SetField( -2, "DeltaEnt" );
 
-	LUA->Pop( 1 );
+		LUA->PushNumber( UpdateType::PreserveEnt );
+		LUA->SetField( -2, "PreserveEnt" );
+
+		LUA->PushNumber( UpdateType::Finished );
+		LUA->SetField( -2, "Finished" );
+
+		LUA->PushNumber( UpdateType::Failed );
+		LUA->SetField( -2, "Failed" );
+
+	LUA->SetField( -2, "UpdateType" );
+
+
+
+	LUA->PushNumber( NET_MESSAGE_BITS );
+	LUA->SetField( -2, "NET_MESSAGE_BITS" );
+
+
+
+	LUA->PushNumber( MAX_CUSTOM_FILES );
+	LUA->SetField( -2, "MAX_CUSTOM_FILES" );
+
+	LUA->PushNumber( MAX_FRAGMENT_SIZE );
+	LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
+
+	LUA->PushNumber( MAX_FILE_SIZE );
+	LUA->SetField( -2, "MAX_FILE_SIZE" );
+
+
+
+	LUA->PushNumber( RES_FATALIFMISSING );
+	LUA->SetField( -2, "RES_FATALIFMISSING" );
+
+	LUA->PushNumber( RES_PRELOAD );
+	LUA->SetField( -2, "RES_PRELOAD" );
+
+
+
+	LUA->PushNumber( FHDR_ZERO );
+	LUA->SetField( -2, "FHDR_ZERO" );
+
+	LUA->PushNumber( FHDR_LEAVEPVS );
+	LUA->SetField( -2, "FHDR_LEAVEPVS" );
+
+	LUA->PushNumber( FHDR_DELETE );
+	LUA->SetField( -2, "FHDR_DELETE" );
+
+	LUA->PushNumber( FHDR_ENTERPVS );
+	LUA->SetField( -2, "FHDR_ENTERPVS" );
+
+
+
+	LUA->PushNumber( SIGNONSTATE_NONE );
+	LUA->SetField( -2, "SIGNONSTATE_NONE" );
+
+	LUA->PushNumber( SIGNONSTATE_CHALLENGE );
+	LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
+
+	LUA->PushNumber( SIGNONSTATE_CONNECTED );
+	LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
+
+	LUA->PushNumber( SIGNONSTATE_NEW );
+	LUA->SetField( -2, "SIGNONSTATE_NEW" );
+
+	LUA->PushNumber( SIGNONSTATE_PRESPAWN );
+	LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
+
+	LUA->PushNumber( SIGNONSTATE_SPAWN );
+	LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
+
+	LUA->PushNumber( SIGNONSTATE_FULL );
+	LUA->SetField( -2, "SIGNONSTATE_FULL" );
+
+	LUA->PushNumber( SIGNONSTATE_CHANGELEVEL );
+	LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
+
+
+
+	LUA->PushNumber( net_NOP );
+	LUA->SetField( -2, "net_NOP" );
+
+	LUA->PushNumber( net_Disconnect );
+	LUA->SetField( -2, "net_Disconnect" );
+
+	LUA->PushNumber( net_File );
+	LUA->SetField( -2, "net_File" );
+
+	LUA->PushNumber( net_LastControlMessage );
+	LUA->SetField( -2, "net_LastControlMessage" );
+
+
+	LUA->PushNumber( net_Tick );
+	LUA->SetField( -2, "net_Tick" );
+
+	LUA->PushNumber( net_StringCmd );
+	LUA->SetField( -2, "net_StringCmd" );
+
+	LUA->PushNumber( net_SetConVar );
+	LUA->SetField( -2, "net_SetConVar" );
+
+	LUA->PushNumber( net_SignonState );
+	LUA->SetField( -2, "net_SignonState" );
+
+
+	LUA->PushNumber( svc_ServerInfo );
+	LUA->SetField( -2, "svc_ServerInfo" );
+
+	LUA->PushNumber( svc_SendTable );
+	LUA->SetField( -2, "svc_SendTable" );
+
+	LUA->PushNumber( svc_ClassInfo );
+	LUA->SetField( -2, "svc_ClassInfo" );
+
+	LUA->PushNumber( svc_SetPause );
+	LUA->SetField( -2, "svc_SetPause" );
+
+	LUA->PushNumber( svc_CreateStringTable );
+	LUA->SetField( -2, "svc_CreateStringTable" );
+
+	LUA->PushNumber( svc_UpdateStringTable );
+	LUA->SetField( -2, "svc_UpdateStringTable" );
+
+	LUA->PushNumber( svc_VoiceInit );
+	LUA->SetField( -2, "svc_VoiceInit" );
+
+	LUA->PushNumber( svc_VoiceData );
+	LUA->SetField( -2, "svc_VoiceData" );
+
+	LUA->PushNumber( svc_Print );
+	LUA->SetField( -2, "svc_Print" );
+
+	LUA->PushNumber( svc_Sounds );
+	LUA->SetField( -2, "svc_Sounds" );
+
+	LUA->PushNumber( svc_SetView );
+	LUA->SetField( -2, "svc_SetView" );
+
+	LUA->PushNumber( svc_FixAngle );
+	LUA->SetField( -2, "svc_FixAngle" );
+
+	LUA->PushNumber( svc_CrosshairAngle );
+	LUA->SetField( -2, "svc_CrosshairAngle" );
+
+	LUA->PushNumber( svc_BSPDecal );
+	LUA->SetField( -2, "svc_BSPDecal" );
+
+	LUA->PushNumber( svc_UserMessage );
+	LUA->SetField( -2, "svc_UserMessage" );
+
+	LUA->PushNumber( svc_EntityMessage );
+	LUA->SetField( -2, "svc_EntityMessage" );
+
+	LUA->PushNumber( svc_GameEvent );
+	LUA->SetField( -2, "svc_GameEvent" );
+
+	LUA->PushNumber( svc_PacketEntities );
+	LUA->SetField( -2, "svc_PacketEntities" );
+
+	LUA->PushNumber( svc_TempEntities );
+	LUA->SetField( -2, "svc_TempEntities" );
+
+	LUA->PushNumber( svc_Prefetch );
+	LUA->SetField( -2, "svc_Prefetch" );
+
+	LUA->PushNumber( svc_Menu );
+	LUA->SetField( -2, "svc_Menu" );
+
+	LUA->PushNumber( svc_GameEventList );
+	LUA->SetField( -2, "svc_GameEventList" );
+
+	LUA->PushNumber( svc_GetCvarValue );
+	LUA->SetField( -2, "svc_GetCvarValue" );
+
+	LUA->PushNumber( svc_CmdKeyValues );
+	LUA->SetField( -2, "svc_CmdKeyValues" );
+
+	LUA->PushNumber( svc_GMod_ServerToClient );
+	LUA->SetField( -2, "svc_GMod_ServerToClient" );
+
+	LUA->PushNumber( SVC_LASTMSG );
+	LUA->SetField( -2, "SVC_LASTMSG" );
+
+
+	LUA->PushNumber( clc_ClientInfo );
+	LUA->SetField( -2, "clc_ClientInfo" );
+
+	LUA->PushNumber( clc_Move );
+	LUA->SetField( -2, "clc_Move" );
+
+	LUA->PushNumber( clc_VoiceData );
+	LUA->SetField( -2, "clc_VoiceData" );
+
+	LUA->PushNumber( clc_BaselineAck );
+	LUA->SetField( -2, "clc_BaselineAck" );
+
+	LUA->PushNumber( clc_ListenEvents );
+	LUA->SetField( -2, "clc_ListenEvents" );
+
+	LUA->PushNumber( clc_RespondCvarValue );
+	LUA->SetField( -2, "clc_RespondCvarValue" );
+
+	LUA->PushNumber( clc_FileCRCCheck );
+	LUA->SetField( -2, "clc_FileCRCCheck" );
+
+	LUA->PushNumber( clc_CmdKeyValues );
+	LUA->SetField( -2, "clc_CmdKeyValues" );
+
+	LUA->PushNumber( clc_FileMD5Check );
+	LUA->SetField( -2, "clc_FileMD5Check" );
+
+	LUA->PushNumber( clc_GMod_ClientToServer );
+	LUA->SetField( -2, "clc_GMod_ClientToServer" );
+
+	LUA->PushNumber( CLC_LASTMSG );
+	LUA->SetField( -2, "CLC_LASTMSG" );
+
+
+
+	REGISTER_LUA_CONSTRUCTOR( NET_Tick );
+	REGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
+	REGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
+	REGISTER_LUA_CONSTRUCTOR( NET_SignonState );
+
+	REGISTER_LUA_CONSTRUCTOR( SVC_Print );
+	REGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
+	REGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
+	REGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
+	REGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
+	REGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
+	REGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
+	REGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
+	REGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
+	REGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
+	REGISTER_LUA_CONSTRUCTOR( SVC_SetView );
+	REGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
+	REGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
+	REGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
+	REGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
+	REGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
+	REGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
+	REGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
+	REGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
+	REGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
+	REGISTER_LUA_CONSTRUCTOR( SVC_Menu );
+	REGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
+	REGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
+	REGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
+	REGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+
+	REGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
+	REGISTER_LUA_CONSTRUCTOR( CLC_Move );
+	REGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
+	REGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
+	REGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
+	REGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
+	REGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
+	REGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
+	REGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
+	REGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
 }
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+	LUA->PushNil( );
+	LUA->SetField( -3, metaname );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
 
-	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushNil( );
+	LUA->SetField( -2, "UpdateType" );
 
-		UNREGISTER_LUA_CONSTRUCTOR( NET_Tick );
-		UNREGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
-		UNREGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
-		UNREGISTER_LUA_CONSTRUCTOR( NET_SignonState );
 
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_Print );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_SetView );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_Menu );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
-		UNREGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
 
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_Move );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
-		UNREGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
+	LUA->PushNil( );
+	LUA->SetField( -2, "NET_MESSAGE_BITS" );
 
-	LUA->Pop( 1 );
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_CUSTOM_FILES" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "MAX_FILE_SIZE" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "RES_FATALIFMISSING" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "RES_PRELOAD" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FHDR_ZERO" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FHDR_LEAVEPVS" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FHDR_DELETE" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "FHDR_ENTERPVS" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_NONE" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_NEW" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_FULL" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_NOP" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_Disconnect" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_File" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_LastControlMessage" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_Tick" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_StringCmd" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_SetConVar" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "net_SignonState" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_ServerInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_SendTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_ClassInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_SetPause" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_CreateStringTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_UpdateStringTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_VoiceInit" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_VoiceData" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_Print" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_Sounds" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_SetView" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_FixAngle" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_CrosshairAngle" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_BSPDecal" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_UserMessage" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_EntityMessage" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_GameEvent" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_PacketEntities" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_TempEntities" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_Prefetch" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_Menu" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_GameEventList" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_GetCvarValue" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_CmdKeyValues" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "svc_GMod_ServerToClient" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SVC_LASTMSG" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_ClientInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_Move" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_VoiceData" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_BaselineAck" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_ListenEvents" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_RespondCvarValue" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_FileCRCCheck" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_CmdKeyValues" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_FileMD5Check" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "clc_GMod_ClientToServer" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "CLC_LASTMSG" );
+
+
+
+	UNREGISTER_LUA_CONSTRUCTOR( NET_Tick );
+	UNREGISTER_LUA_CONSTRUCTOR( NET_StringCmd );
+	UNREGISTER_LUA_CONSTRUCTOR( NET_SetConVar );
+	UNREGISTER_LUA_CONSTRUCTOR( NET_SignonState );
+
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_Print );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_ServerInfo );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_SendTable );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_ClassInfo );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_SetPause );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_CreateStringTable );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_UpdateStringTable );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceInit );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_VoiceData );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_Sounds );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_SetView );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_FixAngle );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_CrosshairAngle );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_BSPDecal );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_UserMessage );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_EntityMessage );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEvent );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_PacketEntities );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_TempEntities );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_Prefetch );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_Menu );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_GameEventList );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_GetCvarValue );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_CmdKeyValues );
+	UNREGISTER_LUA_CONSTRUCTOR( SVC_GMod_ServerToClient );
+
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_ClientInfo );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_Move );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_VoiceData );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_BaselineAck );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_ListenEvents );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_RespondCvarValue );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_FileCRCCheck );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_CmdKeyValues );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_FileMD5Check );
+	UNREGISTER_LUA_CONSTRUCTOR( CLC_GMod_ClientToServer );
+
+
 
 	for( auto pair : netmessages )
 		for( auto pair2 : pair.second )

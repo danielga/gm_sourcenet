@@ -1,5 +1,6 @@
 #include <networkstringtablecontainer.hpp>
 #include <networkstringtable.hpp>
+#include <protocol.hpp>
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTableContainer
@@ -122,6 +123,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( Global::GetTable );
+		LUA->SetField( -2, "GetTable" );
+
 		LUA->PushCFunction( GetNumTables );
 		LUA->SetField( -2, "GetNumTables" );
 
@@ -133,29 +137,49 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushString( INSTANCE_BASELINE_TABLENAME );
+	LUA->SetField( -2, "INSTANCE_BASELINE_TABLENAME" );
 
-		LUA->PushCFunction( Constructor );
-		LUA->SetField( -2, metaname );
+	LUA->PushString( LIGHT_STYLES_TABLENAME );
+	LUA->SetField( -2, "LIGHT_STYLES_TABLENAME" );
 
-	LUA->Pop( 1 );
+	LUA->PushString( USER_INFO_TABLENAME );
+	LUA->SetField( -2, "USER_INFO_TABLENAME" );
+
+	LUA->PushString( SERVER_STARTUP_DATA_TABLENAME );
+	LUA->SetField( -2, "SERVER_STARTUP_DATA_TABLENAME" );
+
+
+
+	LUA->PushCFunction( Constructor );
+	LUA->SetField( -2, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
+	LUA->PushNil( );
+	LUA->SetField( -3, metaname );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
 
-	LUA->Pop( 1 );
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
+	LUA->PushNil( );
+	LUA->SetField( -2, "INSTANCE_BASELINE_TABLENAME" );
 
-		LUA->PushNil( );
-		LUA->SetField( -2, metaname );
+	LUA->PushNil( );
+	LUA->SetField( -2, "LIGHT_STYLES_TABLENAME" );
 
-	LUA->Pop( 1 );
+	LUA->PushNil( );
+	LUA->SetField( -2, "USER_INFO_TABLENAME" );
+
+	LUA->PushNil( );
+	LUA->SetField( -2, "SERVER_STARTUP_DATA_TABLENAME" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( -2, metaname );
+
+
 
 	LUA->ReferenceFree( container_ref );
 	container_ref = -1;
