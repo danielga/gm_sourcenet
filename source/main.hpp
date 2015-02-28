@@ -1,11 +1,8 @@
 #pragma once
 
 #include <GarrysMod/Lua/Interface.h>
-#include <interface.h>
 #include <cstdint>
-#include <eiface.h>
-#include <cdll_int.h>
-#include <iserver.h>
+#include <new>
 
 extern "C"
 {
@@ -20,6 +17,12 @@ extern "C"
 #undef max
 
 #endif
+
+class IVEngineServer;
+class IVEngineClient;
+class IServer;
+class QAngle;
+class Vector;
 
 namespace Global
 {
@@ -58,7 +61,7 @@ static const uint8_t metabase = 100;
 
 extern lua_State *lua_state;
 
-extern CreateInterfaceFn engine_factory;
+extern void *( *engine_factory )( const char *pName, int *pReturnCode );
 
 extern IVEngineServer *engine_server;
 

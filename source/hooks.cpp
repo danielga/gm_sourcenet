@@ -11,6 +11,8 @@
 #include <protocol.hpp>
 #include <inetmessage.h>
 #include <inetmsghandler.h>
+#include <eiface.h>
+#include <cdll_int.h>
 #include <sstream>
 #include <symbolfinder.hpp>
 #include <GarrysMod/Lua/LuaInterface.h>

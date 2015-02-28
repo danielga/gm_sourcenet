@@ -16,6 +16,10 @@
 #include <gameeventmanager.hpp>
 #include <gameevent.hpp>
 #include <netmessage.hpp>
+#include <interface.h>
+#include <eiface.h>
+#include <cdll_int.h>
+#include <iserver.h>
 #include <symbolfinder.hpp>
 
 extern "C"
@@ -31,18 +35,13 @@ extern "C"
 
 #include <windows.h>
 
-#undef CreateEvent
-
 namespace Global
 {
 
-#define BEGIN_MEMEDIT( addr, size ) \
-{ \
-	DWORD previous = 0; \
-	VirtualProtect( addr, size, PAGE_EXECUTE_READWRITE, &previous )
-
-#define FINISH_MEMEDIT( addr, size ) \
-	VirtualProtect( addr, size, previous, nullptr ); \
+inline void ProtectMemory( void *addr, size_t size, bool protect )
+{
+	static DWORD previous = 0;
+	VirtualProtect( addr, size, protect ? previous : PAGE_EXECUTE_READWRITE, &previous );
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
@@ -68,13 +67,10 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
 }
 
-#define BEGIN_MEMEDIT( addr, size ) \
-{ \
-	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ | PROT_WRITE )
-
-#define FINISH_MEMEDIT( addr, size ) \
-	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ ); \
+inline void ProtectMemory( void *addr, size_t size, bool protect )
+{
+	long page = sysconf( _SC_PAGESIZE );
+	mprotect( Global::PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
 }
 
 #if defined SOURCENET_SERVER
@@ -109,13 +105,10 @@ inline uint8_t *PageAlign( uint8_t *addr, long page )
 	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
 }
 
-#define BEGIN_MEMEDIT( addr, size ) \
-{ \
-	long page = sysconf( _SC_PAGESIZE ); \
-	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ | PROT_WRITE )
-
-#define FINISH_MEMEDIT( addr, size ) \
-	mprotect( Global::PageAlign( addr, page ), page, PROT_EXEC | PROT_READ ); \
+inline void ProtectMemory( void *addr, size_t size, bool protect )
+{
+	long page = sysconf( _SC_PAGESIZE );
+	mprotect( Global::PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
@@ -265,10 +258,10 @@ GMOD_MODULE_OPEN( )
 	if( Global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
-	BEGIN_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, false );
 		memcpy( Global::netpatch_old, Global::net_thread_chunk, Global::netpatch_len );
 		memcpy( Global::net_thread_chunk, Global::netpatch_new, Global::netpatch_len );
-	FINISH_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, true );
 
 #endif
 
@@ -349,9 +342,9 @@ GMOD_MODULE_CLOSE( )
 
 #if defined SOURCENET_SERVER
 
-	BEGIN_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, false );
 		memcpy( Global::net_thread_chunk, Global::netpatch_old, Global::netpatch_len );
-	FINISH_MEMEDIT( Global::net_thread_chunk, Global::netpatch_len );
+	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, true );
 
 #endif
 

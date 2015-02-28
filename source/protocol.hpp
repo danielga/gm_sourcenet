@@ -86,6 +86,12 @@ enum
 #define ENCODE_PAD_BITS( x ) ( ( x << 5 ) & 0xff )
 #define DECODE_PAD_BITS( x ) ( ( x >> 5 ) & 0xff )
 
+// events defines
+#define MAX_EVENT_NAME_LENGTH	32		// max game event name length
+#define MAX_EVENT_BITS			9		// max bits needed for an event index
+#define MAX_EVENT_NUMBER		(1<<MAX_EVENT_BITS)		// max number of events allowed
+#define MAX_EVENT_BYTES			1024	// max size in bytes for a serialized event
+
 // shared commands used by all streams, handled by stream layer, TODO
 
 #define	net_NOP 			0			// nop command used for padding

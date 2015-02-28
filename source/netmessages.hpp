@@ -1,11 +1,15 @@
 #pragma once
 
 #include <main.hpp>
-#include <inetchannelinfo.h>
 #include <inetmessage.h>
-#include <igameevents.h>
+#include <utlvector.h>
+#include <engine/iserverplugin.h>
+#include <checksum_crc.h>
 #include <protocol.hpp>
 #include <unordered_map>
+
+class INetChannel;
+class INetMessageHandler;
 
 namespace NetMessages
 {
@@ -45,7 +49,9 @@ protected:
 class NET_Tick : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -57,9 +63,11 @@ public:
 class NET_StringCmd : public CNetMessage
 {
 public:
-	NET_StringCmd( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	NET_StringCmd( );
 
 	static void SetupLua( lua_State *state );
 
@@ -72,7 +80,9 @@ private:
 class NET_SetConVar : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -88,7 +98,9 @@ public:
 class NET_SignonState : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -99,9 +111,11 @@ public:
 class SVC_Print : public CNetMessage
 {
 public:
-	SVC_Print( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_Print( );
 
 	static void SetupLua( lua_State *state );
 
@@ -114,9 +128,11 @@ private:
 class SVC_ServerInfo : public CNetMessage
 {
 public:
-	SVC_ServerInfo( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_ServerInfo( );
 
 	static void SetupLua( lua_State *state );
 
@@ -125,7 +141,7 @@ public:
 	bool Dedicated;
 	bool HLTV;
 	char OS;
-	int32_t ClientCRC;
+	CRC32_t ClientCRC;
 	uint8_t MapMD5[16];
 	int32_t MaxClients;
 	int32_t MaxClasses;
@@ -150,7 +166,9 @@ private:
 class SVC_SendTable : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -163,7 +181,9 @@ public:
 class SVC_ClassInfo : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -182,7 +202,9 @@ public:
 class SVC_SetPause : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -192,9 +214,11 @@ public:
 class SVC_CreateStringTable : public CNetMessage
 {
 public:
-	SVC_CreateStringTable( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_CreateStringTable( );
 
 	static void SetupLua( lua_State *state );
 
@@ -216,7 +240,9 @@ private:
 class SVC_UpdateStringTable : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -230,9 +256,11 @@ public:
 class SVC_VoiceInit : public CNetMessage
 {
 public:
-	SVC_VoiceInit( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_VoiceInit( );
 
 	static void SetupLua( lua_State *state );
 
@@ -246,9 +274,11 @@ private:
 class SVC_VoiceData : public CNetMessage
 {
 public:
-	SVC_VoiceData( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_VoiceData( );
 
 	static void SetupLua( lua_State *state );
 
@@ -263,7 +293,9 @@ public:
 class SVC_Sounds : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -277,7 +309,9 @@ public:
 class SVC_SetView : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -287,7 +321,9 @@ public:
 class SVC_FixAngle: public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -298,7 +334,9 @@ public:
 class SVC_CrosshairAngle : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -308,7 +346,9 @@ public:
 class SVC_BSPDecal : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -322,7 +362,9 @@ public:
 class SVC_UserMessage: public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -335,7 +377,9 @@ public:
 class SVC_EntityMessage : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -349,7 +393,9 @@ public:
 class SVC_GameEvent : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -361,7 +407,9 @@ public:
 class SVC_PacketEntities : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -379,7 +427,9 @@ public:
 class SVC_TempEntities : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -392,7 +442,9 @@ public:
 class SVC_Prefetch : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -401,30 +453,34 @@ public:
 		SOUND = 0,
 	};
 
-	uint16_t Type;
+	uint16_t SoundType;
 	uint16_t SoundIndex;
 };
 
 class SVC_Menu : public CNetMessage
 {
 public:
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
+
 	SVC_Menu( );
 
 	~SVC_Menu( );
 
-	static CNetMessage *Create( );
-
 	static void SetupLua( lua_State *state );
 
 	KeyValues *MenuKeyValues;
-	DIALOG_TYPE Type;
+	DIALOG_TYPE DialogType;
 	int32_t Length;
 };
 
 class SVC_GameEventList : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -437,9 +493,11 @@ public:
 class SVC_GetCvarValue : public CNetMessage
 {
 public:
-	SVC_GetCvarValue( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	SVC_GetCvarValue( );
 
 	static void SetupLua( lua_State *state );
 
@@ -453,11 +511,13 @@ private:
 class SVC_CmdKeyValues : public CNetMessage
 {
 public:
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
+
 	SVC_CmdKeyValues( );
 
 	~SVC_CmdKeyValues( );
-
-	static CNetMessage *Create( );
 
 	static void SetupLua( lua_State *state );
 
@@ -467,7 +527,9 @@ public:
 class SVC_GMod_ServerToClient : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -477,7 +539,9 @@ public:
 class CLC_ClientInfo : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -492,7 +556,9 @@ public:
 class CLC_Move : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -506,7 +572,9 @@ public:
 class CLC_VoiceData : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -519,7 +587,9 @@ public:
 class CLC_BaselineAck : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -530,7 +600,9 @@ public:
 class CLC_ListenEvents : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -540,9 +612,11 @@ public:
 class CLC_RespondCvarValue : public CNetMessage
 {
 public:
-	CLC_RespondCvarValue( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
-	static CNetMessage *Create( );
+	CLC_RespondCvarValue( );
 
 	static void SetupLua( lua_State *state );
 
@@ -559,7 +633,9 @@ private:
 class CLC_FileCRCCheck : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -571,10 +647,12 @@ public:
 class CLC_CmdKeyValues : public CNetMessage
 {
 public:
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
+
 	CLC_CmdKeyValues( );
 	~CLC_CmdKeyValues( );
-
-	static CNetMessage *Create( );
 
 	static void SetupLua( lua_State *state );
 
@@ -584,7 +662,9 @@ public:
 class CLC_FileMD5Check : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
@@ -596,15 +676,13 @@ public:
 class CLC_GMod_ClientToServer : public CNetMessage
 {
 public:
-	static CNetMessage *Create( );
+	static const char *Name;
+	static const char *LuaName;
+	static const int32_t Type;
 
 	static void SetupLua( lua_State *state );
 
 	bf_read Data;
 };
-
-CNetMessage *Create( const char *name );
-
-void SetupLua( lua_State *state, const char *name );
 
 }

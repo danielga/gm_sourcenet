@@ -8,6 +8,8 @@
 #include <netmessage.hpp>
 #include <net.hpp>
 #include <inetmessage.h>
+#include <eiface.h>
+#include <cdll_int.h>
 #include <unordered_map>
 #include <sstream>
 
