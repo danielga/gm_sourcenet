@@ -62,9 +62,10 @@ static const size_t netchunk_siglen = 16;
 namespace Global
 {
 
-inline uint8_t *PageAlign( uint8_t *addr, long page )
+inline void *PageAlign( void *addr, long page )
 {
-	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
+	uintptr_t uaddr = reinterpret_cast<uintptr_t>( addr );
+	return reinterpret_cast<void *>( uaddr - uaddr % page );
 }
 
 inline void ProtectMemory( void *addr, size_t size, bool protect )
@@ -100,9 +101,10 @@ static const size_t netchunk_siglen = 16;
 namespace Global
 {
 
-inline uint8_t *PageAlign( uint8_t *addr, long page )
+inline void *PageAlign( void *addr, long page )
 {
-	return addr - ( reinterpret_cast<uintptr_t>( addr ) % page );
+	uintptr_t uaddr = reinterpret_cast<uintptr_t>( addr );
+	return reinterpret_cast<void *>( uaddr - uaddr % page );
 }
 
 inline void ProtectMemory( void *addr, size_t size, bool protect )

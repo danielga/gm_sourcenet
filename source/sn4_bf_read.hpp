@@ -1,7 +1,8 @@
 #pragma once
 
 #include <main.hpp>
-#include <bitbuf.h>
+
+class bf_read;
 
 namespace sn4_bf_read
 {

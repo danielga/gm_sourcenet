@@ -9,6 +9,7 @@
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
 #include <hde.h>
+#include <unordered_map>
 
 namespace NetMessage
 {

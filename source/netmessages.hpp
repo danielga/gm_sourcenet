@@ -6,7 +6,6 @@
 #include <engine/iserverplugin.h>
 #include <checksum_crc.h>
 #include <protocol.hpp>
-#include <unordered_map>
 
 class INetChannel;
 class INetMessageHandler;

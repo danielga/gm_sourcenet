@@ -4,6 +4,14 @@
 #include <netadr.h>
 #include <utlvector.h>
 #include <inetchannel.h>
+
+#if defined min || defined max
+
+#undef min
+#undef max
+
+#endif
+
 #include <cstdint>
 
 // 0 == regular, 1 == file stream
