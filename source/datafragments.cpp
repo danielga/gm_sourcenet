@@ -3,13 +3,6 @@
 #include <ucharptr.hpp>
 #include <netchannel.hpp>
 
-extern "C"
-{
-
-#include <lauxlib.h>
-
-}
-
 namespace dataFragments
 {
 

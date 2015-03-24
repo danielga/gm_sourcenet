@@ -22,13 +22,6 @@
 #include <iserver.h>
 #include <symbolfinder.hpp>
 
-extern "C"
-{
-
-#include <lauxlib.h>
-
-}
-
 #if defined _WIN32
 
 #undef INVALID_HANDLE_VALUE

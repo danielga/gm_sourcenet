@@ -22,7 +22,7 @@ solution("gm_sourcenet4")
 		objdir(PROJECT_FOLDER .. "/intermediate")
 		targetdir(PROJECT_FOLDER .. "/release")
 
-	filter({"configurations:Debug"})
+	filter("configurations:Debug")
 		flags({"Symbols"})
 		objdir(PROJECT_FOLDER .. "/intermediate")
 		targetdir(PROJECT_FOLDER .. "/debug")
@@ -30,8 +30,8 @@ solution("gm_sourcenet4")
 	project("gmsv_sourcenet4")
 		kind("SharedLib")
 		defines({
-			"GMMODULE",
 			"SOURCENET_SERVER",
+			"GMMODULE",
 			"SUPPRESS_INVALID_PARAMETER_NO_INFO"
 		})
 		includedirs({
@@ -45,7 +45,6 @@ solution("gm_sourcenet4")
 			SDK_FOLDER .. "/public/tier1"
 		})
 		files({
-			SOURCE_FOLDER .. "/*.h",
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
 			SCANNING_FOLDER .. "/symbolfinder.cpp",
@@ -100,8 +99,8 @@ solution("gm_sourcenet4")
 	project("gmcl_sourcenet4")
 		kind("SharedLib")
 		defines({
-			"GMMODULE",
 			"SOURCENET_CLIENT",
+			"GMMODULE",
 			"SUPPRESS_INVALID_PARAMETER_NO_INFO"
 		})
 		includedirs({
@@ -115,7 +114,6 @@ solution("gm_sourcenet4")
 			SDK_FOLDER .. "/public/tier1"
 		})
 		files({
-			SOURCE_FOLDER .. "/*.h",
 			SOURCE_FOLDER .. "/*.hpp",
 			SOURCE_FOLDER .. "/*.cpp",
 			SCANNING_FOLDER .. "/symbolfinder.cpp",
@@ -133,7 +131,6 @@ solution("gm_sourcenet4")
 				SDK_FOLDER .. "/**.cpp"
 			}
 		})
-		libdirs({GARRYSMOD_MODULE_BASE_FOLDER})
 
 		targetprefix("")
 		targetextension(".dll")

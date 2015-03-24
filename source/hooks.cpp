@@ -59,16 +59,14 @@ static uintptr_t INetChannelHandler_vtable = 0;
 
 LUA_FUNCTION_STATIC( ErrorTraceback )
 {
-	GarrysMod::Lua::ILuaInterface *lua = static_cast<GarrysMod::Lua::ILuaInterface *>( LUA );
-
 	std::string spaces( "\n  " );
 	std::ostringstream stream;
 	stream << LUA->GetString( 1 );
 
 	lua_Debug dbg = { 0 };
-	for( int lvl = 1; lua->GetStack( lvl, &dbg ) == 1; ++lvl, memset( &dbg, 0, sizeof( dbg ) ) )
+	for( int lvl = 1; lua_getstack( state, lvl, &dbg ) == 1; ++lvl, memset( &dbg, 0, sizeof( dbg ) ) )
 	{
-		if( lua->GetInfo( "Sln", &dbg ) == 0 )
+		if( lua_getinfo( state, "Sln", &dbg ) == 0 )
 			break;
 
 		stream

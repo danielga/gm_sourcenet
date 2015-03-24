@@ -1,15 +1,9 @@
 #pragma once
 
 #include <GarrysMod/Lua/Interface.h>
+#include <lua.hpp>
 #include <cstdint>
 #include <new>
-
-extern "C"
-{
-
-#include <lua.h>
-
-}
 
 #if defined __linux || defined __APPLE__
 
