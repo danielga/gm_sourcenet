@@ -21,15 +21,20 @@ local function CopyBufferEnd(dst, src)
 	dst:WriteBits(data)
 end
 
+local specialmsg
+local specialhandler = {
+	DefaultCopy = function(netchan, read, write)
+		specialmsg:ReadFromBuffer(read)
+		specialmsg:WriteToBuffer(write)
+	end
+}
 hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localchan)
 	local totalbits = read:GetNumBitsLeft() + read:GetNumBitsRead()
 
-	if not game.IsDedicated() then
-		if netchan == localchan then
-			if SERVER then CopyBufferEnd(write, read) return end
-		else
-			if CLIENT then CopyBufferEnd(write, read)	return end
-		end
+	local islocal = netchan == localchan
+	if not game.IsDedicated() and ((islocal and SERVER) or (not islocal and CLIENT)) then
+		CopyBufferEnd(write, read)
+		return
 	end
 
 	hook.Call("BASE_PreProcessMessages", nil, netchan, read, write)
@@ -67,17 +72,34 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 			end
 
 			if not handler then
-				Msg("Unknown incoming message: " .. msg .. "\n")
-					
-				write:Seek(totalbits)
+				for i = 1, netchan:GetNetMessageNum() do
+					local m = netchan:GetNetMessage(i)
+					if m:GetType() == msg then
+						handler = specialhandler
+						specialmsg = m
+						break
+					end
+				end
 
-				break
+				if not handler then
+					Msg("Unknown outgoing message: " .. msg .. "\n")
+						
+					write:Seek(totalbits)
+
+					break
+				end
 			end
 		end
 
 		local func = handler.IncomingCopy or handler.DefaultCopy
-	
-		if func(netchan, read, write) == false then
+
+		local success, ret = xpcall(func, debug.traceback, netchan, read, write)
+		if not success then
+			print(ret)
+
+			break
+		elseif ret == false then
+		--if func(netchan, read, write) == false then
 			Msg("Failed to filter message " .. msg .. "\n")
 
 			write:Seek(totalbits)
@@ -100,7 +122,7 @@ end)
 
 function FilterIncomingMessage(msg, func)
 	local handler = NET_MESSAGES[msg]
-	
+
 	if not handler then
 		if CLIENT then
 			handler = NET_MESSAGES.SVC[msg]
@@ -108,10 +130,10 @@ function FilterIncomingMessage(msg, func)
 			handler = NET_MESSAGES.CLC[msg]
 		end
 	end
-	
-	if not handler then return end
 
-	handler.IncomingCopy = func
+	if handler then
+		handler.IncomingCopy = func
+	end
 end
 
 function UnFilterIncomingMessage(msg)
