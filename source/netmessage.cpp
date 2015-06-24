@@ -1,8 +1,8 @@
 #include <vfnhook.h>
 #include <netmessage.hpp>
 #include <netmessages.hpp>
-#include <sn4_bf_write.hpp>
-#include <sn4_bf_read.hpp>
+#include <sn_bf_write.hpp>
+#include <sn_bf_read.hpp>
 #include <netchannel.hpp>
 #include <hooks.hpp>
 #include <net.hpp>
@@ -271,7 +271,7 @@ LUA_FUNCTION_STATIC( SetReliable )
 LUA_FUNCTION_STATIC( ReadFromBuffer )
 {
 	INetMessage *msg = Get( state, 1 );
-	bf_read *reader = sn4_bf_read::Get( state, 2 );
+	bf_read *reader = sn_bf_read::Get( state, 2 );
 
 	LUA->PushBool( msg->ReadFromBuffer( *reader ) );
 
@@ -281,7 +281,7 @@ LUA_FUNCTION_STATIC( ReadFromBuffer )
 LUA_FUNCTION_STATIC( WriteToBuffer )
 {
 	INetMessage *msg = Get( state, 1 );
-	bf_write *writer = sn4_bf_write::Get( state, 2 );
+	bf_write *writer = sn_bf_write::Get( state, 2 );
 
 	LUA->PushBool( msg->WriteToBuffer( *writer ) );
 

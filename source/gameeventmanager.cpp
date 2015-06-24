@@ -1,7 +1,7 @@
 #include <main.hpp>
 #include <gameevent.hpp>
-#include <sn4_bf_read.hpp>
-#include <sn4_bf_write.hpp>
+#include <sn_bf_read.hpp>
+#include <sn_bf_write.hpp>
 #include <igameevents.h>
 
 namespace GameEventManager
@@ -59,7 +59,7 @@ LUA_FUNCTION_STATIC( SerializeEvent )
 {
 	IGameEventManager2 *manager = Get( state, 1 );
 	IGameEvent *event = GameEvent::Get( state, 2 );
-	bf_write *buf = sn4_bf_write::Get( state, 3 );
+	bf_write *buf = sn_bf_write::Get( state, 3 );
 
 	LUA->PushBool( manager->SerializeEvent( event, buf ) );
 
@@ -69,7 +69,7 @@ LUA_FUNCTION_STATIC( SerializeEvent )
 LUA_FUNCTION_STATIC( UnserializeEvent )
 {
 	IGameEventManager2 *manager = Get( state, 1 );
-	bf_read *buf = sn4_bf_read::Get( state, 2 );
+	bf_read *buf = sn_bf_read::Get( state, 2 );
 
 	IGameEvent *event = manager->UnserializeEvent( buf );
 

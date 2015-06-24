@@ -2,8 +2,8 @@
 #include <net.hpp>
 #include <protocol.hpp>
 #include <hooks.hpp>
-#include <sn4_bf_write.hpp>
-#include <sn4_bf_read.hpp>
+#include <sn_bf_write.hpp>
+#include <sn_bf_read.hpp>
 #include <netchannel.hpp>
 #include <netchannelhandler.hpp>
 #include <subchannel.hpp>
@@ -266,9 +266,9 @@ GMOD_MODULE_OPEN( )
 
 	Hooks::PreInitialize( state );
 
-	sn4_bf_write::Initialize( state );
+	sn_bf_write::Initialize( state );
 
-	sn4_bf_read::Initialize( state );
+	sn_bf_read::Initialize( state );
 
 	NetChannel::Initialize( state );
 
@@ -305,9 +305,9 @@ GMOD_MODULE_CLOSE( )
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
-	sn4_bf_write::Deinitialize( state );
+	sn_bf_write::Deinitialize( state );
 
-	sn4_bf_read::Deinitialize( state );
+	sn_bf_read::Deinitialize( state );
 
 	NetChannel::Deinitialize( state );
 

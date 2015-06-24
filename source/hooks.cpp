@@ -5,8 +5,8 @@
 #include <netchannelhandler.hpp>
 #include <netmessage.hpp>
 #include <ucharptr.hpp>
-#include <sn4_bf_read.hpp>
-#include <sn4_bf_write.hpp>
+#include <sn_bf_read.hpp>
+#include <sn_bf_write.hpp>
 #include <net.hpp>
 #include <protocol.hpp>
 #include <inetmessage.h>
@@ -167,10 +167,10 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, bf_write *data )
 			DO_HOOK( LUA->PushNil( ) );
 		}
 
-		DO_HOOK( bf_write **writer1 = sn4_bf_write::Push( state, data ) );
-		DO_HOOK( bf_write **writer2 = sn4_bf_write::Push( state, &netchan->reliabledata ) );
-		DO_HOOK( bf_write **writer3 = sn4_bf_write::Push( state, &netchan->unreliabledata ) );
-		DO_HOOK( bf_write **writer4 = sn4_bf_write::Push( state, &netchan->voicedata ) );
+		DO_HOOK( bf_write **writer1 = sn_bf_write::Push( state, data ) );
+		DO_HOOK( bf_write **writer2 = sn_bf_write::Push( state, &netchan->reliabledata ) );
+		DO_HOOK( bf_write **writer3 = sn_bf_write::Push( state, &netchan->unreliabledata ) );
+		DO_HOOK( bf_write **writer4 = sn_bf_write::Push( state, &netchan->voicedata ) );
 		CALL_HOOK( 0 );
 
 		*writer1 = nullptr;
@@ -462,8 +462,8 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, bf_read &buf )
 
 		INIT_HOOK( "PreProcessMessages" );
 			DO_HOOK( NetChannel::Push( state, netchan ) );
-			DO_HOOK( bf_read **reader = sn4_bf_read::Push( state, &buf ) );
-			DO_HOOK( bf_write **writer = sn4_bf_write::Push( state, &write ) );
+			DO_HOOK( bf_read **reader = sn_bf_read::Push( state, &buf ) );
+			DO_HOOK( bf_write **writer = sn_bf_write::Push( state, &write ) );
 
 			if( !Global::engine_server->IsDedicatedServer( ) )
 				DO_HOOK( NetChannel::Push(

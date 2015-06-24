@@ -2,7 +2,7 @@
 #include <netchannelhandler.hpp>
 #include <subchannel.hpp>
 #include <datafragments.hpp>
-#include <sn4_bf_write.hpp>
+#include <sn_bf_write.hpp>
 #include <netadr.hpp>
 #include <hooks.hpp>
 #include <netmessage.hpp>
@@ -315,7 +315,7 @@ LUA_FUNCTION_STATIC( GetReliableBuffer )
 {
 	CNetChan *netchan = Get( state, 1 );
 
-	sn4_bf_write::Push( state, &netchan->reliabledata );
+	sn_bf_write::Push( state, &netchan->reliabledata );
 
 	return 1;
 }
@@ -324,7 +324,7 @@ LUA_FUNCTION_STATIC( GetUnreliableBuffer )
 {
 	CNetChan *netchan = Get( state, 1 );
 
-	sn4_bf_write::Push( state, &netchan->unreliabledata );
+	sn_bf_write::Push( state, &netchan->unreliabledata );
 
 	return 1;
 }
@@ -333,7 +333,7 @@ LUA_FUNCTION_STATIC( GetVoiceBuffer )
 {
 	CNetChan *netchan = Get( state, 1 );
 
-	sn4_bf_write::Push( state, &netchan->voicedata );
+	sn_bf_write::Push( state, &netchan->voicedata );
 
 	return 1;
 }

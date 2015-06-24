@@ -1,7 +1,7 @@
 #include <netmessages.hpp>
 #include <netmessage.hpp>
-#include <sn4_bf_write.hpp>
-#include <sn4_bf_read.hpp>
+#include <sn_bf_write.hpp>
+#include <sn_bf_read.hpp>
 #include <inetchannelinfo.h>
 
 #if defined min || defined max
@@ -248,10 +248,10 @@ struct BitBufMember
 };
 
 template<class ClassName, bf_read ClassName::*M>
-using ReaderMember = BitBufMember<ClassName, bf_read, M, &sn4_bf_read::Get, &sn4_bf_read::Push>;
+using ReaderMember = BitBufMember<ClassName, bf_read, M, &sn_bf_read::Get, &sn_bf_read::Push>;
 
 template<class ClassName, bf_write ClassName::*M>
-using WriterMember = BitBufMember<ClassName, bf_write, M, &sn4_bf_write::Get, &sn4_bf_write::Push>;
+using WriterMember = BitBufMember<ClassName, bf_write, M, &sn_bf_write::Get, &sn_bf_write::Push>;
 
 CNetMessage::CNetMessage( ) :
 	m_bReliable( true ), m_NetChannel( nullptr ), m_pMessageHandler( nullptr )
@@ -599,7 +599,7 @@ LUA_FUNCTION_STATIC( SVC_VoiceData_GetDataOut )
 {
 	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( state );
 
-	bf_write *writer = *sn4_bf_write::Push( state );
+	bf_write *writer = *sn_bf_write::Push( state );
 
 	writer->StartWriting( msg->DataOut, BitByte( msg->Length ), 0, msg->Length );
 
@@ -609,7 +609,7 @@ LUA_FUNCTION_STATIC( SVC_VoiceData_GetDataOut )
 LUA_FUNCTION_STATIC( SVC_VoiceData_SetDataOut )
 {
 	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( state );
-	bf_write *writer = sn4_bf_write::Get( state, 2 );
+	bf_write *writer = sn_bf_write::Get( state, 2 );
 
 	msg->DataOut = writer->GetBasePointer( );
 	msg->Length = writer->GetNumBitsWritten( );

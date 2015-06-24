@@ -2,18 +2,18 @@
 
 #include <main.hpp>
 
-class bf_write;
+class bf_read;
 
-namespace sn4_bf_write
+namespace sn_bf_read
 {
 
-bf_write **Push(
+bf_read **Push(
 	lua_State *state,
-	bf_write *writer = nullptr,
+	bf_read *reader = nullptr,
 	int32_t bufref = -1
 );
 
-bf_write *Get(
+bf_read *Get(
 	lua_State *state,
 	int32_t index,
 	int32_t *bufref = nullptr,

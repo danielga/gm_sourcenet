@@ -1,8 +1,8 @@
-#include <sn4_bf_write.hpp>
+#include <sn_bf_write.hpp>
 #include <ucharptr.hpp>
 #include <bitbuf.h>
 
-namespace sn4_bf_write
+namespace sn_bf_write
 {
 
 struct userdata
@@ -14,7 +14,7 @@ struct userdata
 };
 
 static const uint8_t metaid = Global::metabase + 1;
-static const char *metaname = "sn4_bf_write";
+static const char *metaname = "sn_bf_write";
 
 bf_write **Push( lua_State *state, bf_write *writer, int32_t bufref )
 {

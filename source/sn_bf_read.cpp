@@ -1,8 +1,8 @@
-#include <sn4_bf_read.hpp>
+#include <sn_bf_read.hpp>
 #include <ucharptr.hpp>
 #include <bitbuf.h>
 
-namespace sn4_bf_read
+namespace sn_bf_read
 {
 
 struct userdata
@@ -14,7 +14,7 @@ struct userdata
 };
 
 static const uint8_t metaid = Global::metabase + 2;
-static const char *metaname = "sn4_bf_read";
+static const char *metaname = "sn_bf_read";
 
 bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 {
