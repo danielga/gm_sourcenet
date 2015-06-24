@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 MENU = LocalPlayer == nil
 
@@ -86,7 +86,7 @@ function HookNetChannel(...)
 	end
 
 	hook.Add("PreNetChannelShutdown", "DetachHooks", function(netchan, reason)
-		--print("[gm_sourcenet4] PreNetChannelShutdown called, netchan=" .. tostring(netchan) .. ", reason=" .. reason)
+		--print("[gm_sourcenet] PreNetChannelShutdown called, netchan=" .. tostring(netchan) .. ", reason=" .. reason)
 
 		DetachNetChannel(netchan)
 

@@ -1,4 +1,4 @@
-include("sn4_base_outgoing.lua")
+include("sn_base_outgoing.lua")
 
 -- These don't even seem to be acknowledged
 
@@ -26,7 +26,7 @@ FilterOutgoingMessage(svc_EntityMessage, function(netchan, read, write)
 	local bits = read:ReadUInt(11)
 	local data = read:ReadBits(bits)
 
-	local buffer = sn4_bf_read(data)
+	local buffer = sn_bf_read(data)
 
 	SendEntityMessage(netchan, entindex, classID, buffer)
 

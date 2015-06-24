@@ -1,10 +1,10 @@
 if SERVER then
-	include("sn4_base_sv.lua")
+	include("sn_base_sv.lua")
 else
-	include("sn4_base_cl.lua")
+	include("sn_base_cl.lua")
 end
 
-include("sn4_base_netmessages.lua")
+include("sn_base_netmessages.lua")
 
 -- Initialization
 
@@ -51,7 +51,7 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 				
 				if state == SIGNONSTATE_CHANGELEVEL then
 					changeLevelState = true
-					--print( "[gm_sourcenet4] Received changelevel packet" )
+					--print( "[gm_sourcenet] Received changelevel packet" )
 				end
 				
 				read:Seek(read:GetNumBitsRead() - 8)
@@ -114,7 +114,7 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 	
 	if CLIENT then
 		if changeLevelState then
-			--print("[gm_sourcenet4] Server is changing level, calling PreNetChannelShutdown")
+			--print("[gm_sourcenet] Server is changing level, calling PreNetChannelShutdown")
 			hook.Call("PreNetChannelShutdown", nil, netchan, "Server Changing Level")
 		end
 	end

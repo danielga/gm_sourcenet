@@ -1,10 +1,10 @@
 if SERVER then
-	include("sn4_base_sv.lua")
+	include("sn_base_sv.lua")
 else
-	include("sn4_base_cl.lua")
+	include("sn_base_cl.lua")
 end
 
-include("sn4_base_netmessages.lua")
+include("sn_base_netmessages.lua")
 
 -- Initialization
 
@@ -24,7 +24,7 @@ hook.Add("PreSendDatagram", "OutFilter", function(netchan, localchan, ...)
 			continue
 		end
 
-		local read = sn4_bf_read(write:GetBasePointer())
+		local read = sn_bf_read(write:GetBasePointer())
 
 		write:Seek(0)
 

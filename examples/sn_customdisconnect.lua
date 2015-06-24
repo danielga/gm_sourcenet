@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 function CustomDisconnect(reason)
 	local netchan = CNetChan()

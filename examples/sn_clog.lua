@@ -1,4 +1,4 @@
-include("sn4_base_outgoing.lua")
+include("sn_base_outgoing.lua")
 
 FilterOutgoingMessage(net_StringCmd, function(netchan, read, write)
 	local cmd = read:ReadString()

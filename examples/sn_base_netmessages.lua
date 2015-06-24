@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 -- Debug ConVar
 local sourcenet_netmessage_info = CreateConVar("sourcenet_netmessage_info", "0")

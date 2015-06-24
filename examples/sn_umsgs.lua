@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 function _R.Player:GetNetChannel()
 	return CNetChan(self:EntIndex())
@@ -15,7 +15,7 @@ function _R.Player:Test()
 	reliablebuffer:WriteByte(19)
 
 	local msgdata = UCHARPTR(256)
-	local msgbuffer = sn4_bf_write(msgdata)
+	local msgbuffer = sn_bf_write(msgdata)
 
 	msgbuffer:WriteLong(-1)
 	msgbuffer:WriteShort(100)

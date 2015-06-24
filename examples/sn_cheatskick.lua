@@ -1,4 +1,4 @@
-include("sn4_base_querycvar.lua")
+include("sn_base_querycvar.lua")
 
 function FindPlayerByNetChannel(netchan)
 	for k, v in pairs(player.GetAll()) do

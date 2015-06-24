@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 concommand.Add("setname", function(ply, cmd, args)
 	if not args[1] then

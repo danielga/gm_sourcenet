@@ -1,7 +1,7 @@
 if CLIENT then
-	include("sn4_base_incoming.lua")
+	include("sn_base_incoming.lua")
 else
-	include("sn4_base_outgoing.lua")
+	include("sn_base_outgoing.lua")
 end
 
 local manager = IGameEventManager2()
@@ -12,7 +12,7 @@ local function FilterGameEvent(netchan, read, write, hookname)
 	SourceNetMsg(string.format("svc_GameEvent bits=%i\n", bits))
 
 	if not read:IsOverflowed() then
-		local buffer = sn4_bf_read(data)
+		local buffer = sn_bf_read(data)
 		local event = manager:UnserializeEvent(buffer)
 
 		local result = hook.Call(hookname, nil, netchan, event)
@@ -22,7 +22,7 @@ local function FilterGameEvent(netchan, read, write, hookname)
 
 			if type(result) == "IGameEvent" then
 				local serialized_data = UCHARPTR(2048)
-				local serialized_buffer = sn4_bf_write(serialized_data)
+				local serialized_buffer = sn_bf_write(serialized_data)
 
 				manager:SerializeEvent(event, serialized_buffer)
 				

@@ -1,4 +1,4 @@
-include("sn4_base_incoming.lua")
+include("sn_base_incoming.lua")
 
 LUASTRINGS_TABLE_NAME = "networkstring"
 
@@ -21,7 +21,7 @@ function ReadUserMessageString(buf)
 end
 
 function ProcessUserMessage(msg, data)
-	local buf = sn4_bf_read(data)
+	local buf = sn_bf_read(data)
 
 	if msg == 34 then
 		local umsgName = ReadUserMessageString(buf)

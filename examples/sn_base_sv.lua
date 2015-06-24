@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 NET_CHANNEL_INDICES = NET_CHANNEL_INDICES or {}
 NET_HOOKS = NET_HOOKS or {attach = {}, detach = {}}

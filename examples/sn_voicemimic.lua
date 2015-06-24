@@ -1,4 +1,4 @@
-include("sn4_base_incoming.lua")
+include("sn_base_incoming.lua")
 
 FilterIncomingMessage(svc_VoiceData, function(netchan, read, write)
 	write:WriteUInt(svc_VoiceData, NET_MESSAGE_BITS)

@@ -1,4 +1,4 @@
-require("sourcenet4")
+require("sourcenet")
 
 function _R.Player:GetNetChannel()
 	return CNetChan(self:EntIndex())

@@ -1,4 +1,4 @@
-require("sourcenet4" )
+require("sourcenet" )
 
 concommand.Add("loadcodec", function(ply, cmd, args)
 	if not IsValid(ply) then return end

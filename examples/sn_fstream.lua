@@ -1,4 +1,8 @@
-include("sn4_base.lua")
+if SERVER then
+	include("sn_base_sv.lua")
+else
+	include("sn_base_cl.lua")
+end
 
 -- Initialization
 
@@ -18,7 +22,7 @@ hook.Add("PreProcessPacket", "TransferStatus", function(netchan)
 
 			if filename ~= "" and not table.HasValue(history, filename) then
 				if fragments:GetProgress() + fragments:GetNum() >= fragments:GetTotal() then
-					print("Finished " .. filename)
+					print("Finished " .. filename )
 
 					umsg.Start("fstream_complete")
 						umsg.String(filename)
@@ -42,6 +46,8 @@ hook.Add("PlayerInitialSpawn", "BeginTransfer", function(ply)
 	
 	if not netchan then return end
 
+	netchan:SetBackgroundMode(false) -- Removes 1 file fragment per-packet limit
+
 	QueueFile(netchan, "cl.db")
 	QueueFile(netchan, "gameinfo.txt")
-end)
+end )

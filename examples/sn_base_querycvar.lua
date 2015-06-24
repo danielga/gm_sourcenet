@@ -1,4 +1,4 @@
-include("sn4_base_incoming.lua")
+include("sn_base_incoming.lua")
 
 QUERYCVAR_COOKIE = QUERYCVAR_COOKIE or 0
 

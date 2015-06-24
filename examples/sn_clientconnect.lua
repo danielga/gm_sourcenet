@@ -1,4 +1,4 @@
-include("sn4_base_gameevents.lua")
+include("sn_base_gameevents.lua")
 
 hook.Add("ProcessGameEvent", "PlayerConnect", function(netchan, event)
 	if event:GetName() ~= "player_connect" then return end
