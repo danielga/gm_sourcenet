@@ -1,5 +1,5 @@
-gm_sourcenet4
-=============
+gm_sourcenet
+============
 
 A module for Garry's Mod that provides interfaces to many systems of VALVe's engine.
 
