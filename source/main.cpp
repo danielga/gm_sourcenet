@@ -332,7 +332,7 @@ GMOD_MODULE_CLOSE( )
 	if( !global::loaded )
 		return 0;
 
-#if defined SOURCENET_SERVER
+#if defined SOURCENET_SERVER && defined _WIN32
 
 	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
 		memcpy( global::net_thread_chunk, global::netpatch_old, global::netpatch_len );
