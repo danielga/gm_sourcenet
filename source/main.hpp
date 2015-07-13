@@ -23,9 +23,28 @@ class Vector;
 namespace global
 {
 
-static const std::string engine_lib = helpers::GetBinaryFileName( "engine", false, IS_SERVERSIDE, "bin/" );
-static const std::string client_lib = helpers::GetBinaryFileName( "client", false, IS_SERVERSIDE, "garrysmod/bin/" );
-static const std::string server_lib = helpers::GetBinaryFileName( "server", false, IS_SERVERSIDE, "garrysmod/bin/" );
+static const std::string engine_lib = helpers::GetBinaryFileName(
+	"engine",
+	false,
+	IS_SERVERSIDE,
+	"bin/"
+);
+
+static const std::string client_lib = helpers::GetBinaryFileName(
+	"client",
+	false,
+	IS_SERVERSIDE,
+	"garrysmod/bin/"
+);
+
+static const std::string server_lib = helpers::GetBinaryFileName(
+	"server",
+	false,
+	IS_SERVERSIDE,
+	"garrysmod/bin/"
+);
+
+static const char *tostring_format = "%s: 0x%08X";
 
 static const uint8_t metabase = 100;
 

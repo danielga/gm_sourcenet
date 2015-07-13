@@ -51,7 +51,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	FileHandle_t ptr = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, ptr );
+	lua_pushfstring( state, global::tostring_format, metaname, ptr );
 
 	return 1;
 }

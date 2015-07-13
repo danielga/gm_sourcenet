@@ -51,7 +51,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	INetworkStringTable *table = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, table );
+	lua_pushfstring( state, global::tostring_format, metaname, table );
 
 	return 1;
 }

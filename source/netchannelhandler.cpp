@@ -71,7 +71,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	INetChannelHandler *handler = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, handler );
+	lua_pushfstring( state, global::tostring_format, metaname, handler );
 
 	return 1;
 }

@@ -69,7 +69,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	subchannel_t *subchan = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, subchan );
+	lua_pushfstring( state, global::tostring_format, metaname, subchan );
 
 	return 1;
 }

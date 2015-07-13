@@ -82,7 +82,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	bf_write *buf = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, buf );
+	lua_pushfstring( state, global::tostring_format, metaname, buf );
 
 	return 1;
 }

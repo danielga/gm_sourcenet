@@ -38,7 +38,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	IGameEventManager2 *manager = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, manager );
+	lua_pushfstring( state, global::tostring_format, metaname, manager );
 
 	return 1;
 }

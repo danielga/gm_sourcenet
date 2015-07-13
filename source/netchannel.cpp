@@ -98,7 +98,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	CNetChan *netchan = Get( state, 1 );
 
-	lua_pushfstring( state, "%s: 0x%p", metaname, netchan );
+	lua_pushfstring( state, global::tostring_format, metaname, netchan );
 
 	return 1;
 }

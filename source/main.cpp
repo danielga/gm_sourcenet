@@ -21,6 +21,7 @@
 #include <cdll_int.h>
 #include <iserver.h>
 #include <symbolfinder.hpp>
+#include <vfnhook.h>
 #include <interfaces.hpp>
 
 #if defined _WIN32
@@ -31,12 +32,6 @@
 
 namespace global
 {
-
-inline void ProtectMemory( void *addr, size_t size, bool protect )
-{
-	static DWORD previous = 0;
-	VirtualProtect( addr, size, protect ? previous : PAGE_EXECUTE_READWRITE, &previous );
-}
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
 static const size_t IServer_siglen = 16;
@@ -55,18 +50,6 @@ static const size_t netchunk_siglen = 16;
 
 namespace global
 {
-
-inline void *PageAlign( void *addr, long page )
-{
-	uintptr_t uaddr = reinterpret_cast<uintptr_t>( addr );
-	return reinterpret_cast<void *>( uaddr - uaddr % page );
-}
-
-inline void ProtectMemory( void *addr, size_t size, bool protect )
-{
-	long page = sysconf( _SC_PAGESIZE );
-	mprotect( PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
-}
 
 #if defined SOURCENET_SERVER
 
@@ -94,18 +77,6 @@ static const size_t netchunk_siglen = 16;
 
 namespace global
 {
-
-inline void *PageAlign( void *addr, long page )
-{
-	uintptr_t uaddr = reinterpret_cast<uintptr_t>( addr );
-	return reinterpret_cast<void *>( uaddr - uaddr % page );
-}
-
-inline void ProtectMemory( void *addr, size_t size, bool protect )
-{
-	long page = sysconf( _SC_PAGESIZE );
-	mprotect( PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
-}
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
 static const size_t IServer_siglen = 16;
@@ -213,10 +184,10 @@ static void Initialize( lua_State *state )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "0.1" );
+	LUA->PushString( "0.2" );
 	LUA->SetField( -2, "Version" );
 
-	LUA->PushNumber( 0.1 );
+	LUA->PushNumber( 0.2 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( -2, "sourcenet" );
@@ -279,10 +250,10 @@ GMOD_MODULE_OPEN( )
 	if( global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
-	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
+	ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
 		memcpy( global::netpatch_old, global::net_thread_chunk, global::netpatch_len );
 		memcpy( global::net_thread_chunk, global::netpatch_new, global::netpatch_len );
-	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
+	ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
 
 #endif
 
@@ -334,9 +305,9 @@ GMOD_MODULE_CLOSE( )
 
 #if defined SOURCENET_SERVER
 
-	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
+	ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
 		memcpy( global::net_thread_chunk, global::netpatch_old, global::netpatch_len );
-	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
+	ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
 
 #endif
 
