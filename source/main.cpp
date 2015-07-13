@@ -262,7 +262,7 @@ GMOD_MODULE_OPEN( )
 	if( Global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
-#if defined SOURCENET_SERVER
+#if defined SOURCENET_SERVER && defined _WIN32
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
