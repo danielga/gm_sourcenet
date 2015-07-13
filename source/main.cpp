@@ -41,9 +41,9 @@ inline void ProtectMemory( void *addr, size_t size, bool protect )
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
 static const size_t IServer_siglen = 16;
 
-static const size_t netpatch_len = 6;
+static const size_t netpatch_len = 1;
 static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\xE9\x2B\x00\x00\x00\x90";
+static const char *netpatch_new = "\x75";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xDB\x74\x2A\x8B\x43\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
 static const size_t netchunk_siglen = 16;
@@ -80,9 +80,9 @@ static const size_t IServer_siglen = 13;
 
 #endif
 
-static const size_t netpatch_len = 6;
+static const size_t netpatch_len = 1;
 static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
+static const char *netpatch_new = "\x75";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xFF\x74\x2A\x8B\x47\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
 static const size_t netchunk_siglen = 16;
@@ -110,9 +110,9 @@ inline void ProtectMemory( void *addr, size_t size, bool protect )
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
 static const size_t IServer_siglen = 16;
 
-static const size_t netpatch_len = 6;
+static const size_t netpatch_len = 1;
 static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\xE9\x01\x00\x00\x00\x90";
+static const char *netpatch_new = "\x75";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xD2\x74\x2A\x8B\x42\x0C\x83\xC0\x07\xC1\xf8\x03\x85";
 static const size_t netchunk_siglen = 16;
@@ -269,7 +269,7 @@ GMOD_MODULE_OPEN( )
 	if( global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
-#if defined SOURCENET_SERVER && defined _WIN32
+#if defined SOURCENET_SERVER
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
@@ -332,7 +332,7 @@ GMOD_MODULE_CLOSE( )
 	if( !global::loaded )
 		return 0;
 
-#if defined SOURCENET_SERVER && defined _WIN32
+#if defined SOURCENET_SERVER
 
 	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
 		memcpy( global::net_thread_chunk, global::netpatch_old, global::netpatch_len );
