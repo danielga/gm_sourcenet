@@ -532,7 +532,7 @@ void PreInitialize( lua_State *state )
 
 	CNetChan_ProcessMessages_O =
 		reinterpret_cast<CNetChan_ProcessMessages_T>( symfinder.ResolveOnBinary(
-			Global::engine_lib,
+			Global::engine_lib.c_str( ),
 			CNetChan_ProcessMessages_sig,
 			CNetChan_ProcessMessages_siglen
 		) );

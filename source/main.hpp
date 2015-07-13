@@ -4,6 +4,8 @@
 #include <lua.hpp>
 #include <cstdint>
 #include <new>
+#include <string>
+#include <helpers.hpp>
 
 #if defined __linux || defined __APPLE__
 
@@ -21,35 +23,9 @@ class Vector;
 namespace Global
 {
 
-#if defined _WIN32
-
-static const char *engine_lib = "engine.dll";
-static const char *client_lib = "client.dll";
-static const char *server_lib = "server.dll";
-
-#elif defined __linux
-
-#if defined SOURCENET_SERVER
-
-static const char *engine_lib = "bin/engine_srv.so";
-static const char *server_lib = "garrysmod/bin/server_srv.so";
-
-#elif defined SOURCENET_CLIENT
-
-static const char *engine_lib = "bin/engine.so";
-static const char *server_lib = "garrysmod/bin/server.so";
-
-#endif
-
-static const char *client_lib = "garrysmod/bin/client.so";
-
-#elif defined __APPLE__
-
-static const char *engine_lib = "engine.dylib";
-static const char *client_lib = "client.dylib";
-static const char *server_lib = "server.dylib";
-
-#endif
+static const std::string engine_lib = helpers::GetBinaryFileName( "engine", false, IS_SERVERSIDE, "bin/" );
+static const std::string client_lib = helpers::GetBinaryFileName( "client", false, IS_SERVERSIDE, "garrysmod/bin/" );
+static const std::string server_lib = helpers::GetBinaryFileName( "server", false, IS_SERVERSIDE, "garrysmod/bin/" );
 
 static const uint8_t metabase = 100;
 

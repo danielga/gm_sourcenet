@@ -406,7 +406,7 @@ void PreInitialize( lua_State *state )
 	SymbolFinder symfinder;
 
 	uint8_t *CBaseClientState_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib,
+		Global::engine_lib.c_str( ),
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen
 	) );
@@ -416,7 +416,7 @@ void PreInitialize( lua_State *state )
 	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib,
+		Global::engine_lib.c_str( ),
 		CBaseClient_ConnectionStart_sig,
 		CBaseClient_ConnectionStart_siglen
 	) );

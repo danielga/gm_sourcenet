@@ -21,6 +21,7 @@
 #include <cdll_int.h>
 #include <iserver.h>
 #include <symbolfinder.hpp>
+#include <interfaces.hpp>
 
 #if defined _WIN32
 
@@ -120,7 +121,7 @@ static const size_t netchunk_siglen = 16;
 
 lua_State *lua_state = nullptr;
 
-static CDllDemandLoader engine_loader( engine_lib );
+static SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
 static uint8_t *net_thread_chunk = nullptr;
 CreateInterfaceFn engine_factory = nullptr;
 
@@ -253,7 +254,7 @@ GMOD_MODULE_OPEN( )
 	SymbolFinder symfinder;
 
 	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
-		Global::engine_lib, Global::IServer_sig, Global::IServer_siglen
+		Global::engine_lib.c_str( ), Global::IServer_sig, Global::IServer_siglen
 	) );
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
@@ -267,7 +268,7 @@ GMOD_MODULE_OPEN( )
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
 	Global::net_thread_chunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib, Global::netchunk_sig, Global::netchunk_siglen
+		Global::engine_lib.c_str( ), Global::netchunk_sig, Global::netchunk_siglen
 	) );
 	if( Global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
