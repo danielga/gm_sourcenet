@@ -13,7 +13,7 @@ struct userdata
 	CNetChan *netchan;
 };
 
-static const uint8_t metaid = Global::metabase + 5;
+static const uint8_t metaid = global::metabase + 5;
 static const char *metaname = "dataFragments_t";
 
 static bool IsValid( dataFragments_t *datafrag, CNetChan *netchan )
@@ -43,12 +43,12 @@ void Push( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
 
 dataFragments_t *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	dataFragments_t *datafrag = udata->datafrag;
 	if( !IsValid( datafrag, udata->netchan ) && !cleanup )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
@@ -94,7 +94,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	Global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( 1 ) );
 	LUA->PushBool( IsValid( udata->datafrag, udata->netchan ) );
@@ -379,13 +379,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( IsValid );

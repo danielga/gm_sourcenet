@@ -12,7 +12,7 @@ struct userdata
 	CNetChan *netchan;
 };
 
-static const uint8_t metaid = Global::metabase + 4;
+static const uint8_t metaid = global::metabase + 4;
 static const char *metaname = "subchannel_t";
 
 static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
@@ -35,11 +35,11 @@ void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
 
 static subchannel_t *Get( lua_State *state, int32_t index )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	if( !IsValid( udata->subchan, udata->netchan ) )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	return udata->subchan;
 }
@@ -76,7 +76,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	Global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( 1 ) );
 	LUA->PushBool( IsValid( udata->subchan, udata->netchan ) );
@@ -217,13 +217,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( IsValid );

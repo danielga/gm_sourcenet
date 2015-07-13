@@ -29,7 +29,7 @@
 
 #include <windows.h>
 
-namespace Global
+namespace global
 {
 
 inline void ProtectMemory( void *addr, size_t size, bool protect )
@@ -53,7 +53,7 @@ static const size_t netchunk_siglen = 16;
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace Global
+namespace global
 {
 
 inline void *PageAlign( void *addr, long page )
@@ -65,7 +65,7 @@ inline void *PageAlign( void *addr, long page )
 inline void ProtectMemory( void *addr, size_t size, bool protect )
 {
 	long page = sysconf( _SC_PAGESIZE );
-	mprotect( Global::PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
+	mprotect( PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
 }
 
 #if defined SOURCENET_SERVER
@@ -92,7 +92,7 @@ static const size_t netchunk_siglen = 16;
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace Global
+namespace global
 {
 
 inline void *PageAlign( void *addr, long page )
@@ -104,7 +104,7 @@ inline void *PageAlign( void *addr, long page )
 inline void ProtectMemory( void *addr, size_t size, bool protect )
 {
 	long page = sysconf( _SC_PAGESIZE );
-	mprotect( Global::PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
+	mprotect( PageAlign( addr, page ), page, ( protect ? 0 : PROT_WRITE ) | PROT_EXEC | PROT_READ );
 }
 
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
@@ -118,6 +118,8 @@ static const char *netchunk_sig = "\x74\x2A\x85\xD2\x74\x2A\x8B\x42\x0C\x83\xC0\
 static const size_t netchunk_siglen = 16;
 
 #endif
+
+static bool loaded = false;
 
 lua_State *lua_state = nullptr;
 
@@ -218,65 +220,69 @@ static void Initialize( lua_State *state )
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( -2, "sourcenet" );
+
+	loaded = true;
 }
 
 static void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
 	LUA->SetField( -2, "sourcenet" );
+
+	loaded = false;
 }
 
 }
 
 GMOD_MODULE_OPEN( )
 {
-	Global::lua_state = state;
+	global::lua_state = state;
 
-	Global::engine_factory = Global::engine_loader.GetFactory( );
-	if( Global::engine_factory == nullptr )
+	global::engine_factory = global::engine_loader.GetFactory( );
+	if( global::engine_factory == nullptr )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
 
-	Global::engine_server = static_cast<IVEngineServer *>(
-		Global::engine_factory( "VEngineServer021", nullptr )
+	global::engine_server = static_cast<IVEngineServer *>(
+		global::engine_factory( "VEngineServer021", nullptr )
 	);
-	if( Global::engine_server == nullptr )
+	if( global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
-	if( !Global::engine_server->IsDedicatedServer( ) )
+	if( !global::engine_server->IsDedicatedServer( ) )
 	{
-		Global::engine_client = static_cast<IVEngineClient *>(
-			Global::engine_factory( "VEngineClient015", nullptr )
+		global::engine_client = static_cast<IVEngineClient *>(
+			global::engine_factory( "VEngineClient015", nullptr )
 		);
-		if( Global::engine_client == nullptr )
+		if( global::engine_client == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
 
 	SymbolFinder symfinder;
 
 	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
-		Global::engine_lib.c_str( ), Global::IServer_sig, Global::IServer_siglen
+		global::engine_lib.c_str( ), global::IServer_sig, global::IServer_siglen
 	) );
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
 
-	Global::server = *pserver;
-	if( Global::server == nullptr )
+	global::server = *pserver;
+	if( global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
 #if defined SOURCENET_SERVER && defined _WIN32
 
 	// Disables per-client threads (hacky fix for SendDatagram hooking)
 
-	Global::net_thread_chunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib.c_str( ), Global::netchunk_sig, Global::netchunk_siglen
+	global::net_thread_chunk = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
+		global::engine_lib.c_str( ), global::netchunk_sig, global::netchunk_siglen
 	) );
-	if( Global::net_thread_chunk == nullptr )
+	if( global::net_thread_chunk == nullptr )
 		LUA->ThrowError( "failed to locate net thread chunk" );
 
-	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, false );
-		memcpy( Global::netpatch_old, Global::net_thread_chunk, Global::netpatch_len );
-		memcpy( Global::net_thread_chunk, Global::netpatch_new, Global::netpatch_len );
-	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, true );
+	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
+		memcpy( global::netpatch_old, global::net_thread_chunk, global::netpatch_len );
+		memcpy( global::net_thread_chunk, global::netpatch_new, global::netpatch_len );
+	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
 
 #endif
 
@@ -285,8 +291,6 @@ GMOD_MODULE_OPEN( )
 	NetMessage::PreInitialize( state );
 
 	Hooks::PreInitialize( state );
-
-	Global::Initialize( state );
 
 	sn_bf_write::Initialize( state );
 
@@ -318,11 +322,24 @@ GMOD_MODULE_OPEN( )
 
 	Hooks::Initialize( state );
 
+	global::Initialize( state );
+
 	return 0;
 }
 
 GMOD_MODULE_CLOSE( )
 {
+	if( !global::loaded )
+		return 0;
+
+#if defined SOURCENET_SERVER
+
+	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, false );
+		memcpy( global::net_thread_chunk, global::netpatch_old, global::netpatch_len );
+	global::ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
+
+#endif
+
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
 
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
@@ -357,15 +374,7 @@ GMOD_MODULE_CLOSE( )
 
 	Hooks::Deinitialize( state );
 
-	Global::Deinitialize( state );
-
-#if defined SOURCENET_SERVER
-
-	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, false );
-		memcpy( Global::net_thread_chunk, Global::netpatch_old, Global::netpatch_len );
-	Global::ProtectMemory( Global::net_thread_chunk, Global::netpatch_len, true );
-
-#endif
+	global::Deinitialize( state );
 
 	return 0;
 }

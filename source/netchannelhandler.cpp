@@ -11,7 +11,7 @@ struct userdata
 	uint8_t type;
 };
 
-const uint8_t metaid = Global::metabase + 9;
+const uint8_t metaid = global::metabase + 9;
 const char *metaname = "INetChannelHandler";
 
 static std::unordered_map<INetChannelHandler *, int32_t> handlers;
@@ -43,7 +43,7 @@ void Push( lua_State *state, INetChannelHandler *handler )
 
 INetChannelHandler *Get( lua_State *state, int32_t index )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 	return static_cast<userdata *>( LUA->GetUserdata( index ) )->handler;
 }
 
@@ -86,13 +86,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 	LUA->Pop( 1 );

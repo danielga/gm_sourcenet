@@ -22,7 +22,7 @@ struct userdata
 	uint8_t type;
 };
 
-static const uint8_t metaid = Global::metabase + 3;
+static const uint8_t metaid = global::metabase + 3;
 static const char *metaname = "CNetChan";
 
 static std::unordered_map<CNetChan *, int32_t> netchannels;
@@ -65,11 +65,11 @@ void Push( lua_State *state, CNetChan *netchan )
 
 CNetChan *Get( lua_State *state, int32_t index )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	CNetChan *netchan = static_cast<userdata *>( LUA->GetUserdata( index ) )->netchan;
 	if( !IsValid( netchan ) )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	return netchan;
 }
@@ -105,7 +105,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	Global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metaid, metaname );
 
 	LUA->PushBool( IsValid( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->netchan ) );
 
@@ -765,12 +765,12 @@ LUA_FUNCTION_STATIC( Constructor )
 	int32_t index = static_cast<int32_t>( LUA->GetNumber( 1 ) );
 	Push(
 		state,
-		static_cast<CNetChan *>( Global::engine_server->GetPlayerNetInfo( index ) )
+		static_cast<CNetChan *>( global::engine_server->GetPlayerNetInfo( index ) )
 	);	
 
 #elif defined SOURCENET_CLIENT
 
-	Push( state, static_cast<CNetChan *>( Global::engine_client->GetNetChannelInfo( ) ) );
+	Push( state, static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) ) );
 
 #endif
 
@@ -787,13 +787,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( IsValid );

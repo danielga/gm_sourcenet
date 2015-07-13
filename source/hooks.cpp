@@ -87,7 +87,7 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 
 #define INIT_HOOK( name ) \
 { \
-	lua_State *state = Global::lua_state; \
+	lua_State *state = global::lua_state; \
 	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB ); \
 	LUA->GetField( -1, "hook" ); \
 	LUA->PushCFunction( ErrorTraceback ); \
@@ -155,11 +155,11 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, bf_write *data )
 	INIT_HOOK( "PreSendDatagram" );
 		DO_HOOK( NetChannel::Push( state, netchan ) );
 
-		if( !Global::engine_server->IsDedicatedServer( ) )
+		if( !global::engine_server->IsDedicatedServer( ) )
 		{
 			DO_HOOK( NetChannel::Push(
 				state,
-				static_cast<CNetChan *>( Global::engine_client->GetNetChannelInfo( ) )
+				static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
 			) );
 		}
 		else
@@ -250,9 +250,9 @@ void VFUNC CNetChan_Shutdown_D( CNetChan *netchan, const char *reason )
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
-	NetMessage::Destroy( Global::lua_state, netchan );
+	NetMessage::Destroy( global::lua_state, netchan );
 
-	NetChannel::Destroy( Global::lua_state, netchan );
+	NetChannel::Destroy( global::lua_state, netchan );
 
 	CNetChan_Shutdown_O( netchan, reason );
 
@@ -297,7 +297,7 @@ void VFUNC INetChannelHandler_ConnectionClosing_D(
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
-	NetChannelHandler::Destroy( Global::lua_state, handler );
+	NetChannelHandler::Destroy( global::lua_state, handler );
 
 	INetChannelHandler_ConnectionClosing_O( handler, reason );
 }
@@ -320,7 +320,7 @@ void VFUNC INetChannelHandler_ConnectionCrashed_D(
 		CALL_HOOK( 0 );
 	END_HOOK( );
 
-	NetChannelHandler::Destroy( Global::lua_state, handler );
+	NetChannelHandler::Destroy( global::lua_state, handler );
 
 	INetChannelHandler_ConnectionCrashed_O( handler, reason );
 }
@@ -465,10 +465,10 @@ static bool CNetChan_ProcessMessages_D( CNetChan *netchan, bf_read &buf )
 			DO_HOOK( bf_read **reader = sn_bf_read::Push( state, &buf ) );
 			DO_HOOK( bf_write **writer = sn_bf_write::Push( state, &write ) );
 
-			if( !Global::engine_server->IsDedicatedServer( ) )
+			if( !global::engine_server->IsDedicatedServer( ) )
 				DO_HOOK( NetChannel::Push(
 					state,
-					static_cast<CNetChan *>( Global::engine_client->GetNetChannelInfo( ) )
+					static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
 				) );
 
 			CALL_HOOK( 0 );
@@ -532,7 +532,7 @@ void PreInitialize( lua_State *state )
 
 	CNetChan_ProcessMessages_O =
 		reinterpret_cast<CNetChan_ProcessMessages_T>( symfinder.ResolveOnBinary(
-			Global::engine_lib.c_str( ),
+			global::engine_lib.c_str( ),
 			CNetChan_ProcessMessages_sig,
 			CNetChan_ProcessMessages_siglen
 		) );

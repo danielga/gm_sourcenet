@@ -20,7 +20,7 @@ class IServer;
 class QAngle;
 class Vector;
 
-namespace Global
+namespace global
 {
 
 static const std::string engine_lib = helpers::GetBinaryFileName( "engine", false, IS_SERVERSIDE, "bin/" );

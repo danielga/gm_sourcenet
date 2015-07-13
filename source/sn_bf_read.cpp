@@ -13,7 +13,7 @@ struct userdata
 	int32_t bufref;
 };
 
-static const uint8_t metaid = Global::metabase + 2;
+static const uint8_t metaid = global::metabase + 2;
 static const char *metaname = "sn_bf_read";
 
 bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
@@ -38,12 +38,12 @@ bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 
 bf_read *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	bf_read *reader = udata->preader;
 	if( udata->preader == nullptr && !cleanup )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
@@ -89,7 +89,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	Global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metaid, metaname );
 
 	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
 
@@ -190,7 +190,7 @@ LUA_FUNCTION_STATIC( ReadBitAngle )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 )
-		Global::ThrowError( state, "invalid number of bits to read (%d is less than 0)", bits );
+		global::ThrowError( state, "invalid number of bits to read (%d is less than 0)", bits );
 
 	LUA->PushNumber( buf->ReadBitAngle( bits ) );
 
@@ -204,7 +204,7 @@ LUA_FUNCTION_STATIC( ReadAngle )
 	QAngle ang;
 	buf->ReadBitAngles( ang );
 
-	Global::PushAngle( state, ang );
+	global::PushAngle( state, ang );
 
 	return 1;
 }
@@ -230,7 +230,7 @@ LUA_FUNCTION_STATIC( ReadVector )
 	Vector vec;
 	buf->ReadBitVec3Coord( vec );
 
-	Global::PushVector( state, vec );
+	global::PushVector( state, vec );
 
 	return 1;
 }
@@ -242,7 +242,7 @@ LUA_FUNCTION_STATIC( ReadNormal )
 	Vector vec;
 	buf->ReadBitVec3Normal( vec );
 
-	Global::PushVector( state, vec );
+	global::PushVector( state, vec );
 
 	return 1;
 }
@@ -355,7 +355,7 @@ LUA_FUNCTION_STATIC( ReadInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 || bits > 32 )
-		Global::ThrowError(
+		global::ThrowError(
 			state,
 			"invalid number of bits to read (%d is not between 0 and 32)",
 			bits
@@ -373,7 +373,7 @@ LUA_FUNCTION_STATIC( ReadUInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 || bits > 32 )
-		Global::ThrowError(
+		global::ThrowError(
 			state,
 			"invalid number of bits to read (%d is not between 0 and 32)",
 			bits
@@ -454,13 +454,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( IsValid );

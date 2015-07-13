@@ -13,7 +13,7 @@ struct userdata
 	int32_t bufref;
 };
 
-static const uint8_t metaid = Global::metabase + 1;
+static const uint8_t metaid = global::metabase + 1;
 static const char *metaname = "sn_bf_write";
 
 bf_write **Push( lua_State *state, bf_write *writer, int32_t bufref )
@@ -38,12 +38,12 @@ bf_write **Push( lua_State *state, bf_write *writer, int32_t bufref )
 
 bf_write *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	bf_write *writer = udata->pwriter;
 	if( writer == nullptr && !cleanup )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
@@ -89,7 +89,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	Global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metaid, metaname );
 
 	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->pwriter != nullptr );
 
@@ -181,7 +181,7 @@ LUA_FUNCTION_STATIC( WriteBitAngle )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 )
-		Global::ThrowError( state, "invalid number of bits to write (%d is less than 0)", bits );
+		global::ThrowError( state, "invalid number of bits to write (%d is less than 0)", bits );
 
 	buf->WriteBitAngle( LUA->GetNumber( 2 ), bits );
 
@@ -345,7 +345,7 @@ LUA_FUNCTION_STATIC( WriteInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 || bits > 32 )
-		Global::ThrowError(
+		global::ThrowError(
 			state,
 			"invalid number of bits to write (%d is not between 0 and 32)",
 			bits
@@ -364,7 +364,7 @@ LUA_FUNCTION_STATIC( WriteUInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 || bits > 32 )
-		Global::ThrowError(
+		global::ThrowError(
 			state,
 			"invalid number of bits to write (%d is not between 0 and 32)",
 			bits
@@ -450,13 +450,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( IsValid );

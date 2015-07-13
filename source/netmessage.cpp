@@ -79,7 +79,7 @@ struct userdata
 	CNetChan *netchan;
 };
 
-const uint8_t metaid = Global::metabase + 14;
+const uint8_t metaid = global::metabase + 14;
 const char *metaname = "INetMessage";
 
 static std::unordered_map< CNetChan *, std::unordered_map<INetMessage *, int32_t> > netmessages;
@@ -141,12 +141,12 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 
 INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
 {
-	Global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metaid, metaname );
 
 	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
 	INetMessage *msg = udata->msg;
 	if( !IsValid( msg, udata->netchan ) && !cleanup )
-		Global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
@@ -406,7 +406,7 @@ void PreInitialize( lua_State *state )
 	SymbolFinder symfinder;
 
 	uint8_t *CBaseClientState_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib.c_str( ),
+		global::engine_lib.c_str( ),
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen
 	) );
@@ -416,7 +416,7 @@ void PreInitialize( lua_State *state )
 	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
-		Global::engine_lib.c_str( ),
+		global::engine_lib.c_str( ),
 		CBaseClient_ConnectionStart_sig,
 		CBaseClient_ConnectionStart_siglen
 	) );
@@ -485,13 +485,13 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( tostring );
 		LUA->SetField( -2, "__tostring" );
 
-		LUA->PushCFunction( Global::index );
+		LUA->PushCFunction( global::index );
 		LUA->SetField( -2, "__index" );
 
-		LUA->PushCFunction( Global::newindex );
+		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
-		LUA->PushCFunction( Global::GetTable );
+		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
 		LUA->PushCFunction( GetType );
