@@ -206,6 +206,25 @@ void PushVector( lua_State *state, const Vector &vec )
 	LUA->SetMetaTable( -2 );
 }
 
+static void Initialize( lua_State *state )
+{
+	LUA->CreateTable( );
+
+	LUA->PushString( "0.1" );
+	LUA->SetField( -2, "Version" );
+
+	LUA->PushNumber( 0.1 );
+	LUA->SetField( -2, "VersionNum" );
+
+	LUA->SetField( -2, "sourcenet" );
+}
+
+static void Deinitialize( lua_State *state )
+{
+	LUA->PushNil( );
+	LUA->SetField( -2, "sourcenet" );
+}
+
 }
 
 GMOD_MODULE_OPEN( )
@@ -265,6 +284,8 @@ GMOD_MODULE_OPEN( )
 	NetMessage::PreInitialize( state );
 
 	Hooks::PreInitialize( state );
+
+	Global::Initialize( state );
 
 	sn_bf_write::Initialize( state );
 
@@ -334,6 +355,8 @@ GMOD_MODULE_CLOSE( )
 	NetMessage::Deinitialize( state );
 
 	Hooks::Deinitialize( state );
+
+	Global::Deinitialize( state );
 
 #if defined SOURCENET_SERVER
 
