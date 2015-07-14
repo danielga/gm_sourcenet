@@ -184,10 +184,11 @@ static void Initialize( lua_State *state )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "0.2" );
+	LUA->PushString( "0.2.0" );
 	LUA->SetField( -2, "Version" );
 
-	LUA->PushNumber( 0.2 );
+	// version num follows LuaJIT style, xx.yy.zz
+	LUA->PushNumber( 00200 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( -2, "sourcenet" );
