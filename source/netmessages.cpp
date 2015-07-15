@@ -4,12 +4,8 @@
 #include <sn_bf_read.hpp>
 #include <inetchannelinfo.h>
 
-#if defined min || defined max
-
 #undef min
 #undef max
-
-#endif
 
 #include <string>
 
