@@ -1,4 +1,4 @@
-include("sn_base_incoming.lua")
+include("sourcenet/incoming.lua")
 
 LUASTRINGS_TABLE_NAME = "networkstring"
 

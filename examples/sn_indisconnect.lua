@@ -1,4 +1,4 @@
-include("sn_base_incoming.lua")
+include("sourcenet/incoming.lua")
 
 FilterIncomingMessage(net_Disconnect, function(netchan, read, write)
 	local reason = read:ReadString()

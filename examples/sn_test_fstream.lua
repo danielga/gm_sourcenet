@@ -1,4 +1,4 @@
-include("sn_base.lua")
+include("sourcenet/server.lua")
 
 -- Initialization
 

@@ -1,10 +1,10 @@
 if SERVER then
-	include("sn_base_sv.lua")
+	include("server.lua")
 else
-	include("sn_base_cl.lua")
+	include("client.lua")
 end
 
-include("sn_base_netmessages.lua")
+include("netmessages.lua")
 
 -- Initialization
 

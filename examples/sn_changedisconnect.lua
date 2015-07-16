@@ -1,4 +1,4 @@
-include("sn_base_gameevents.lua")
+include("sourcenet/gameevents.lua")
 
 hook.Add("SendGameEvent", "ChangeReason", function(netchan, event)
 	if event:GetName() ~= "player_disconnect" then return end

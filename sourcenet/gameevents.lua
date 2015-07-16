@@ -1,7 +1,7 @@
 if CLIENT then
-	include("sn_base_incoming.lua")
+	include("incoming.lua")
 else
-	include("sn_base_outgoing.lua")
+	include("outgoing.lua")
 end
 
 local manager = IGameEventManager2()

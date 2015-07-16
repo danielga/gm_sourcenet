@@ -1,4 +1,4 @@
-include("sn_base_outgoing.lua")
+include("sourcenet/outgoing.lua")
 
 FilterOutgoingMessage(svc_Print, function( netchan, read, write)
 	local msg = read:ReadString():gsub("STEAM_0:1:26262689", "-snip-")

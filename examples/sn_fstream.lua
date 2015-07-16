@@ -1,7 +1,7 @@
 if SERVER then
-	include("sn_base_sv.lua")
+	include("sourcenet/server.lua")
 else
-	include("sn_base_cl.lua")
+	include("sourcenet/client.lua")
 end
 
 -- Initialization

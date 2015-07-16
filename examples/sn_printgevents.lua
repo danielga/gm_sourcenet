@@ -1,4 +1,4 @@
-include("sn_base_gameevents.lua")
+include("sourcenet/gameevents.lua")
 
 hook.Add("ProcessGameEvent", "PrintIncomingEvent", function(source, event)
 	print("Received game event '" .. event:GetName() .. "' from '" .. source:GetAddress():ToString() .. "'")
