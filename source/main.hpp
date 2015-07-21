@@ -44,7 +44,15 @@ static const std::string server_lib = helpers::GetBinaryFileName(
 	"garrysmod/bin/"
 );
 
-static const char *tostring_format = "%s: 0x%08X";
+#if defined _WIN32
+
+static const char *tostring_format = "%s: %p";
+
+#elif defined __linux || defined __APPLE__
+
+static const char *tostring_format = "%s: 0x%p";
+
+#endif
 
 static const uint8_t metabase = 100;
 
