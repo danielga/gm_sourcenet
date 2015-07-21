@@ -46,11 +46,11 @@ static const std::string server_lib = helpers::GetBinaryFileName(
 
 #if defined _WIN32
 
-static const char *tostring_format = "%s: %p";
+static const char *tostring_format = "%s: 0x%p";
 
 #elif defined __linux || defined __APPLE__
 
-static const char *tostring_format = "%s: 0x%p";
+static const char *tostring_format = "%s: %p";
 
 #endif
 
