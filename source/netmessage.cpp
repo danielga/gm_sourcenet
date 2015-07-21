@@ -139,6 +139,10 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 	if( netchan != nullptr )
 	{
 		LUA->Push( -1 );
+
+		if( !LUA->IsType( -1, metaid ) )
+			Msg( "Top of stack is not a '%s' (%i)\n", metaname, LUA->GetType( -1 ) );
+
 		netmessages[netchan][msg].Create( LUA );
 	}
 }

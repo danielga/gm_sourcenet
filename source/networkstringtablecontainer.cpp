@@ -1,4 +1,5 @@
 #include <networkstringtablecontainer.hpp>
+#include <GarrysMod/Lua/AutoReference.h>
 #include <networkstringtable.hpp>
 #include <protocol.hpp>
 #include <networkstringtabledefs.h>
@@ -15,7 +16,7 @@ struct userdata
 static const uint8_t metaid = global::metabase + 10;
 static const char *metaname = "INetworkStringTableContainer";
 
-static int32_t container_ref = -1;
+static GarrysMod::Lua::AutoReference container_ref;
 
 static INetworkStringTableContainer *Get( lua_State *state, int32_t index )
 {
@@ -76,8 +77,7 @@ LUA_FUNCTION_STATIC( GetTable )
 
 LUA_FUNCTION_STATIC( Constructor )
 {
-	LUA->ReferencePush( container_ref );
-
+	container_ref.Push( );
 	return 1;
 }
 
@@ -107,7 +107,7 @@ void Initialize( lua_State *state )
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	container_ref = LUA->ReferenceCreate( );
+	container_ref.Create( LUA );
 
 	LUA->CreateMetaTableType( metaname, metaid );
 
@@ -181,8 +181,7 @@ void Deinitialize( lua_State *state )
 
 
 
-	LUA->ReferenceFree( container_ref );
-	container_ref = -1;
+	container_ref.Free( );
 }
 
 }

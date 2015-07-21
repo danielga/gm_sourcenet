@@ -3,6 +3,8 @@
 #include <hooks.hpp>
 #include <unordered_map>
 
+#include <dbg.h>
+
 namespace NetChannelHandler
 {
 
@@ -37,6 +39,10 @@ void Push( lua_State *state, INetChannelHandler *handler )
 	lua_setfenv( state, -2 );
 
 	LUA->Push( -1 );
+
+	if( !LUA->IsType( -1, metaid ) )
+		Msg( "Top of stack is not a '%s' (%i)\n", metaname, LUA->GetType( -1 ) );
+
 	handlers[handler].Create( LUA );
 
 	Hooks::HookINetChannelHandler( state );

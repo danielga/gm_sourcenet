@@ -1,4 +1,5 @@
 #include <main.hpp>
+#include <GarrysMod/Lua/AutoReference.h>
 #include <gameevent.hpp>
 #include <sn_bf_read.hpp>
 #include <sn_bf_write.hpp>
@@ -16,7 +17,7 @@ struct userdata
 static const uint8_t metaid = global::metabase + 12;
 static const char *metaname = "IGameEventManager2";
 
-static int32_t manager_ref = -1;
+static GarrysMod::Lua::AutoReference manager_ref;
 
 static IGameEventManager2 *Get( lua_State *state, int32_t index )
 {
@@ -80,8 +81,7 @@ LUA_FUNCTION_STATIC( UnserializeEvent )
 
 LUA_FUNCTION_STATIC( Constructor )
 {
-	LUA->ReferencePush( manager_ref );
-
+	manager_ref.Push( );
 	return 1;
 }
 
@@ -101,7 +101,7 @@ void Initialize( lua_State *state )
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	manager_ref = LUA->ReferenceCreate( );
+	manager_ref.Create( LUA );
 
 	LUA->CreateMetaTableType( metaname, metaid );
 
@@ -143,8 +143,7 @@ void Deinitialize( lua_State *state )
 	LUA->PushNil( );
 	LUA->SetField( -2, metaname );
 
-	LUA->ReferenceFree( manager_ref );
-	manager_ref = -1;
+	manager_ref.Free( );
 }
 
 }
