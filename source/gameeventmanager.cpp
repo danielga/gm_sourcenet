@@ -87,8 +87,8 @@ LUA_FUNCTION_STATIC( Constructor )
 
 void Initialize( lua_State *state )
 {
-	IGameEventManager2 *manager = static_cast<IGameEventManager2 *>(
-		global::engine_factory( INTERFACEVERSION_GAMEEVENTSMANAGER2, nullptr )
+	IGameEventManager2 *manager = global::engine_loader.GetInterface<IGameEventManager2>(
+		INTERFACEVERSION_GAMEEVENTSMANAGER2
 	);
 
 	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );

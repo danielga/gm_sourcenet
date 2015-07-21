@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <new>
 #include <string>
-#include <helpers.hpp>
+#include <interfaces.hpp>
 
 #if defined __linux || defined __APPLE__
 
@@ -23,42 +23,19 @@ class Vector;
 namespace global
 {
 
-static const std::string engine_lib = helpers::GetBinaryFileName(
-	"engine",
-	false,
-	IS_SERVERSIDE,
-	"bin/"
-);
+extern const std::string engine_lib;
 
-static const std::string client_lib = helpers::GetBinaryFileName(
-	"client",
-	false,
-	IS_SERVERSIDE,
-	"garrysmod/bin/"
-);
+extern const std::string client_lib;
 
-static const std::string server_lib = helpers::GetBinaryFileName(
-	"server",
-	false,
-	IS_SERVERSIDE,
-	"garrysmod/bin/"
-);
+extern const std::string server_lib;
 
-#if defined _WIN32
+extern const char *tostring_format;
 
-static const char *tostring_format = "%s: 0x%p";
-
-#elif defined __linux || defined __APPLE__
-
-static const char *tostring_format = "%s: %p";
-
-#endif
-
-static const uint8_t metabase = 100;
+extern const uint8_t metabase;
 
 extern lua_State *lua_state;
 
-extern void *( *engine_factory )( const char *pName, int *pReturnCode );
+extern SourceSDK::FactoryLoader engine_loader;
 
 extern IVEngineServer *engine_server;
 

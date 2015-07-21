@@ -85,14 +85,14 @@ void Initialize( lua_State *state )
 {
 #if defined SOURCENET_SERVER
 
-	INetworkStringTableContainer *container = static_cast<INetworkStringTableContainer *>(
-		global::engine_factory( INTERFACENAME_NETWORKSTRINGTABLESERVER, nullptr )
+	INetworkStringTableContainer *container = global::engine_loader.GetInterface<INetworkStringTableContainer>(
+		INTERFACENAME_NETWORKSTRINGTABLESERVER
 	);
 
 #elif defined SOURCENET_CLIENT
 
-	INetworkStringTableContainer *container = static_cast<INetworkStringTableContainer *>(
-		global::engine_factory( INTERFACENAME_NETWORKSTRINGTABLECLIENT, nullptr )
+	INetworkStringTableContainer *container = global::engine_loader.GetInterface<INetworkStringTableContainer>(
+		INTERFACENAME_NETWORKSTRINGTABLECLIENT
 	);
 
 #endif

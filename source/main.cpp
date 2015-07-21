@@ -92,9 +92,42 @@ static const size_t netchunk_siglen = 16;
 
 static bool loaded = false;
 
+const std::string engine_lib = helpers::GetBinaryFileName(
+	"engine",
+	false,
+	IS_SERVERSIDE,
+	"bin/"
+);
+
+const std::string client_lib = helpers::GetBinaryFileName(
+	"client",
+	false,
+	IS_SERVERSIDE,
+	"garrysmod/bin/"
+);
+
+const std::string server_lib = helpers::GetBinaryFileName(
+	"server",
+	false,
+	IS_SERVERSIDE,
+	"garrysmod/bin/"
+);
+
+#if defined _WIN32
+
+const char *tostring_format = "%s: 0x%p";
+
+#elif defined __linux || defined __APPLE__
+
+const char *tostring_format = "%s: %p";
+
+#endif
+
+const uint8_t metabase = 100;
+
 lua_State *lua_state = nullptr;
 
-static SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
+SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
 static uint8_t *net_thread_chunk = nullptr;
 CreateInterfaceFn engine_factory = nullptr;
 
