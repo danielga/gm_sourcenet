@@ -1,4 +1,5 @@
 #include <netchannel.hpp>
+#include <GarrysMod/Lua/AutoReference.h>
 #include <netchannelhandler.hpp>
 #include <subchannel.hpp>
 #include <datafragments.hpp>
@@ -25,7 +26,7 @@ struct userdata
 static const uint8_t metaid = global::metabase + 3;
 static const char *metaname = "CNetChan";
 
-static std::unordered_map<CNetChan *, int32_t> netchannels;
+static std::unordered_map<CNetChan *, GarrysMod::Lua::AutoReference> netchannels;
 
 bool IsValid( CNetChan *netchan )
 {
@@ -43,7 +44,7 @@ void Push( lua_State *state, CNetChan *netchan )
 	auto it = netchannels.find( netchan );
 	if( it != netchannels.end( ) )
 	{
-		LUA->ReferencePush( ( *it ).second );
+		( *it ).second.Push( );
 		return;
 	}
 
@@ -58,7 +59,11 @@ void Push( lua_State *state, CNetChan *netchan )
 	lua_setfenv( state, -2 );
 
 	LUA->Push( -1 );
-	netchannels[netchan] = LUA->ReferenceCreate( );
+
+	if( !LUA->IsType( -1, metaid ) )
+		Msg( "Top of stack is not a '%s' (%i)\n", metaname, LUA->GetType( -1 ) );
+
+	netchannels[netchan].Create( LUA );
 
 	Hooks::HookCNetChan( state );
 }
@@ -78,10 +83,7 @@ void Destroy( lua_State *state, CNetChan *netchan )
 {
 	auto it = netchannels.find( netchan );
 	if( it != netchannels.end( ) )
-	{
-		LUA->ReferenceFree( ( *it ).second );
 		netchannels.erase( it );
-	}
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -760,9 +762,7 @@ LUA_FUNCTION_STATIC( Constructor )
 
 #if defined SOURCENET_SERVER
 
-	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
-
-	int32_t index = static_cast<int32_t>( LUA->GetNumber( 1 ) );
+	int32_t index = static_cast<int32_t>( LUA->CheckNumber( 1 ) );
 	Push(
 		state,
 		static_cast<CNetChan *>( global::engine_server->GetPlayerNetInfo( index ) )
@@ -1059,8 +1059,7 @@ void Deinitialize( lua_State *state )
 	LUA->PushNil( );
 	LUA->SetField( -2, metaname );
 
-	for( auto pair : netchannels )
-		LUA->ReferenceFree( pair.second );
+	netchannels.clear( );
 }
 
 }

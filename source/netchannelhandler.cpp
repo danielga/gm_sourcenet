@@ -1,4 +1,5 @@
 #include <netchannelhandler.hpp>
+#include <GarrysMod/Lua/AutoReference.h>
 #include <hooks.hpp>
 #include <unordered_map>
 
@@ -14,14 +15,14 @@ struct userdata
 const uint8_t metaid = global::metabase + 9;
 const char *metaname = "INetChannelHandler";
 
-static std::unordered_map<INetChannelHandler *, int32_t> handlers;
+static std::unordered_map<INetChannelHandler *, GarrysMod::Lua::AutoReference> handlers;
 
 void Push( lua_State *state, INetChannelHandler *handler )
 {
 	auto it = handlers.find( handler );
 	if( it != handlers.end( ) )
 	{
-		LUA->ReferencePush( ( *it ).second );
+		( *it ).second.Push( );
 		return;
 	}
 
@@ -36,7 +37,7 @@ void Push( lua_State *state, INetChannelHandler *handler )
 	lua_setfenv( state, -2 );
 
 	LUA->Push( -1 );
-	handlers[handler] = LUA->ReferenceCreate( );
+	handlers[handler].Create( LUA );
 
 	Hooks::HookINetChannelHandler( state );
 }
@@ -51,10 +52,7 @@ void Destroy( lua_State *state, INetChannelHandler *handler )
 {
 	auto it = handlers.find( handler );
 	if( it != handlers.end( ) )
-	{
-		LUA->ReferenceFree( ( *it ).second );
 		handlers.erase( it );
-	}
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -103,8 +101,7 @@ void Deinitialize( lua_State *state )
 	LUA->PushNil( );
 	LUA->SetField( -2, metaname );
 
-	for( auto pair : handlers )
-		LUA->ReferenceFree( pair.second );
+	handlers.clear( );
 }
 
 }

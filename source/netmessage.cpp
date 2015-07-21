@@ -1,5 +1,6 @@
 #include <vfnhook.h>
 #include <netmessage.hpp>
+#include <GarrysMod/Lua/AutoReference.h>
 #include <netmessages.hpp>
 #include <sn_bf_write.hpp>
 #include <sn_bf_read.hpp>
@@ -82,7 +83,10 @@ struct userdata
 const uint8_t metaid = global::metabase + 14;
 const char *metaname = "INetMessage";
 
-static std::unordered_map< CNetChan *, std::unordered_map<INetMessage *, int32_t> > netmessages;
+static std::unordered_map<
+	CNetChan *,
+	std::unordered_map<INetMessage *, GarrysMod::Lua::AutoReference>
+> netmessages;
 static std::unordered_map<std::string, void ( * )( lua_State *state )> netmessages_setup;
 static std::unordered_map<std::string, void **> netmessages_vtables;
 
@@ -108,7 +112,7 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 			auto it2 = map.find( msg );
 			if( it2 != map.end( ) )
 			{
-				LUA->ReferencePush( ( *it2 ).second );
+				( *it2 ).second.Push( );
 				return;
 			}
 		}
@@ -135,7 +139,7 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 	if( netchan != nullptr )
 	{
 		LUA->Push( -1 );
-		netmessages[netchan][msg] = LUA->ReferenceCreate( );
+		netmessages[netchan][msg].Create( LUA );
 	}
 }
 
@@ -164,13 +168,7 @@ void Destroy( lua_State *state, CNetChan *netchan )
 {
 	auto it = netmessages.find( netchan );
 	if( it != netmessages.end( ) )
-	{
-		auto &map = ( *it ).second;
-		for( auto pair : map )
-			LUA->ReferenceFree( pair.second );
-
 		netmessages.erase( it );
-	}
 }
 
 LUA_FUNCTION_STATIC( gc )
@@ -378,7 +376,7 @@ inline bool PossibleVTable( const hde32s &hs )
 
 static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
-	NetMessages::CNetMessage *msg = new NetMessages::CNetMessage;
+	CNetMessage *msg = new CNetMessage;
 	void **msgvtable = msg->GetVTable( );
 
 	hde32s hs;
@@ -1057,9 +1055,7 @@ void Deinitialize( lua_State *state )
 
 
 
-	for( auto pair : netmessages )
-		for( auto pair2 : pair.second )
-			LUA->ReferenceFree( pair2.second );
+	netmessages.clear( );
 }
 
 }

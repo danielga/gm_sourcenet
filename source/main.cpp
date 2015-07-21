@@ -16,13 +16,13 @@
 #include <gameeventmanager.hpp>
 #include <gameevent.hpp>
 #include <netmessage.hpp>
+#include <symbolfinder.hpp>
+#include <vfnhook.h>
+#include <interfaces.hpp>
 #include <interface.h>
 #include <eiface.h>
 #include <cdll_int.h>
 #include <iserver.h>
-#include <symbolfinder.hpp>
-#include <vfnhook.h>
-#include <interfaces.hpp>
 
 #if defined _WIN32
 
