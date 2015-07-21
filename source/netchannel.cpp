@@ -58,12 +58,9 @@ void Push( lua_State *state, CNetChan *netchan )
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	LUA->Push( -1 );
-
-	if( !LUA->IsType( -1, metaid ) )
-		Msg( "Top of stack is not a '%s' (%i)\n", metaname, LUA->GetType( -1 ) );
-
-	netchannels[netchan].Create( LUA );
+	GarrysMod::Lua::AutoReference &ref = netchannels[netchan];
+	ref.Setup( LUA );
+	ref.Create( -1 );
 
 	Hooks::HookCNetChan( state );
 }

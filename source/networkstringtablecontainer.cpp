@@ -107,7 +107,8 @@ void Initialize( lua_State *state )
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	container_ref.Create( LUA );
+	container_ref.Setup( LUA );
+	container_ref.Create( );
 
 	LUA->CreateMetaTableType( metaname, metaid );
 

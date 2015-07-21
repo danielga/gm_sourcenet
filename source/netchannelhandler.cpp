@@ -38,12 +38,9 @@ void Push( lua_State *state, INetChannelHandler *handler )
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	LUA->Push( -1 );
-
-	if( !LUA->IsType( -1, metaid ) )
-		Msg( "Top of stack is not a '%s' (%i)\n", metaname, LUA->GetType( -1 ) );
-
-	handlers[handler].Create( LUA );
+	GarrysMod::Lua::AutoReference &ref = handlers[handler];
+	ref.Setup( LUA );
+	ref.Create( -1 );
 
 	Hooks::HookINetChannelHandler( state );
 }
