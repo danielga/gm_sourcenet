@@ -94,14 +94,14 @@ LUA_FUNCTION_STATIC( ErrorTraceback )
 	LUA->GetField( -2, "Call" ); \
 	LUA->PushString( name ); \
 	LUA->PushNil( ); \
-	int32_t __argc = 2
+	int32_t _argc = 2
 
 #define DO_HOOK( code ) \
 	code; \
-	++__argc
+	++_argc
 
 #define CALL_HOOK( returns ) \
-	if( LUA->PCall( __argc, returns, -2 - __argc ) != 0 ) \
+	if( LUA->PCall( _argc, returns, -2 - _argc ) != 0 ) \
 	{ \
 		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->ErrorNoHalt( \
 			"\n%s\n\n", LUA->GetString( -1 ) \
