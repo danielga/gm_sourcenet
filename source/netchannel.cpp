@@ -444,6 +444,15 @@ LUA_FUNCTION_STATIC( GetSequenceNr )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( GetTimeSinceLastReceived )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetTimeSinceLastReceived( ) );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( IsValidPacket )
 {
 	CNetChan *netchan = Get( state, 1 );
@@ -882,6 +891,9 @@ void Initialize( lua_State *state )
 
 		LUA->PushCFunction( GetSequenceNr );
 		LUA->SetField( -2, "GetSequenceNr" );
+
+		LUA->PushCFunction( GetTimeSinceLastReceived );
+		LUA->SetField( -2, "GetTimeSinceLastReceived" );
 
 		LUA->PushCFunction( IsValidPacket );
 		LUA->SetField( -2, "IsValidPacket" );
