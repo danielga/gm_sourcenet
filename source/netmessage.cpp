@@ -1,11 +1,11 @@
 #include <vfnhook.h>
 #include <netmessage.hpp>
+#include <GarrysMod/Lua/LuaInterface.h>
 #include <GarrysMod/Lua/AutoReference.h>
 #include <netmessages.hpp>
 #include <sn_bf_write.hpp>
 #include <sn_bf_read.hpp>
 #include <netchannel.hpp>
-#include <hooks.hpp>
 #include <net.hpp>
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
@@ -453,16 +453,24 @@ template<class NetMessage> int Constructor( lua_State *state )
 	return 1;
 }
 
-template<class NetMessage> void Register( lua_State *state )
+template<class NetMessage> bool Register( lua_State *state )
 {
-	LUA->PushCFunction( Constructor<NetMessage> );
-	LUA->SetField( -2, NetMessage::LuaName );
-
 	NetMessage *msg = new( std::nothrow ) NetMessage;
+	if( msg == nullptr )
+	{
+		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->Msg( "Failed to create NetMessage object for \"%s\"!\n", NetMessage::Name );
+		return false;
+	}
+
 	BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );
 	delete msg;
 
+	LUA->PushCFunction( Constructor<NetMessage> );
+	LUA->SetField( -2, NetMessage::LuaName );
+
 	netmessages_setup[NetMessage::Name] = NetMessage::SetupLua;
+
+	return true;
 }
 
 template<class NetMessage> void UnRegister( lua_State *state )
