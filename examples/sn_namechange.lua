@@ -27,4 +27,4 @@ concommand.Add("setname", function(ply, cmd, args)
 	buffer:WriteByte(1) -- convar count
 	buffer:WriteString("name") -- convar name
 	buffer:WriteString(args[1]) -- convar value
-end )
+end)

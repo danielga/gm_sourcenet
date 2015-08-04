@@ -50,4 +50,4 @@ hook.Add("PlayerInitialSpawn", "BeginTransfer", function(ply)
 
 	QueueFile(netchan, "cl.db")
 	QueueFile(netchan, "gameinfo.txt")
-end )
+end)

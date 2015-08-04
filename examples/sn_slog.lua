@@ -13,4 +13,4 @@ FilterIncomingMessage(net_StringCmd, function(netchan, read, write)
 
 	write:WriteUInt(net_StringCmd, NET_MESSAGE_BITS)
 	write:WriteString(cmd)
-end )
+end)
