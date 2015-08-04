@@ -317,6 +317,8 @@ inline void BuildVTable( void **source, void **destination )
 		dst[k] = src[k];*/
 
 	dst[3 + offset] = src[3 + offset]; // Process
+
+	// crash on this one with CLC_VoiceData (may change depending on machine) on Linux
 	dst[4 + offset] = src[4 + offset]; // ReadFromBuffer
 	dst[5 + offset] = src[5 + offset]; // WriteToBuffer
 
@@ -377,7 +379,10 @@ inline bool PossibleVTable( const hde32s &hs )
 
 static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
 {
-	CNetMessage *msg = new CNetMessage;
+	CNetMessage *msg = new( std::nothrow ) CNetMessage;
+	if( msg == nullptr )
+		global::ThrowError( state, "failed to create CNetMessage object for netmessages resolution" );
+
 	void **msgvtable = msg->GetVTable( );
 
 	hde32s hs;
@@ -449,18 +454,41 @@ void PreInitialize( lua_State *state )
 
 template<class NetMessage> int Constructor( lua_State *state )
 {
-	Push( state, new( std::nothrow ) NetMessage );
+	NetMessage *msg = new( std::nothrow ) NetMessage;
+	if( msg == nullptr )
+		global::ThrowError( state, "failed to create object for '%s'", NetMessage::Name );
+
+	if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
+	{
+		delete msg;
+		global::ThrowError( state, "failed to find vtable for '%s'", NetMessage::Name );
+	}
+
+	// this is not optimal and definitely not completely safe
+	// but that's why this is a cheap/hacky fix
+	msg->InstallVTable( netmessages_vtables[NetMessage::Name] );
+
+	Push( state, msg );
 	return 1;
 }
 
 template<class NetMessage> void Register( lua_State *state )
 {
-	NetMessage *msg = new( std::nothrow ) NetMessage;
+	// crash on BuildVTable for some random netmessage on some random vtable index
+	// may only crash on destination vtable access, not sure
+
+	/*NetMessage *msg = new( std::nothrow ) NetMessage;
 	if( msg == nullptr )
-		global::ThrowError( state, "failed to create NetMessage object for '%s'", NetMessage::Name );
+		global::ThrowError( state, "failed to create object for '%s'", NetMessage::Name );
+
+	if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
+	{
+		delete msg;
+		global::ThrowError( state, "failed to find vtable for '%s'", NetMessage::Name );
+	}
 
 	BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );
-	delete msg;
+	delete msg;*/
 
 	LUA->PushCFunction( Constructor<NetMessage> );
 	LUA->SetField( -2, NetMessage::LuaName );
