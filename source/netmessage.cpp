@@ -453,14 +453,11 @@ template<class NetMessage> int Constructor( lua_State *state )
 	return 1;
 }
 
-template<class NetMessage> bool Register( lua_State *state )
+template<class NetMessage> void Register( lua_State *state )
 {
 	NetMessage *msg = new( std::nothrow ) NetMessage;
 	if( msg == nullptr )
-	{
-		static_cast<GarrysMod::Lua::ILuaInterface *>( LUA )->Msg( "Failed to create NetMessage object for \"%s\"!\n", NetMessage::Name );
-		return false;
-	}
+		global::ThrowError( state, "failed to create NetMessage object for '%s'", NetMessage::Name );
 
 	BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );
 	delete msg;
@@ -469,8 +466,6 @@ template<class NetMessage> bool Register( lua_State *state )
 	LUA->SetField( -2, NetMessage::LuaName );
 
 	netmessages_setup[NetMessage::Name] = NetMessage::SetupLua;
-
-	return true;
 }
 
 template<class NetMessage> void UnRegister( lua_State *state )
