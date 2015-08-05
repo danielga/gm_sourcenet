@@ -111,6 +111,15 @@ LUA_FUNCTION_STATIC( IsValid )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( IsNull )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->IsNull( ) );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( DumpNetMessages )
 {
 	CNetChan *netchan = Get( state, 1 );
@@ -225,6 +234,24 @@ LUA_FUNCTION_STATIC( RequestFile )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( netchan->RequestFile( LUA->GetString( 2 ) ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( CanPacket )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->CanPacket( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( HasPendingReliableData )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->HasPendingReliableData( ) );
 
 	return 1;
 }
@@ -352,6 +379,15 @@ LUA_FUNCTION_STATIC( GetAddress )
 
 	netadr::Push( state, netchan->remote_address );
 	
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( GetRemoteAddress )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	netadr::Push( state, netchan->GetRemoteAddress( ) );
+
 	return 1;
 }
 
@@ -601,6 +637,33 @@ LUA_FUNCTION_STATIC( SetMaxBufferSize )
 	return 0;
 }
 
+LUA_FUNCTION_STATIC( IsLoopback )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->IsLoopback( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( IsTimingOut )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->IsTimingOut( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( IsTimedOut )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->IsTimedOut( ) );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( IsPlayback )
 {
 	CNetChan *netchan = Get( state, 1 );
@@ -610,11 +673,20 @@ LUA_FUNCTION_STATIC( IsPlayback )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( IsOverflowed )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushBool( netchan->IsOverflowed( ) );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( GetTimeoutSeconds )
 {
 	CNetChan *netchan = Get( state, 1 );
 
-	LUA->PushNumber( netchan->timeout_seconds );
+	LUA->PushNumber( netchan->GetTimeoutSeconds(  ) );
 
 	return 1;
 }
@@ -624,7 +696,35 @@ LUA_FUNCTION_STATIC( SetTimeoutSeconds )
 	CNetChan *netchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	netchan->timeout_seconds = LUA->GetNumber( 2 );
+	netchan->SetTimeout( static_cast<float>( LUA->GetNumber( 2 ) ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( GetTimeout )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->timeout_seconds );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( SetTimeout )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->timeout_seconds = static_cast<float>( LUA->GetNumber( 2 ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( GetTimeConnected )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetTimeConnected( ) );
 
 	return 1;
 }
@@ -662,7 +762,7 @@ LUA_FUNCTION_STATIC( SetLastReceivedTime )
 	CNetChan *netchan = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-	netchan->last_received = LUA->GetNumber( 2 );
+	netchan->last_received = static_cast<float>( LUA->GetNumber( 2 ) );
 
 	return 0;
 }
@@ -763,6 +863,153 @@ LUA_FUNCTION_STATIC( SetMaxRoutablePayloadSize )
 	return 0;
 }
 
+LUA_FUNCTION_STATIC( GetDataRate )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetDataRate( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( SetDataRate )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->SetDataRate( static_cast<float>( LUA->GetNumber( 2 ) ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( GetBufferSize )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetBufferSize( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( GetNumBitsWritten )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
+
+	LUA->PushNumber( netchan->GetNumBitsWritten( LUA->GetBool( 2 ) ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( GetDropNumber )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetDropNumber( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( GetChallengeNr )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	LUA->PushNumber( netchan->GetChallengeNr( ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( SetChallengeNr )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->SetChallengeNr( static_cast<uint32_t>( LUA->GetNumber( 2 ) ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( GetSequenceData )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	int32_t out = 0, in = 0, outack = 0;
+	netchan->GetSequenceData( out, in, outack );
+	LUA->PushNumber( out );
+	LUA->PushNumber( in );
+	LUA->PushNumber( outack );
+
+	return 3;
+}
+
+LUA_FUNCTION_STATIC( SetSequenceData )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
+	LUA->CheckType( 4, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->SetSequenceData(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 4 ) )
+	);
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( SetChoked )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	netchan->SetChoked( );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( SetFileTransmissionMode )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
+
+	netchan->SetFileTransmissionMode( LUA->GetBool( 2 ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( UpdateMessageStats )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->UpdateMessageStats(
+		static_cast<int32_t>( LUA->GetNumber( 2 ) ),
+		static_cast<int32_t>( LUA->GetNumber( 3 ) )
+	);
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( StartStreaming )
+{
+	CNetChan *netchan = Get( state, 1 );
+	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
+
+	netchan->StartStreaming( static_cast<uint32_t>( LUA->GetNumber( 2 ) ) );
+
+	return 0;
+}
+
+LUA_FUNCTION_STATIC( ResetStreaming )
+{
+	CNetChan *netchan = Get( state, 1 );
+
+	netchan->ResetStreaming( );
+
+	return 0;
+}
+
 LUA_FUNCTION_STATIC( Constructor )
 {
 
@@ -805,6 +1052,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( IsValid );
 		LUA->SetField( -2, "IsValid" );
 
+		LUA->PushCFunction( IsNull );
+		LUA->SetField( -2, "IsNull" );
+
 		LUA->PushCFunction( DumpNetMessages );
 		LUA->SetField( -2, "DumpNetMessages" );
 
@@ -835,6 +1085,12 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( RequestFile );
 		LUA->SetField( -2, "RequestFile" );
 
+		LUA->PushCFunction( CanPacket );
+		LUA->SetField( -2, "CanPacket" );
+
+		LUA->PushCFunction( HasPendingReliableData );
+		LUA->SetField( -2, "HasPendingReliableData" );
+
 		LUA->PushCFunction( GetOutgoingQueueSize );
 		LUA->SetField( -2, "GetOutgoingQueueSize" );
 
@@ -864,6 +1120,9 @@ void Initialize( lua_State *state )
 
 		LUA->PushCFunction( GetAddress );
 		LUA->SetField( -2, "GetAddress" );
+
+		LUA->PushCFunction( GetRemoteAddress );
+		LUA->SetField( -2, "GetRemoteAddress" );
 
 		LUA->PushCFunction( GetTime );
 		LUA->SetField( -2, "GetTime" );
@@ -925,14 +1184,35 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( SetMaxBufferSize );
 		LUA->SetField( -2, "SetMaxBufferSize" );
 
+		LUA->PushCFunction( IsLoopback );
+		LUA->SetField( -2, "IsLoopback" );
+
+		LUA->PushCFunction( IsTimingOut );
+		LUA->SetField( -2, "IsTimingOut" );
+
+		LUA->PushCFunction( IsTimedOut );
+		LUA->SetField( -2, "IsTimedOut" );
+
 		LUA->PushCFunction( IsPlayback );
 		LUA->SetField( -2, "IsPlayback" );
+
+		LUA->PushCFunction( IsOverflowed );
+		LUA->SetField( -2, "IsOverflowed" );
 
 		LUA->PushCFunction( GetTimeoutSeconds );
 		LUA->SetField( -2, "GetTimeoutSeconds" );
 
 		LUA->PushCFunction( SetTimeoutSeconds );
 		LUA->SetField( -2, "SetTimeoutSeconds" );
+
+		LUA->PushCFunction( GetTimeout );
+		LUA->SetField( -2, "GetTimeout" );
+
+		LUA->PushCFunction( SetTimeout );
+		LUA->SetField( -2, "SetTimeout" );
+
+		LUA->PushCFunction( GetTimeConnected );
+		LUA->SetField( -2, "GetTimeConnected" );
 
 		LUA->PushCFunction( GetConnectTime );
 		LUA->SetField( -2, "GetConnectTime" );
@@ -975,6 +1255,48 @@ void Initialize( lua_State *state )
 
 		LUA->PushCFunction( SetMaxRoutablePayloadSize );
 		LUA->SetField( -2, "SetMaxRoutablePayloadSize" );
+
+		LUA->PushCFunction( GetDataRate );
+		LUA->SetField( -2, "GetDataRate" );
+
+		LUA->PushCFunction( SetDataRate );
+		LUA->SetField( -2, "SetDataRate" );
+
+		LUA->PushCFunction( GetBufferSize );
+		LUA->SetField( -2, "GetBufferSize" );
+
+		LUA->PushCFunction( GetNumBitsWritten );
+		LUA->SetField( -2, "GetNumBitsWritten" );
+
+		LUA->PushCFunction( GetDropNumber );
+		LUA->SetField( -2, "GetDropNumber" );
+
+		LUA->PushCFunction( GetChallengeNr );
+		LUA->SetField( -2, "GetChallengeNr" );
+
+		LUA->PushCFunction( SetChallengeNr );
+		LUA->SetField( -2, "SetChallengeNr" );
+
+		LUA->PushCFunction( GetSequenceData );
+		LUA->SetField( -2, "GetSequenceData" );
+
+		LUA->PushCFunction( SetSequenceData );
+		LUA->SetField( -2, "SetSequenceData" );
+
+		LUA->PushCFunction( SetChoked );
+		LUA->SetField( -2, "SetChoked" );
+
+		LUA->PushCFunction( SetFileTransmissionMode );
+		LUA->SetField( -2, "SetFileTransmissionMode" );
+
+		LUA->PushCFunction( UpdateMessageStats );
+		LUA->SetField( -2, "UpdateMessageStats" );
+
+		LUA->PushCFunction( StartStreaming );
+		LUA->SetField( -2, "StartStreaming" );
+
+		LUA->PushCFunction( ResetStreaming );
+		LUA->SetField( -2, "ResetStreaming" );
 
 	LUA->Pop( 1 );
 
