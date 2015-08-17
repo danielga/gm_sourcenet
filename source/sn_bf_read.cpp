@@ -5,7 +5,7 @@
 namespace sn_bf_read
 {
 
-struct userdata
+struct UserData
 {
 	bf_read *preader;
 	uint8_t type;
@@ -13,13 +13,13 @@ struct userdata
 	int32_t bufref;
 };
 
-static const uint8_t metaid = global::metabase + 2;
+static const uint8_t metatype = global::metabase + 2;
 static const char *metaname = "sn_bf_read";
 
 bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 {
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->bufref = bufref;
 
 	if( reader == nullptr )
@@ -27,7 +27,7 @@ bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 	else
 		udata->preader = reader;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -38,9 +38,9 @@ bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 
 bf_read *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	bf_read *reader = udata->preader;
 	if( udata->preader == nullptr && !cleanup )
 		global::ThrowError( state, "invalid %s", metaname );
@@ -89,9 +89,9 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metatype, metaname );
 
-	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
+	LUA->PushBool( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
 
 	return 1;
 }
@@ -443,7 +443,7 @@ LUA_FUNCTION_STATIC( Constructor )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -562,16 +562,16 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 
 	LUA->PushCFunction( Constructor );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

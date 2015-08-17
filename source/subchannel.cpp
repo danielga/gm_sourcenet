@@ -5,14 +5,14 @@
 namespace subchannel
 {
 
-struct userdata
+struct UserData
 {
 	subchannel_t *subchan;
 	uint8_t type;
 	CNetChan *netchan;
 };
 
-static const uint8_t metaid = global::metabase + 4;
+static const uint8_t metatype = global::metabase + 4;
 static const char *metaname = "subchannel_t";
 
 static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
@@ -22,11 +22,11 @@ static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
 
 void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
 {
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->subchan = subchan;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -35,9 +35,9 @@ void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
 
 static subchannel_t *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	if( !IsValid( udata->subchan, udata->netchan ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
@@ -76,9 +76,9 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( 1 ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( 1 ) );
 	LUA->PushBool( IsValid( udata->subchan, udata->netchan ) );
 
 	return 1;
@@ -209,7 +209,7 @@ LUA_FUNCTION_STATIC( SetIndex )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -265,7 +265,7 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

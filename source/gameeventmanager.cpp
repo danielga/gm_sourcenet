@@ -8,21 +8,21 @@
 namespace GameEventManager
 {
 
-struct userdata
+struct UserData
 {
 	IGameEventManager2 *manager;
 	uint8_t type;
 };
 
-static const uint8_t metaid = global::metabase + 12;
+static const uint8_t metatype = global::metabase + 12;
 static const char *metaname = "IGameEventManager2";
 
 static GarrysMod::Lua::AutoReference manager_ref;
 
 static IGameEventManager2 *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
-	return static_cast<userdata *>( LUA->GetUserdata( index ) )->manager;
+	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) )->manager;
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -90,12 +90,14 @@ void Initialize( lua_State *state )
 	IGameEventManager2 *manager = global::engine_loader.GetInterface<IGameEventManager2>(
 		INTERFACEVERSION_GAMEEVENTSMANAGER2
 	);
+	if( manager == nullptr )
+		LUA->ThrowError( "failed to obtain IGameEventManager2" );
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
 	udata->manager = manager;
+	udata->type = metatype;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -104,7 +106,9 @@ void Initialize( lua_State *state )
 	manager_ref.Setup( LUA );
 	manager_ref.Create( );
 
-	LUA->CreateMetaTableType( metaname, metaid );
+
+
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -132,17 +136,23 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
+
+
 	LUA->PushCFunction( Constructor );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
+
+
 
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
+
+
 
 	manager_ref.Free( );
 }

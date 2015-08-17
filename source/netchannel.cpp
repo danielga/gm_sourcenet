@@ -1,5 +1,4 @@
 #include <netchannel.hpp>
-#include <GarrysMod/Lua/AutoReference.h>
 #include <netchannelhandler.hpp>
 #include <subchannel.hpp>
 #include <datafragments.hpp>
@@ -11,26 +10,24 @@
 #include <inetmessage.h>
 #include <eiface.h>
 #include <cdll_int.h>
-#include <unordered_map>
 #include <sstream>
 
 namespace NetChannel
 {
 
-struct userdata
+struct UserData
 {
 	CNetChan *netchan;
 	uint8_t type;
 };
 
-static const uint8_t metaid = global::metabase + 3;
+static const uint8_t metatype = global::metabase + 3;
 static const char *metaname = "CNetChan";
-
-static std::unordered_map<CNetChan *, GarrysMod::Lua::AutoReference> netchannels;
+static const char *table_name = "sourcenet_CNetChan";
 
 bool IsValid( CNetChan *netchan )
 {
-	return netchan != nullptr && netchannels.find( netchan ) != netchannels.end( );
+	return netchan != nullptr;
 }
 
 void Push( lua_State *state, CNetChan *netchan )
@@ -41,35 +38,40 @@ void Push( lua_State *state, CNetChan *netchan )
 		return;
 	}
 
-	auto it = netchannels.find( netchan );
-	if( it != netchannels.end( ) )
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+	LUA->PushUserdata( netchan );
+	LUA->GetTable( -2 );
+	if( LUA->IsType( -1, metatype ) )
 	{
-		( *it ).second.Push( );
+		LUA->Remove( -2 );
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
-	udata->netchan = netchan;
+	LUA->Pop( 1 );
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->netchan = netchan;
+	udata->type = metatype;
+
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	GarrysMod::Lua::AutoReference &ref = netchannels[netchan];
-	ref.Setup( LUA );
-	ref.Create( -1 );
+	LUA->PushUserdata( netchan );
+	LUA->Push( -2 );
+	LUA->SetTable( -4 );
+	LUA->Remove( -2 );
 
 	Hooks::HookCNetChan( state );
 }
 
 CNetChan *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	CNetChan *netchan = static_cast<userdata *>( LUA->GetUserdata( index ) )->netchan;
+	CNetChan *netchan = static_cast<UserData *>( LUA->GetUserdata( index ) )->netchan;
 	if( !IsValid( netchan ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
@@ -78,45 +80,35 @@ CNetChan *Get( lua_State *state, int32_t index )
 
 void Destroy( lua_State *state, CNetChan *netchan )
 {
-	auto it = netchannels.find( netchan );
-	if( it != netchannels.end( ) )
-		netchannels.erase( it );
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+	LUA->PushUserdata( netchan );
+	LUA->PushNil( );
+	LUA->SetTable( -2 );
+	LUA->Pop( 1 );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	CNetChan *netchan1 = Get( state, 1 );
-	CNetChan *netchan2 = Get( state, 2 );
-
-	LUA->PushBool( netchan1 == netchan2 );
-
+	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	CNetChan *netchan = Get( state, 1 );
-
-	lua_pushfstring( state, global::tostring_format, metaname, netchan );
-
+	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metaid, metaname );
-
-	LUA->PushBool( IsValid( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->netchan ) );
-
+	global::CheckType( state, 1, metatype, metaname );
+	LUA->PushBool( IsValid( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->netchan ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( IsNull )
 {
-	CNetChan *netchan = Get( state, 1 );
-
-	LUA->PushBool( netchan->IsNull( ) );
-
+	LUA->PushBool( Get( state, 1 )->IsNull( ) );
 	return 1;
 }
 
@@ -1015,11 +1007,24 @@ LUA_FUNCTION_STATIC( Constructor )
 
 #if defined SOURCENET_SERVER
 
-	int32_t index = static_cast<int32_t>( LUA->CheckNumber( 1 ) );
+	int32_t index = -1;
+	if( LUA->IsType( 1, GarrysMod::Lua::Type::ENTITY ) )
+	{
+		LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Entity" );
+		LUA->Push( 1 );
+		LUA->Call( 1, 1 );
+
+		index = static_cast<int32_t>( LUA->CheckNumber( -1 ) );
+	}
+	else
+	{
+		index = static_cast<int32_t>( LUA->CheckNumber( 1 ) );
+	}
+
 	Push(
 		state,
 		static_cast<CNetChan *>( global::engine_server->GetPlayerNetInfo( index ) )
-	);	
+	);
 
 #elif defined SOURCENET_CLIENT
 
@@ -1032,7 +1037,12 @@ LUA_FUNCTION_STATIC( Constructor )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateTable( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+
+
+
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -1300,97 +1310,102 @@ void Initialize( lua_State *state )
 
 	LUA->Pop( 1 );
 
+
+
 	LUA->PushNumber( MAX_RATE );
-	LUA->SetField( -2, "MAX_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_RATE" );
 
 	LUA->PushNumber( MIN_RATE );
-	LUA->SetField( -2, "MIN_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MIN_RATE" );
 
 	LUA->PushNumber( DEFAULT_RATE );
-	LUA->SetField( -2, "DEFAULT_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "DEFAULT_RATE" );
 
 
 
 	LUA->PushNumber( FLOW_OUTGOING );
-	LUA->SetField( -2, "FLOW_OUTGOING" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_OUTGOING" );
 
 	LUA->PushNumber( FLOW_INCOMING );
-	LUA->SetField( -2, "FLOW_INCOMING" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_INCOMING" );
 
 	LUA->PushNumber( MAX_FLOWS );
-	LUA->SetField( -2, "MAX_FLOWS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FLOWS" );
 
 
 
 	LUA->PushNumber( MAX_SUBCHANNELS );
-	LUA->SetField( -2, "MAX_SUBCHANNELS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_SUBCHANNELS" );
 
 
 
 	LUA->PushNumber( MAX_STREAMS );
-	LUA->SetField( -2, "MAX_STREAMS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_STREAMS" );
 
 	LUA->PushNumber( FRAG_NORMAL_STREAM );
-	LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_NORMAL_STREAM" );
 
 	LUA->PushNumber( FRAG_FILE_STREAM );
-	LUA->SetField( -2, "FRAG_FILE_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_FILE_STREAM" );
 
 
 
 	LUA->PushCFunction( Constructor );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_RATE" );
 
 	LUA->PushNil( );
-	LUA->SetField( -2, "MIN_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MIN_RATE" );
 
 	LUA->PushNil( );
-	LUA->SetField( -2, "DEFAULT_RATE" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FLOW_OUTGOING" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FLOW_INCOMING" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_FLOWS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "DEFAULT_RATE" );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_SUBCHANNELS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_OUTGOING" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_INCOMING" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FLOWS" );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_STREAMS" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FRAG_NORMAL_STREAM" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FRAG_FILE_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_SUBCHANNELS" );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_STREAMS" );
 
-	netchannels.clear( );
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_NORMAL_STREAM" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_FILE_STREAM" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 }
 
 }

@@ -4,7 +4,7 @@
 namespace UCHARPTR
 {
 
-struct userdata
+struct UserData
 {
 	uint8_t *data;
 	uint8_t type;
@@ -12,7 +12,7 @@ struct userdata
 	bool own;
 };
 
-const uint8_t metaid = global::metabase + 7;
+const uint8_t metatype = global::metabase + 7;
 const char *metaname = "UCHARPTR";
 
 uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
@@ -33,13 +33,13 @@ uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 			LUA->ThrowError( "failed to allocate buffer" );
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->data = data;
 	udata->bits = bits;
 	udata->own = own;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -50,9 +50,9 @@ uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 
 uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	uint8_t *ptr = udata->data;
 	if( ptr == nullptr && !cleanup )
 		global::ThrowError( state, "invalid %s", metaname );
@@ -105,9 +105,9 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metatype, metaname );
 
-	LUA->PushBool( static_cast<userdata *>( LUA->GetUserdata( 1 ) )->data != nullptr );
+	LUA->PushBool( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->data != nullptr );
 
 	return 1;
 }
@@ -144,7 +144,7 @@ LUA_FUNCTION_STATIC( Constructor )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -176,16 +176,16 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 
 	LUA->PushCFunction( Constructor );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

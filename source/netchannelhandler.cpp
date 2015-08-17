@@ -1,85 +1,83 @@
 #include <netchannelhandler.hpp>
-#include <GarrysMod/Lua/AutoReference.h>
 #include <hooks.hpp>
-#include <unordered_map>
-
-#include <dbg.h>
 
 namespace NetChannelHandler
 {
 
-struct userdata
+struct UserData
 {
 	INetChannelHandler *handler;
 	uint8_t type;
 };
 
-const uint8_t metaid = global::metabase + 9;
+const uint8_t metatype = global::metabase + 9;
 const char *metaname = "INetChannelHandler";
-
-static std::unordered_map<INetChannelHandler *, GarrysMod::Lua::AutoReference> handlers;
+static const char *table_name = "sourcenet_INetChannelHandler";
 
 void Push( lua_State *state, INetChannelHandler *handler )
 {
-	auto it = handlers.find( handler );
-	if( it != handlers.end( ) )
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+	LUA->PushUserdata( handler );
+	LUA->GetTable( -2 );
+	if( LUA->IsType( -1, metatype ) )
 	{
-		( *it ).second.Push( );
+		LUA->Remove( -2 );
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
-	udata->handler = handler;
+	LUA->Pop( 1 );
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->handler = handler;
+	udata->type = metatype;
+
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
 	lua_setfenv( state, -2 );
 
-	GarrysMod::Lua::AutoReference &ref = handlers[handler];
-	ref.Setup( LUA );
-	ref.Create( -1 );
+	LUA->PushUserdata( handler );
+	LUA->Push( -2 );
+	LUA->SetTable( -4 );
+	LUA->Remove( -2 );
 
 	Hooks::HookINetChannelHandler( state );
 }
 
 INetChannelHandler *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
-	return static_cast<userdata *>( LUA->GetUserdata( index ) )->handler;
+	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) )->handler;
 }
 
 void Destroy( lua_State *state, INetChannelHandler *handler )
 {
-	auto it = handlers.find( handler );
-	if( it != handlers.end( ) )
-		handlers.erase( it );
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+	LUA->PushUserdata( handler );
+	LUA->PushNil( );
+	LUA->SetTable( -2 );
+	LUA->Pop( 1 );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	INetChannelHandler *handler1 = Get( state, 1 );
-	INetChannelHandler *handler2 = Get( state, 2 );
-
-	LUA->PushBool( handler1 == handler2 );
-
+	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	INetChannelHandler *handler = Get( state, 1 );
-
-	lua_pushfstring( state, global::tostring_format, metaname, handler );
-
+	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
 	return 1;
 }
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateTable( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -102,9 +100,10 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 
-	handlers.clear( );
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 }
 
 }

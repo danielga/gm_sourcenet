@@ -187,11 +187,11 @@ void PushAngle( lua_State *state, const QAngle &ang )
 	if( angle == nullptr )
 		LUA->ThrowError( "failed to allocate Angle" );
 
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+	GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
 		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
 	);
-	userdata->type = GarrysMod::Lua::Type::VECTOR;
-	userdata->data = angle;
+	udata->type = GarrysMod::Lua::Type::VECTOR;
+	udata->data = angle;
 
 	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
 	LUA->SetMetaTable( -2 );
@@ -203,11 +203,11 @@ void PushVector( lua_State *state, const Vector &vec )
 	if( vector == nullptr )
 		LUA->ThrowError( "failed to allocate Vector" );
 
-	GarrysMod::Lua::UserData *userdata = static_cast<GarrysMod::Lua::UserData *>(
+	GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
 		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
 	);
-	userdata->type = GarrysMod::Lua::Type::VECTOR;
-	userdata->data = vector;
+	udata->type = GarrysMod::Lua::Type::VECTOR;
+	udata->data = vector;
 
 	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
 	LUA->SetMetaTable( -2 );
@@ -217,14 +217,14 @@ static void Initialize( lua_State *state )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 0.2.1" );
+	LUA->PushString( "sourcenet 0.2.2" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 201 );
+	LUA->PushNumber( 202 );
 	LUA->SetField( -2, "VersionNum" );
 
-	LUA->SetField( -2, "sourcenet" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
 
 	loaded = true;
 }
@@ -232,7 +232,7 @@ static void Initialize( lua_State *state )
 static void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -2, "sourcenet" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
 
 	loaded = false;
 }
@@ -291,8 +291,6 @@ GMOD_MODULE_OPEN( )
 
 #endif
 
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
-
 	NetMessage::PreInitialize( state );
 
 	Hooks::PreInitialize( state );
@@ -344,10 +342,6 @@ GMOD_MODULE_CLOSE( )
 	ProtectMemory( global::net_thread_chunk, global::netpatch_len, true );
 
 #endif
-
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_REG );
-
-	LUA->PushSpecial( GarrysMod::Lua::SPECIAL_GLOB );
 
 	sn_bf_write::Deinitialize( state );
 

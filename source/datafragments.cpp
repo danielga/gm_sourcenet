@@ -6,14 +6,14 @@
 namespace dataFragments
 {
 
-struct userdata
+struct UserData
 {
 	dataFragments_t *datafrag;
 	uint8_t type;
 	CNetChan *netchan;
 };
 
-static const uint8_t metaid = global::metabase + 5;
+static const uint8_t metatype = global::metabase + 5;
 static const char *metaname = "dataFragments_t";
 
 static bool IsValid( dataFragments_t *datafrag, CNetChan *netchan )
@@ -29,12 +29,12 @@ void Push( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
 	udata->datafrag = datafrag;
+	udata->type = metatype;
 	udata->netchan = netchan;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -43,9 +43,9 @@ void Push( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
 
 dataFragments_t *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	dataFragments_t *datafrag = udata->datafrag;
 	if( !IsValid( datafrag, udata->netchan ) && !cleanup )
 		global::ThrowError( state, "invalid %s", metaname );
@@ -75,28 +75,21 @@ LUA_FUNCTION_STATIC( gc )
 
 LUA_FUNCTION_STATIC( eq )
 {
-	dataFragments_t *fragments1 = Get( state, 1 );
-	dataFragments_t *fragments2 = Get( state, 2 );
-
-	LUA->PushBool( fragments1 == fragments2 );
-
+	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	lua_pushfstring( state, global::tostring_format, metaname, fragments );
-
+	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metaid, metaname );
+	global::CheckType( state, 1, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( 1 ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( 1 ) );
 	LUA->PushBool( IsValid( udata->datafrag, udata->netchan ) );
 
 	return 1;
@@ -104,10 +97,7 @@ LUA_FUNCTION_STATIC( IsValid )
 
 LUA_FUNCTION_STATIC( GetFileHandle )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	FileHandle::Push( state, fragments->hfile );
-
+	FileHandle::Push( state, Get( state, 1 )->hfile );
 	return 1;
 }
 
@@ -116,7 +106,7 @@ LUA_FUNCTION_STATIC( SetFileHandle )
 	dataFragments_t *fragments = Get( state, 1 );
 
 	int32_t argt = LUA->GetType( 2 );
-	if( argt == FileHandle::metaid )
+	if( argt == FileHandle::metatype )
 		fragments->hfile = FileHandle::Get( state, 2 );
 	else if( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 )
 		fragments->hfile = nullptr;
@@ -128,19 +118,15 @@ LUA_FUNCTION_STATIC( SetFileHandle )
 
 LUA_FUNCTION_STATIC( GetFileName )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushString( fragments->filename );
-
+	LUA->PushString( Get( state, 1 )->filename );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetFileName )
 {
 	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2 , GarrysMod::Lua::Type::STRING );
 
-	strncpy( fragments->filename, LUA->GetString( 2 ), MAX_PATH );
+	strncpy( fragments->filename, LUA->CheckString( 2 ), MAX_PATH );
 	fragments->filename[sizeof( fragments->filename )] = '\0';
 
 	return 0;
@@ -148,29 +134,20 @@ LUA_FUNCTION_STATIC( SetFileName )
 
 LUA_FUNCTION_STATIC( GetFileTransferID )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->transferid );
-
+	LUA->PushNumber( Get( state, 1 )->transferid );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetFileTransferID )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->transferid = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->transferid = static_cast<uint32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetBuffer )
 {
 	dataFragments_t *fragments = Get( state, 1 );
-
 	UCHARPTR::Push( state, fragments->bits, fragments->buffer );
-
 	return 1;
 }
 
@@ -179,7 +156,7 @@ LUA_FUNCTION_STATIC( SetBuffer )
 	dataFragments_t *fragments = Get( state, 1 );
 
 	int32_t argt = LUA->GetType( 2 );
-	if( argt == UCHARPTR::metaid )
+	if( argt == UCHARPTR::metatype )
 	{
 		uint8_t *oldbuf = fragments->buffer;
 
@@ -209,67 +186,43 @@ LUA_FUNCTION_STATIC( SetBuffer )
 
 LUA_FUNCTION_STATIC( GetBytes )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->bytes );
-
+	LUA->PushNumber( Get( state, 1 )->bytes );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetBytes )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->bytes = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->bytes = static_cast<uint32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetBits )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->bits );
-
+	LUA->PushNumber( Get( state, 1 )->bits );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetBits )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->bits = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->bits = static_cast<uint32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetActualSize )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->actualsize );
-
+	LUA->PushNumber( Get( state, 1 )->actualsize );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetActualSize )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->actualsize = static_cast<uint32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->actualsize = static_cast<uint32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetCompressed )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushBool( fragments->compressed );
-
+	LUA->PushBool( Get( state, 1 )->compressed );
 	return 1;
 }
 
@@ -279,16 +232,12 @@ LUA_FUNCTION_STATIC( SetCompressed )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 
 	fragments->compressed = LUA->GetBool( 2 );
-
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetStream )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushBool( fragments->stream );
-
+	LUA->PushBool( Get( state, 1 )->stream );
 	return 1;
 }
 
@@ -298,77 +247,54 @@ LUA_FUNCTION_STATIC( SetStream )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 
 	fragments->stream = LUA->GetBool( 2 );
-
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetTotal )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->total );
-
+	LUA->PushNumber( Get( state, 1 )->total );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetTotal )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->total = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->total = static_cast<int32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetProgress )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->progress );
-
+	LUA->PushNumber( Get( state, 1 )->progress );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetProgress )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->progress = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->progress = static_cast<int32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( GetNum )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-
-	LUA->PushNumber( fragments->num );
-
+	LUA->PushNumber( Get( state, 1 )->num );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetNum )
 {
-	dataFragments_t *fragments = Get( state, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-	fragments->num = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
+	Get( state, 1 )->num = static_cast<int32_t>( LUA->CheckNumber( 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( Constructor )
 {
 	Push( state, new( std::nothrow ) dataFragments_t );
-
 	return 1;
 }
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -466,16 +392,16 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 
 	LUA->PushCFunction( Constructor );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

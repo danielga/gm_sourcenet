@@ -4,24 +4,24 @@
 namespace netadr
 {
 
-struct userdata
+struct UserData
 {
 	netadr_t *pnetadr;
 	uint8_t type;
 	netadr_t netadr;
 };
 
-static const uint8_t metaid = global::metabase + 8;
+static const uint8_t metatype = global::metabase + 8;
 static const char *metaname = "netadr_t";
 
 void Push( lua_State *state, const netadr_t &netadr )
 {
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->pnetadr = &udata->netadr;
 	new( &udata->netadr ) netadr_t( netadr );
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -30,8 +30,8 @@ void Push( lua_State *state, const netadr_t &netadr )
 
 static netadr_t *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
-	return static_cast<userdata *>( LUA->GetUserdata( index ) )->pnetadr;
+	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) )->pnetadr;
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -127,7 +127,7 @@ LUA_FUNCTION_STATIC( GetType )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -171,7 +171,7 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

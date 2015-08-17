@@ -4,13 +4,13 @@
 namespace NetworkStringTable
 {
 
-struct userdata
+struct UserData
 {
 	INetworkStringTable *table;
 	uint8_t type;
 };
 
-static const uint8_t metaid = global::metabase + 11;
+static const uint8_t metatype = global::metabase + 11;
 static const char *metaname = "IGameEvent";
 
 void Push( lua_State *state, INetworkStringTable *table )
@@ -21,11 +21,11 @@ void Push( lua_State *state, INetworkStringTable *table )
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->table = table;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -34,8 +34,8 @@ void Push( lua_State *state, INetworkStringTable *table )
 
 INetworkStringTable *Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
-	return static_cast<userdata *>( LUA->GetUserdata( index ) )->table;
+	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) )->table;
 }
 
 LUA_FUNCTION_STATIC( eq )
@@ -128,11 +128,11 @@ LUA_FUNCTION_STATIC( AddString )
 	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
 	size_t len = 0;
-	const char *userdata = nullptr;
+	const char *UserData = nullptr;
 	if( LUA->IsType( 4, GarrysMod::Lua::Type::STRING ) )
-		userdata = LUA->GetString( 4, &len );
+		UserData = LUA->GetString( 4, &len );
 
-	LUA->PushNumber( table->AddString( LUA->GetBool( 1 ), LUA->GetString( 2 ), len == 0 ? -1 : len, userdata ) );
+	LUA->PushNumber( table->AddString( LUA->GetBool( 1 ), LUA->GetString( 2 ), len == 0 ? -1 : len, UserData ) );
 
 	return 1;
 }
@@ -181,11 +181,11 @@ LUA_FUNCTION_STATIC( GetStringUserData )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t len = 0;
-	const char *userdata = static_cast<const char *>(
+	const char *UserData = static_cast<const char *>(
 		table->GetStringUserData( static_cast<int32_t>( LUA->GetNumber( 2 ) ), &len )
 	);
-	if( userdata != nullptr )
-		LUA->PushString( userdata, len );
+	if( UserData != nullptr )
+		LUA->PushString( UserData, len );
 	else
 		LUA->PushNil( );
 
@@ -194,7 +194,7 @@ LUA_FUNCTION_STATIC( GetStringUserData )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -253,7 +253,7 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -2, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

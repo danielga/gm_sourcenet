@@ -7,7 +7,7 @@ typedef void *FileHandle_t;
 namespace FileHandle
 {
 
-extern const uint8_t metaid;
+extern const uint8_t metatype;
 extern const char *metaname;
 
 void Push( lua_State *state, FileHandle_t file );

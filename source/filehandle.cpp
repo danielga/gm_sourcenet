@@ -3,13 +3,13 @@
 namespace FileHandle
 {
 
-struct userdata
+struct UserData
 {
 	FileHandle_t file;
 	uint8_t type;
 };
 
-const uint8_t metaid = global::metabase + 6;
+const uint8_t metatype = global::metabase + 6;
 const char *metaname = "FileHandle_t";
 
 void Push( lua_State *state, FileHandle_t file )
@@ -20,11 +20,11 @@ void Push( lua_State *state, FileHandle_t file )
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
 	udata->file = file;
+	udata->type = metatype;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -33,32 +33,25 @@ void Push( lua_State *state, FileHandle_t file )
 
 FileHandle_t Get( lua_State *state, int32_t index )
 {
-	global::CheckType( state, index, metaid, metaname );
-	return static_cast<userdata *>( LUA->GetUserdata( index ) )->file;
+	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) )->file;
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	FileHandle_t handle1 = Get( state, 1 );
-	FileHandle_t handle2 = Get( state, 2 );
-
-	LUA->PushBool( handle1 == handle2 );
-
+	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	FileHandle_t ptr = Get( state, 1 );
-
-	lua_pushfstring( state, global::tostring_format, metaname, ptr );
-
+	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
 	return 1;
 }
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -81,7 +74,7 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

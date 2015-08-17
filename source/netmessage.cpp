@@ -1,7 +1,5 @@
 #include <vfnhook.h>
 #include <netmessage.hpp>
-#include <GarrysMod/Lua/LuaInterface.h>
-#include <GarrysMod/Lua/AutoReference.h>
 #include <netmessages.hpp>
 #include <sn_bf_write.hpp>
 #include <sn_bf_read.hpp>
@@ -73,20 +71,17 @@ static const uintptr_t CLC_CmdKeyValues_offset = 1258;
 
 #endif
 
-struct userdata
+struct UserData
 {
 	INetMessage *msg;
 	uint8_t type;
 	CNetChan *netchan;
 };
 
-const uint8_t metaid = global::metabase + 14;
+const uint8_t metatype = global::metabase + 14;
 const char *metaname = "INetMessage";
+static const char *table_name = "sourcenet_INetMessage";
 
-static std::unordered_map<
-	CNetChan *,
-	std::unordered_map<INetMessage *, GarrysMod::Lua::AutoReference>
-> netmessages;
 static std::unordered_map<std::string, void ( * )( lua_State *state )> netmessages_setup;
 static std::unordered_map<std::string, void **> netmessages_vtables;
 
@@ -103,52 +98,47 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 		return;
 	}
 
-	if( netchan != nullptr )
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+	LUA->PushUserdata( msg );
+	LUA->GetTable( -2 );
+	if( LUA->IsType( -1, metatype ) )
 	{
-		auto it = netmessages.find( netchan );
-		if( it != netmessages.end( ) )
-		{
-			auto &map = ( *it ).second;
-			auto it2 = map.find( msg );
-			if( it2 != map.end( ) )
-			{
-				( *it2 ).second.Push( );
-				return;
-			}
-		}
+		LUA->Remove( -2 );
+		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	LUA->Pop( 1 );
+
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
 	udata->msg = msg;
+	udata->type = metatype;
 	udata->netchan = netchan;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	LUA->Push( -1 );
-	lua_setfenv( state, -3 );
 
 	auto it = netmessages_setup.find( msg->GetName( ) );
 	if( it != netmessages_setup.end( ) )
 		( *it ).second( state );
 
-	LUA->Pop( 1 );
+	lua_setfenv( state, -3 );
 
 	if( netchan != nullptr )
 	{
-		GarrysMod::Lua::AutoReference &ref = netmessages[netchan][msg];
-		ref.Setup( LUA );
-		ref.Create( -1 );
+		LUA->PushUserdata( netchan );
+		LUA->Push( -2 );
+		LUA->SetTable( -4 );
+		LUA->Remove( -2 );
 	}
 }
 
 INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	INetMessage *msg = udata->msg;
 	if( !IsValid( msg, udata->netchan ) && !cleanup )
 		global::ThrowError( state, "invalid %s", metaname );
@@ -167,9 +157,16 @@ INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool clea
 
 void Destroy( lua_State *state, CNetChan *netchan )
 {
-	auto it = netmessages.find( netchan );
-	if( it != netmessages.end( ) )
-		netmessages.erase( it );
+	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+
+	for( int32_t k = 0; k < netchan->netmessages.Count( ); ++k )
+	{
+		LUA->PushUserdata( netchan->netmessages[k] );
+		LUA->PushNil( );
+		LUA->SetTable( -2 );
+	}
+
+	LUA->Pop( 1 );
 }
 
 LUA_FUNCTION_STATIC( gc )
@@ -185,75 +182,49 @@ LUA_FUNCTION_STATIC( gc )
 
 LUA_FUNCTION_STATIC( eq )
 {
-	INetMessage *msg1 = Get( state, 1 );
-	INetMessage *msg2 = Get( state, 2 );
-
-	LUA->PushBool( msg1 == msg2 );
-
+	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushString( msg->ToString( ) );
-
+	LUA->PushString( Get( state, 1 )->ToString( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetType )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushNumber( msg->GetType( ) );
-
+	LUA->PushNumber( Get( state, 1 )->GetType( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetGroup )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushNumber( msg->GetGroup( ) );
-
+	LUA->PushNumber( Get( state, 1 )->GetGroup( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetName )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushString( msg->GetName( ) );
-
+	LUA->PushString( Get( state, 1 )->GetName( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetNetChannel )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	NetChannel::Push( state, static_cast<CNetChan *>( msg->GetNetChannel( ) ) );
-
+	NetChannel::Push( state, static_cast<CNetChan *>( Get( state, 1 )->GetNetChannel( ) ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetNetChannel )
 {
-	INetMessage *msg = Get( state, 1 );
-	CNetChan *netchan = NetChannel::Get( state, 2 );
-
-	msg->SetNetChannel( netchan );
-
+	Get( state, 1 )->SetNetChannel( NetChannel::Get( state, 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( IsReliable )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushBool( msg->IsReliable( ) );
-
+	LUA->PushBool( Get( state, 1 )->IsReliable( ) );
 	return 1;
 }
 
@@ -289,10 +260,7 @@ LUA_FUNCTION_STATIC( WriteToBuffer )
 
 LUA_FUNCTION_STATIC( Process )
 {
-	INetMessage *msg = Get( state, 1 );
-
-	LUA->PushBool( msg->Process( ) );
-
+	LUA->PushBool( Get( state, 1 )->Process( ) );
 	return 1;
 }
 
@@ -470,7 +438,7 @@ template<class NetMessage> void Register( lua_State *state )
 	delete msg;
 
 	LUA->PushCFunction( Constructor<NetMessage> );
-	LUA->SetField( -2, NetMessage::LuaName );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, NetMessage::LuaName );
 
 	netmessages_setup[NetMessage::Name] = NetMessage::SetupLua;
 }
@@ -478,12 +446,15 @@ template<class NetMessage> void Register( lua_State *state )
 template<class NetMessage> void UnRegister( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -2, NetMessage::Name );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, NetMessage::Name );
 }
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateTable( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
+
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -555,211 +526,211 @@ void Initialize( lua_State *state )
 		LUA->PushNumber( UpdateType::Failed );
 		LUA->SetField( -2, "Failed" );
 
-	LUA->SetField( -2, "UpdateType" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "UpdateType" );
 
 
 
 	LUA->PushNumber( NET_MESSAGE_BITS );
-	LUA->SetField( -2, "NET_MESSAGE_BITS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "NET_MESSAGE_BITS" );
 
 
 
 	LUA->PushNumber( MAX_CUSTOM_FILES );
-	LUA->SetField( -2, "MAX_CUSTOM_FILES" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_CUSTOM_FILES" );
 
 	LUA->PushNumber( MAX_FRAGMENT_SIZE );
-	LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FRAGMENT_SIZE" );
 
 	LUA->PushNumber( MAX_FILE_SIZE );
-	LUA->SetField( -2, "MAX_FILE_SIZE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FILE_SIZE" );
 
 
 
 	LUA->PushNumber( RES_FATALIFMISSING );
-	LUA->SetField( -2, "RES_FATALIFMISSING" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RES_FATALIFMISSING" );
 
 	LUA->PushNumber( RES_PRELOAD );
-	LUA->SetField( -2, "RES_PRELOAD" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RES_PRELOAD" );
 
 
 
 	LUA->PushNumber( FHDR_ZERO );
-	LUA->SetField( -2, "FHDR_ZERO" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_ZERO" );
 
 	LUA->PushNumber( FHDR_LEAVEPVS );
-	LUA->SetField( -2, "FHDR_LEAVEPVS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_LEAVEPVS" );
 
 	LUA->PushNumber( FHDR_DELETE );
-	LUA->SetField( -2, "FHDR_DELETE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_DELETE" );
 
 	LUA->PushNumber( FHDR_ENTERPVS );
-	LUA->SetField( -2, "FHDR_ENTERPVS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_ENTERPVS" );
 
 
 
 	LUA->PushNumber( SIGNONSTATE_NONE );
-	LUA->SetField( -2, "SIGNONSTATE_NONE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_NONE" );
 
 	LUA->PushNumber( SIGNONSTATE_CHALLENGE );
-	LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CHALLENGE" );
 
 	LUA->PushNumber( SIGNONSTATE_CONNECTED );
-	LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CONNECTED" );
 
 	LUA->PushNumber( SIGNONSTATE_NEW );
-	LUA->SetField( -2, "SIGNONSTATE_NEW" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_NEW" );
 
 	LUA->PushNumber( SIGNONSTATE_PRESPAWN );
-	LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_PRESPAWN" );
 
 	LUA->PushNumber( SIGNONSTATE_SPAWN );
-	LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_SPAWN" );
 
 	LUA->PushNumber( SIGNONSTATE_FULL );
-	LUA->SetField( -2, "SIGNONSTATE_FULL" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_FULL" );
 
 	LUA->PushNumber( SIGNONSTATE_CHANGELEVEL );
-	LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CHANGELEVEL" );
 
 
 
 	LUA->PushNumber( net_NOP );
-	LUA->SetField( -2, "net_NOP" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_NOP" );
 
 	LUA->PushNumber( net_Disconnect );
-	LUA->SetField( -2, "net_Disconnect" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_Disconnect" );
 
 	LUA->PushNumber( net_File );
-	LUA->SetField( -2, "net_File" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_File" );
 
 	LUA->PushNumber( net_LastControlMessage );
-	LUA->SetField( -2, "net_LastControlMessage" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_LastControlMessage" );
 
 
 	LUA->PushNumber( net_Tick );
-	LUA->SetField( -2, "net_Tick" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_Tick" );
 
 	LUA->PushNumber( net_StringCmd );
-	LUA->SetField( -2, "net_StringCmd" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_StringCmd" );
 
 	LUA->PushNumber( net_SetConVar );
-	LUA->SetField( -2, "net_SetConVar" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_SetConVar" );
 
 	LUA->PushNumber( net_SignonState );
-	LUA->SetField( -2, "net_SignonState" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_SignonState" );
 
 
 	LUA->PushNumber( svc_ServerInfo );
-	LUA->SetField( -2, "svc_ServerInfo" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_ServerInfo" );
 
 	LUA->PushNumber( svc_SendTable );
-	LUA->SetField( -2, "svc_SendTable" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SendTable" );
 
 	LUA->PushNumber( svc_ClassInfo );
-	LUA->SetField( -2, "svc_ClassInfo" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_ClassInfo" );
 
 	LUA->PushNumber( svc_SetPause );
-	LUA->SetField( -2, "svc_SetPause" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SetPause" );
 
 	LUA->PushNumber( svc_CreateStringTable );
-	LUA->SetField( -2, "svc_CreateStringTable" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CreateStringTable" );
 
 	LUA->PushNumber( svc_UpdateStringTable );
-	LUA->SetField( -2, "svc_UpdateStringTable" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_UpdateStringTable" );
 
 	LUA->PushNumber( svc_VoiceInit );
-	LUA->SetField( -2, "svc_VoiceInit" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_VoiceInit" );
 
 	LUA->PushNumber( svc_VoiceData );
-	LUA->SetField( -2, "svc_VoiceData" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_VoiceData" );
 
 	LUA->PushNumber( svc_Print );
-	LUA->SetField( -2, "svc_Print" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Print" );
 
 	LUA->PushNumber( svc_Sounds );
-	LUA->SetField( -2, "svc_Sounds" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Sounds" );
 
 	LUA->PushNumber( svc_SetView );
-	LUA->SetField( -2, "svc_SetView" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SetView" );
 
 	LUA->PushNumber( svc_FixAngle );
-	LUA->SetField( -2, "svc_FixAngle" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_FixAngle" );
 
 	LUA->PushNumber( svc_CrosshairAngle );
-	LUA->SetField( -2, "svc_CrosshairAngle" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CrosshairAngle" );
 
 	LUA->PushNumber( svc_BSPDecal );
-	LUA->SetField( -2, "svc_BSPDecal" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_BSPDecal" );
 
 	LUA->PushNumber( svc_UserMessage );
-	LUA->SetField( -2, "svc_UserMessage" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_UserMessage" );
 
 	LUA->PushNumber( svc_EntityMessage );
-	LUA->SetField( -2, "svc_EntityMessage" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_EntityMessage" );
 
 	LUA->PushNumber( svc_GameEvent );
-	LUA->SetField( -2, "svc_GameEvent" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEvent" );
 
 	LUA->PushNumber( svc_PacketEntities );
-	LUA->SetField( -2, "svc_PacketEntities" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_PacketEntities" );
 
 	LUA->PushNumber( svc_TempEntities );
-	LUA->SetField( -2, "svc_TempEntities" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_TempEntities" );
 
 	LUA->PushNumber( svc_Prefetch );
-	LUA->SetField( -2, "svc_Prefetch" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Prefetch" );
 
 	LUA->PushNumber( svc_Menu );
-	LUA->SetField( -2, "svc_Menu" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Menu" );
 
 	LUA->PushNumber( svc_GameEventList );
-	LUA->SetField( -2, "svc_GameEventList" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEventList" );
 
 	LUA->PushNumber( svc_GetCvarValue );
-	LUA->SetField( -2, "svc_GetCvarValue" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GetCvarValue" );
 
 	LUA->PushNumber( svc_CmdKeyValues );
-	LUA->SetField( -2, "svc_CmdKeyValues" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CmdKeyValues" );
 
 	LUA->PushNumber( svc_GMod_ServerToClient );
-	LUA->SetField( -2, "svc_GMod_ServerToClient" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GMod_ServerToClient" );
 
 	LUA->PushNumber( SVC_LASTMSG );
-	LUA->SetField( -2, "SVC_LASTMSG" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SVC_LASTMSG" );
 
 
 	LUA->PushNumber( clc_ClientInfo );
-	LUA->SetField( -2, "clc_ClientInfo" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_ClientInfo" );
 
 	LUA->PushNumber( clc_Move );
-	LUA->SetField( -2, "clc_Move" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_Move" );
 
 	LUA->PushNumber( clc_VoiceData );
-	LUA->SetField( -2, "clc_VoiceData" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_VoiceData" );
 
 	LUA->PushNumber( clc_BaselineAck );
-	LUA->SetField( -2, "clc_BaselineAck" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_BaselineAck" );
 
 	LUA->PushNumber( clc_ListenEvents );
-	LUA->SetField( -2, "clc_ListenEvents" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_ListenEvents" );
 
 	LUA->PushNumber( clc_RespondCvarValue );
-	LUA->SetField( -2, "clc_RespondCvarValue" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_RespondCvarValue" );
 
 	LUA->PushNumber( clc_FileCRCCheck );
-	LUA->SetField( -2, "clc_FileCRCCheck" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_FileCRCCheck" );
 
 	LUA->PushNumber( clc_CmdKeyValues );
-	LUA->SetField( -2, "clc_CmdKeyValues" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_CmdKeyValues" );
 
 	LUA->PushNumber( clc_FileMD5Check );
-	LUA->SetField( -2, "clc_FileMD5Check" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_FileMD5Check" );
 
 	LUA->PushNumber( clc_GMod_ClientToServer );
-	LUA->SetField( -2, "clc_GMod_ClientToServer" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_GMod_ClientToServer" );
 
 	LUA->PushNumber( CLC_LASTMSG );
-	LUA->SetField( -2, "CLC_LASTMSG" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "CLC_LASTMSG" );
 
 
 
@@ -808,220 +779,6 @@ void Initialize( lua_State *state )
 
 void Deinitialize( lua_State *state )
 {
-	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "UpdateType" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "NET_MESSAGE_BITS" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_CUSTOM_FILES" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_FRAGMENT_SIZE" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "MAX_FILE_SIZE" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "RES_FATALIFMISSING" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "RES_PRELOAD" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FHDR_ZERO" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FHDR_LEAVEPVS" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FHDR_DELETE" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "FHDR_ENTERPVS" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_NONE" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_CHALLENGE" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_CONNECTED" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_NEW" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_PRESPAWN" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_SPAWN" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_FULL" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SIGNONSTATE_CHANGELEVEL" );
-
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_NOP" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_Disconnect" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_File" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_LastControlMessage" );
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_Tick" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_StringCmd" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_SetConVar" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "net_SignonState" );
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_ServerInfo" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_SendTable" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_ClassInfo" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_SetPause" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_CreateStringTable" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_UpdateStringTable" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_VoiceInit" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_VoiceData" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_Print" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_Sounds" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_SetView" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_FixAngle" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_CrosshairAngle" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_BSPDecal" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_UserMessage" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_EntityMessage" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_GameEvent" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_PacketEntities" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_TempEntities" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_Prefetch" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_Menu" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_GameEventList" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_GetCvarValue" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_CmdKeyValues" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "svc_GMod_ServerToClient" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "SVC_LASTMSG" );
-
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_ClientInfo" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_Move" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_VoiceData" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_BaselineAck" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_ListenEvents" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_RespondCvarValue" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_FileCRCCheck" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_CmdKeyValues" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_FileMD5Check" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "clc_GMod_ClientToServer" );
-
-	LUA->PushNil( );
-	LUA->SetField( -2, "CLC_LASTMSG" );
-
-
-
 	UnRegister<NET_Tick>( state );
 	UnRegister<NET_StringCmd>( state );
 	UnRegister<NET_SetConVar>( state );
@@ -1066,7 +823,222 @@ void Deinitialize( lua_State *state )
 
 
 
-	netmessages.clear( );
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "UpdateType" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "NET_MESSAGE_BITS" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_CUSTOM_FILES" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FRAGMENT_SIZE" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FILE_SIZE" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RES_FATALIFMISSING" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RES_PRELOAD" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_ZERO" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_LEAVEPVS" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_DELETE" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FHDR_ENTERPVS" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_NONE" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CHALLENGE" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CONNECTED" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_NEW" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_PRESPAWN" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_SPAWN" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_FULL" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SIGNONSTATE_CHANGELEVEL" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_NOP" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_Disconnect" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_File" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_LastControlMessage" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_Tick" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_StringCmd" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_SetConVar" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "net_SignonState" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_ServerInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SendTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_ClassInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SetPause" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CreateStringTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_UpdateStringTable" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_VoiceInit" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_VoiceData" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Print" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Sounds" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_SetView" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_FixAngle" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CrosshairAngle" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_BSPDecal" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_UserMessage" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_EntityMessage" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEvent" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_PacketEntities" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_TempEntities" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Prefetch" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Menu" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEventList" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GetCvarValue" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_CmdKeyValues" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GMod_ServerToClient" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SVC_LASTMSG" );
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_ClientInfo" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_Move" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_VoiceData" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_BaselineAck" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_ListenEvents" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_RespondCvarValue" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_FileCRCCheck" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_CmdKeyValues" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_FileMD5Check" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "clc_GMod_ClientToServer" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "CLC_LASTMSG" );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
+
+
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 }
 
 }

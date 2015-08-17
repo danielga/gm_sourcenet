@@ -4,14 +4,14 @@
 namespace GameEvent
 {
 
-struct userdata
+struct UserData
 {
 	IGameEvent *event;
 	uint8_t type;
 	IGameEventManager2 *manager;
 };
 
-static const uint8_t metaid = global::metabase + 13;
+static const uint8_t metatype = global::metabase + 13;
 static const char *metaname = "IGameEvent";
 
 void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
@@ -22,12 +22,12 @@ void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 		return;
 	}
 
-	userdata *udata = static_cast<userdata *>( LUA->NewUserdata( sizeof( userdata ) ) );
-	udata->type = metaid;
+	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	udata->type = metatype;
 	udata->event = event;
 	udata->manager = manager;
 
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
@@ -36,9 +36,9 @@ void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 
 IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager, bool cleanup )
 {
-	global::CheckType( state, index, metaid, metaname );
+	global::CheckType( state, index, metatype, metaname );
 
-	userdata *udata = static_cast<userdata *>( LUA->GetUserdata( index ) );
+	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
 	IGameEvent *event = udata->event;
 	if( ( event == nullptr || udata->manager == nullptr ) && !cleanup )
 		global::ThrowError( state, "invalid %s", metaname );
@@ -207,7 +207,7 @@ LUA_FUNCTION_STATIC( SetString )
 
 void Initialize( lua_State *state )
 {
-	LUA->CreateMetaTableType( metaname, metaid );
+	LUA->CreateMetaTableType( metaname, metatype );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -269,7 +269,7 @@ void Initialize( lua_State *state )
 void Deinitialize( lua_State *state )
 {
 	LUA->PushNil( );
-	LUA->SetField( -3, metaname );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
 }
 
 }

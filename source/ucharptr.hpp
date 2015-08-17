@@ -5,7 +5,7 @@
 namespace UCHARPTR
 {
 
-extern const uint8_t metaid;
+extern const uint8_t metatype;
 extern const char *metaname;
 
 uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data = nullptr );
