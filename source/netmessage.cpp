@@ -159,9 +159,9 @@ void Destroy( lua_State *state, CNetChan *netchan )
 {
 	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 
-	for( int32_t k = 0; k < netchan->netmessages.Count( ); ++k )
+	for( int32_t k = 0; k < netchan->m_NetMessages.Count( ); ++k )
 	{
-		LUA->PushUserdata( netchan->netmessages[k] );
+		LUA->PushUserdata( netchan->m_NetMessages[k] );
 		LUA->PushNil( );
 		LUA->SetTable( -2 );
 	}

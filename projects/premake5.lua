@@ -13,7 +13,7 @@ include(gmcommon)
 
 CreateSolution("sourcenet")
 	warnings("Default")
-	
+
 	CreateProject(SERVERSIDE)
 		IncludeLuaShared()
 		IncludeSourceSDK()

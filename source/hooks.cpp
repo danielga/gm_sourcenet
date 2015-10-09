@@ -167,9 +167,9 @@ int32_t VFUNC CNetChan_SendDatagram_D( CNetChan *netchan, bf_write *data )
 		}
 
 		DO_HOOK( bf_write **writer1 = sn_bf_write::Push( state, data ) );
-		DO_HOOK( bf_write **writer2 = sn_bf_write::Push( state, &netchan->reliabledata ) );
-		DO_HOOK( bf_write **writer3 = sn_bf_write::Push( state, &netchan->unreliabledata ) );
-		DO_HOOK( bf_write **writer4 = sn_bf_write::Push( state, &netchan->voicedata ) );
+		DO_HOOK( bf_write **writer2 = sn_bf_write::Push( state, &netchan->m_StreamReliable ) );
+		DO_HOOK( bf_write **writer3 = sn_bf_write::Push( state, &netchan->m_StreamUnreliable ) );
+		DO_HOOK( bf_write **writer4 = sn_bf_write::Push( state, &netchan->m_StreamVoice ) );
 		CALL_HOOK( 0 );
 
 		*writer1 = nullptr;

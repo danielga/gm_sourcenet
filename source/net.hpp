@@ -18,11 +18,11 @@
 #define MAX_STREAMS 2
 
 // Flow control bytes per second limits
-#define MAX_RATE		20000				
-#define MIN_RATE		1000
+#define MAX_RATE 20000
+#define MIN_RATE 1000
 
 // Default data rate
-#define DEFAULT_RATE	10000
+#define DEFAULT_RATE 10000
 
 // NETWORKING INFO
 
@@ -30,7 +30,9 @@
 #define NET_MESSAGE_BITS 6
 
 // This is the packet payload without any header bytes (which are attached for actual sending)
-#define	NET_MAX_PAYLOAD	80000
+#define	NET_MAX_PAYLOAD 80000
+
+#define NET_FRAMES_BACKUP 64		// must be power of 2
 
 // This is the payload plus any header info (excluding UDP header)
 
@@ -50,7 +52,7 @@
 // Pad this to next higher 16 byte boundary
 // This is the largest packet that can come in/out over the wire, before processing the header
 //  bytes will be stripped by the networking channel layer
-#define	NET_MAX_MESSAGE	PAD_NUMBER( ( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
+#define NET_MAX_MESSAGE PAD_NUMBER( ( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
 
 // NOTE: Above should be 96k, may need tweaking
 
@@ -74,6 +76,9 @@ extern qboolean net_noip;
 
 #define FRAG_NORMAL_STREAM 0
 #define FRAG_FILE_STREAM 1
+
+// max length of a filesystem pathname
+#define MAX_OSPATH 260
 
 typedef void *FileHandle_t;
 
@@ -102,95 +107,6 @@ typedef struct netpacket_s
 class CNetChan : public INetChannel
 {
 public:
-	CNetChan( );
-	//~CNetChan( );
-
-	virtual const char  *GetName( ) const;	// get channel name
-	virtual const char  *GetAddress( ) const; // get channel IP address as string
-	virtual float		GetTime( ) const;	// current net time
-	virtual float		GetTimeConnected( ) const;	// get connection time in seconds
-	virtual int32_t		GetBufferSize( ) const;	// netchannel packet history size
-	virtual int32_t		GetDataRate( ) const; // send data rate in byte/sec
-	
-	virtual bool		IsLoopback( ) const;	// true if loopback channel
-	virtual bool		IsTimingOut( ) const = 0;	// true if timing out
-	virtual bool		IsPlayback( ) const;	// true if demo playback
-
-	virtual float		GetLatency( int32_t flow ) const = 0;	 // current latency (RTT), more accurate but jittering
-	virtual float		GetAvgLatency( int32_t flow ) const = 0; // average packet latency in seconds
-	virtual float		GetAvgLoss( int32_t flow ) const = 0;	 // avg packet loss[0..1]
-	virtual float		GetAvgChoke( int32_t flow ) const = 0;	 // avg packet choke[0..1]
-	virtual float		GetAvgData( int32_t flow ) const = 0;	 // data flow in bytes/sec
-	virtual float		GetAvgPackets( int32_t flow ) const = 0; // avg packets/sec
-	virtual int32_t		GetTotalData( int32_t flow ) const = 0;	 // total flow in/out in bytes
-	virtual int32_t		GetSequenceNr( int32_t flow ) const = 0;	// last send seq number
-	virtual bool		IsValidPacket( int32_t flow, int32_t frame_number ) const = 0; // true if packet was not lost/dropped/chocked/flushed
-	virtual float		GetPacketTime( int32_t flow, int32_t frame_number ) const = 0; // time when packet was send
-	virtual int32_t		GetPacketBytes( int32_t flow, int32_t frame_number, int32_t group ) const = 0; // group size of this packet
-	virtual bool		GetStreamProgress( int32_t flow, int32_t *received, int32_t *total ) const = 0;  // TCP progress if transmitting
-	virtual float		GetTimeSinceLastReceived( void ) const = 0;	// get time since last recieved packet in seconds
-	virtual	float		GetCommandInterpolationAmount( int32_t flow, int32_t frame_number ) const = 0;
-	virtual void		GetPacketResponseLatency( int32_t flow, int32_t frame_number, int32_t *pnLatencyMsecs, int32_t *pnChoke ) const = 0;
-	virtual void		GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const = 0;
-
-	virtual float		GetTimeoutSeconds( ) const = 0;
-
-	virtual	~CNetChan( ) { };
-
-	virtual void		SetDataRate( float rate ) = 0;
-	virtual bool		RegisterMessage( INetMessage &msg );
-	virtual bool		StartStreaming( uint32_t challengeNr );
-	virtual void		ResetStreaming( void );
-	virtual void		SetTimeout( float seconds ) = 0;
-	virtual void		SetDemoRecorder( IDemoRecorder *recorder );
-	virtual void		SetChallengeNr( uint32_t chnr );
-
-	virtual void		Reset( );
-	virtual void		Clear( ) = 0;
-	virtual void		Shutdown( const char *reason );
-
-	virtual void		ProcessPlayback( ) = 0;
-	virtual bool		ProcessStream( ) = 0;
-	virtual void		ProcessPacket( netpacket_t *packet, bool bHasHeader ) = 0;
-
-	virtual bool		SendNetMsg( INetMessage &msg, bool bForceReliable = false, bool bVoice = false );
-	virtual bool		SendData( bf_write &msg, bool bReliable = true ) = 0;
-	virtual bool		SendFile( const char *filename, uint32_t transferID );
-	virtual void		DenyFile( const char *filename, uint32_t transferID );
-	virtual void		RequestFile_OLD( const char *filename, uint32_t transferID );
-	virtual void		SetChoked( );
-	virtual int32_t		SendDatagram( bf_write *data );
-	virtual bool		Transmit( bool onlyReliable = false ) = 0;
-
-	virtual const netadr_t	&GetRemoteAddress( ) const;
-	virtual INetChannelHandler *GetMsgHandler( ) const;
-	virtual int32_t			GetDropNumber( ) const;
-	virtual int32_t			GetSocket( ) const;
-	virtual uint32_t		GetChallengeNr( ) const;
-	virtual void			GetSequenceData( int32_t &nOutSequenceNr, int32_t &nInSequenceNr, int32_t &nOutSequenceNrAck );
-	virtual void			SetSequenceData( int32_t nOutSequenceNr, int32_t nInSequenceNr, int32_t nOutSequenceNrAck );
-
-	virtual void		UpdateMessageStats( int32_t msggroup, int32_t bits );
-	virtual bool		CanPacket( ) const;
-	virtual bool		IsOverflowed( ) const;
-	virtual bool		IsTimedOut( ) const;
-	virtual bool		HasPendingReliableData( );
-
-	virtual void		SetFileTransmissionMode( bool bBackgroundMode );
-	virtual void		SetCompressionMode( bool bUseCompression );
-	virtual uint32_t RequestFile( const char *filename );
-
-	virtual void		SetMaxBufferSize( bool bReliable, int32_t nBytes, bool bVoice = false );
-
-	virtual bool		IsNull( ) const;
-	virtual int32_t		GetNumBitsWritten( bool bReliable );
-	virtual void		SetInterpolationAmount( float flInterpolationAmount );
-	virtual void		SetRemoteFramerate( float flFrameTime, float flFrameTimeStdDeviation );
-
-	// Max # of payload bytes before we must split/fragment the packet
-	virtual void		SetMaxRoutablePayloadSize( int32_t nSplitSize );
-	virtual int32_t		GetMaxRoutablePayloadSize( );
-
 	typedef struct dataFragments_s
 	{
 		FileHandle_t hfile;			// file transfer handle (0x0)
@@ -207,87 +123,200 @@ public:
 		int32_t num;				// number of fragments to send when next possible (0x12C)
 	} dataFragments_t;
 
+	// Client's now store the command they sent to the server and the entire results set of
+	//  that command.
+	typedef struct netframe_s
+	{
+		// Data received from server
+		float time;			// net_time received/send
+		int size;			// total size in bytes
+		float latency;		// raw ping for this packet, not cleaned. set when acknowledged otherwise -1.
+		float avg_latency;	// averaged ping for this packet
+		bool valid;			// false if dropped, lost, flushed
+		int choked;			// number of previously chocked packets
+		int dropped;
+		float m_flInterpolationAmount;
+		unsigned short msggroups[INetChannelInfo::TOTAL];	// received bytes for each message group
+	} netframe_t;
+
+	typedef struct
+	{
+		float nextcompute;	// Time when we should recompute k/sec data
+		float avgbytespersec;	// average bytes/sec
+		float avgpacketspersec;// average packets/sec
+		float avgloss;		// average packet loss [0..1]
+		float avgchoke;		// average packet choke [0..1]
+		float avglatency;		// average ping, not cleaned
+		float latency;		// current ping, more accurate also more jittering
+		int totalpackets;	// total processed packets
+		int totalbytes;		// total processed bytes
+		int currentindex;		// current frame index
+		netframe_t frames[NET_FRAMES_BACKUP]; // frame history
+		netframe_t *currentframe;	// current frame
+	} netflow_t;
+
+	virtual const char *GetName( ) const;	// get channel name
+	virtual const char *GetAddress( ) const; // get channel IP address as string
+	virtual float GetTime( ) const;	// current net time
+	virtual float GetTimeConnected( ) const;	// get connection time in seconds
+	virtual int32_t GetBufferSize( ) const;	// netchannel packet history size
+	virtual int32_t GetDataRate( ) const; // send data rate in byte/sec
+
+	virtual bool IsLoopback( ) const;	// true if loopback channel
+	virtual bool IsTimingOut( ) const = 0;	// true if timing out
+	virtual bool IsPlayback( ) const;	// true if demo playback
+
+	virtual float GetLatency( int32_t flow ) const = 0;	 // current latency (RTT), more accurate but jittering
+	virtual float GetAvgLatency( int32_t flow ) const = 0; // average packet latency in seconds
+	virtual float GetAvgLoss( int32_t flow ) const = 0;	 // avg packet loss[0..1]
+	virtual float GetAvgChoke( int32_t flow ) const = 0;	 // avg packet choke[0..1]
+	virtual float GetAvgData( int32_t flow ) const = 0;	 // data flow in bytes/sec
+	virtual float GetAvgPackets( int32_t flow ) const = 0; // avg packets/sec
+	virtual int32_t GetTotalData( int32_t flow ) const = 0;	 // total flow in/out in bytes
+	virtual int32_t GetSequenceNr( int32_t flow ) const = 0;	// last send seq number
+	virtual bool IsValidPacket( int32_t flow, int32_t frame_number ) const = 0; // true if packet was not lost/dropped/chocked/flushed
+	virtual float GetPacketTime( int32_t flow, int32_t frame_number ) const = 0; // time when packet was send
+	virtual int32_t GetPacketBytes( int32_t flow, int32_t frame_number, int32_t group ) const = 0; // group size of this packet
+	virtual bool GetStreamProgress( int32_t flow, int32_t *received, int32_t *total ) const = 0;  // TCP progress if transmitting
+	virtual float GetTimeSinceLastReceived( void ) const = 0;	// get time since last recieved packet in seconds
+	virtual	float GetCommandInterpolationAmount( int32_t flow, int32_t frame_number ) const = 0;
+	virtual void GetPacketResponseLatency( int32_t flow, int32_t frame_number, int32_t *pnLatencyMsecs, int32_t *pnChoke ) const = 0;
+	virtual void GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const = 0;
+
+	virtual float GetTimeoutSeconds( ) const = 0;
+
+	virtual	~CNetChan( ) { };
+
+	virtual void SetDataRate( float rate ) = 0;
+	virtual bool RegisterMessage( INetMessage &msg );
+	virtual bool StartStreaming( uint32_t challengeNr );
+	virtual void ResetStreaming( void );
+	virtual void SetTimeout( float seconds ) = 0;
+	virtual void SetDemoRecorder( IDemoRecorder *recorder );
+	virtual void SetChallengeNr( uint32_t chnr );
+
+	virtual void Reset( );
+	virtual void Clear( ) = 0;
+	virtual void Shutdown( const char *reason );
+
+	virtual void ProcessPlayback( ) = 0;
+	virtual bool ProcessStream( ) = 0;
+	virtual void ProcessPacket( netpacket_t *packet, bool bHasHeader ) = 0;
+
+	virtual bool SendNetMsg( INetMessage &msg, bool bForceReliable = false, bool bVoice = false );
+	virtual bool SendData( bf_write &msg, bool bReliable = true ) = 0;
+	virtual bool SendFile( const char *filename, uint32_t transferID );
+	virtual void DenyFile( const char *filename, uint32_t transferID );
+	virtual void RequestFile_OLD( const char *filename, uint32_t transferID );
+	virtual void SetChoked( );
+	virtual int32_t SendDatagram( bf_write *data );
+	virtual bool Transmit( bool onlyReliable = false ) = 0;
+
+	virtual const netadr_t	&GetRemoteAddress( ) const;
+	virtual INetChannelHandler *GetMsgHandler( ) const;
+	virtual int32_t GetDropNumber( ) const;
+	virtual int32_t GetSocket( ) const;
+	virtual uint32_t GetChallengeNr( ) const;
+	virtual void GetSequenceData( int32_t &nOutSequenceNr, int32_t &nInSequenceNr, int32_t &nOutSequenceNrAck );
+	virtual void SetSequenceData( int32_t nOutSequenceNr, int32_t nInSequenceNr, int32_t nOutSequenceNrAck );
+
+	virtual void UpdateMessageStats( int32_t msggroup, int32_t bits );
+	virtual bool CanPacket( ) const;
+	virtual bool IsOverflowed( ) const;
+	virtual bool IsTimedOut( ) const;
+	virtual bool HasPendingReliableData( );
+
+	virtual void SetFileTransmissionMode( bool bBackgroundMode );
+	virtual void SetCompressionMode( bool bUseCompression );
+	virtual uint32_t RequestFile( const char *filename );
+
+	virtual void SetMaxBufferSize( bool bReliable, int32_t nBytes, bool bVoice = false );
+
+	virtual bool IsNull( ) const;
+	virtual int32_t GetNumBitsWritten( bool bReliable );
+	virtual void SetInterpolationAmount( float flInterpolationAmount );
+	virtual void SetRemoteFramerate( float flFrameTime, float flFrameTimeStdDeviation );
+
+	// Max # of payload bytes before we must split/fragment the packet
+	virtual void SetMaxRoutablePayloadSize( int32_t nSplitSize );
+	virtual int32_t GetMaxRoutablePayloadSize( );
+
 	// Initialization
-	void			Setup( netsrc_t socketnumber, netadr_t *adr, const char *nameid, INetChannelHandler *handler );
+	void Setup( netsrc_t socketnumber, netadr_t *adr, const char *nameid, INetChannelHandler *handler );
 
 	// Fragment operations
-	bool			IsFileInWaitingList( const char *filename );
-	bool			IsValidForFileTransfer( const char *filename );
-	bool			CreateFragmentsFromFile( const char *filename, int32_t stream, uint32_t transferID );
-	bool			CreateFragmentsFromBuffer( bf_write *buf, int32_t stream );
-	void			CompressFragments( );
-	void			UncompressFragments( dataFragments_t *fragments );
+	bool IsFileInWaitingList( const char *filename );
+	bool IsValidForFileTransfer( const char *filename );
+	bool CreateFragmentsFromFile( const char *filename, int32_t stream, uint32_t transferID );
+	bool CreateFragmentsFromBuffer( bf_write *buf, int32_t stream );
+	void CompressFragments( );
+	void UncompressFragments( dataFragments_t *fragments );
 
 	// Stream
-	void			SendReliableViaStream( dataFragments_t *fragments );
+	void SendReliableViaStream( dataFragments_t *fragments );
 
 	//
-	bool			CheckReceivingList( int32_t stream );
+	bool CheckReceivingList( int32_t stream );
 
-	void			RemoveHeadInWaitingList( int32_t stream );
+	void RemoveHeadInWaitingList( int32_t stream );
 
 	// Subchannels
-	int32_t			GetFreeSubChannel( );
-	void			UpdateSubChannels( );
-	bool			SendSubChannelData( bf_write &buf );
-	bool			ReadSubChannelData( bf_read &buf, int32_t stream );
+	int32_t GetFreeSubChannel( );
+	void UpdateSubChannels( );
+	bool SendSubChannelData( bf_write &buf );
+	bool ReadSubChannelData( bf_read &buf, int32_t stream );
 
 	// Process functions
-	int32_t			ProcessPacketHeader( netpacket_t *packet );
-	bool			ProcessControlMessage( int32_t cmd, bf_read &msg );
-	bool			ProcessMessages( bf_read &buf );
+	int32_t ProcessPacketHeader( netpacket_t *packet );
+	bool ProcessControlMessage( int32_t cmd, bf_read &msg );
+	bool ProcessMessages( bf_read &buf );
 
 	// Message lookup
-	INetMessage		*FindMessage( int32_t type );
+	INetMessage *FindMessage( int32_t type );
 
 	// Packet flow
-	void			FlowNewPacket( int32_t flow, int32_t incoming_sequence, int32_t outgoing_acknowledged, int32_t chokecount, int32_t dropcount, int32_t bytes );
-	bool 			FlowUpdate( int32_t flow, int32_t bytes );
+	void FlowNewPacket( int32_t flow, int32_t incoming_sequence, int32_t outgoing_acknowledged, int32_t chokecount, int32_t dropcount, int32_t bytes );
+	bool FlowUpdate( int32_t flow, int32_t bytes );
 
-//private:
-public:
-	// States whether a message is being processed
-	bool process_state;
-	// The status of the last processed message
-	bool fatal_error;
+	bool m_bProcessingMessages;
+	bool m_bShouldDelete;
 
-	// Sequencing variables
-	//
-	// Message we are sending to remote
-	int32_t outgoing_sequence;
-	// Increasing count of sequence numbers 
-	int32_t incoming_sequence;
-	// # of last outgoing message that has been ack'd.
-	int32_t outgoing_acknowledged;
-	// Maintained in UpdateSubChannels
-	int32_t outgoing_reliable_value;
-	// Maintained in ProcessPacket
-	int32_t incoming_reliable_value;
+	// last send outgoing sequence number
+	int32_t m_nOutSequenceNr;
+	// last received incoming sequnec number
+	int32_t m_nInSequenceNr;
+	// last received acknowledge outgoing sequnce number
+	int32_t m_nOutSequenceNrAck;
 
-	// Amount of choked packets since last dispatch
-	int32_t chokecount;
-	
-	// Reliable message buffer.  We keep adding to it until reliable is acknowledged.  Then we clear it.
-	bf_write reliabledata;
-	CUtlMemory<uint8_t> reliablemem;
+	// state of outgoing reliable data (0/1) flip flop used for loss detection
+	int32_t m_nOutReliableState;
+	// state of incoming reliable data
+	int32_t m_nInReliableState;
 
-	// Unreliable message buffer.
-	bf_write unreliabledata;
-	CUtlMemory<uint8_t> unreliablemem;
-	
-	// Voice data buffer.
-	bf_write voicedata;
-	CUtlMemory<uint8_t> voicemem;
+	//number of choked packets
+	int32_t m_nChokedPackets;
 
-	// Socket number
-	int32_t sock; //8C
+	// Reliable data buffer, send which each packet (or put in waiting list)
+	bf_write m_StreamReliable;
+	CUtlMemory<byte> m_ReliableDataBuffer;
 
-	// Based on NET_ConnectSocket result
-	int32_t statusmystery;
+	// unreliable message buffer, cleared which each packet
+	bf_write m_StreamUnreliable;
+	CUtlMemory<byte> m_UnreliableDataBuffer;
 
-	// Max fragment bytes per packet (net_maxfragments)
-	int32_t maxfragments;
-	
+	bf_write m_StreamVoice;
+	CUtlMemory<byte> m_VoiceDataBuffer;
+
+	// don't use any vars below this (only in net_ws.cpp)
+
+	// NS_SERVER or NS_CLIENT index, depending on channel.
+	int32_t m_Socket;
+	// TCP socket handle
+	int32_t m_StreamSocket;
+
+	// max size of reliable payload in a single packet
+	uint32_t m_MaxReliablePayloadSize;
+
 	// Address this channel is talking to.
 	netadr_t remote_address;
 
@@ -298,60 +327,68 @@ public:
 
 	// Bandwidth choke
 	// Bytes per second
-	int32_t rate;
+	int32_t m_Rate;
 	// If realtime > cleartime, free to send next packet
-	double cleartime;
+	double m_fClearTime;
 
-	// Waiting list of buffered fragments to go onto queue.
-	// Multiple outgoing buffers can be queued in succession
-	CUtlVector<dataFragments_t *> waitlist[MAX_STREAMS];
-	
-	dataFragments_t recvlist[MAX_STREAMS];
+	// waiting list for reliable data and file transfer
+	CUtlVector<dataFragments_t *> m_WaitingList[MAX_STREAMS];
+	// receive buffers for streams
+	dataFragments_t m_ReceiveList[MAX_STREAMS];
+	subchannel_s m_SubChannels[MAX_SUBCHANNELS];
 
-	subchannel_t subchannels[MAX_SUBCHANNELS]; //0 - 7
+	// increasing counter with each file request
+	uint32_t m_FileRequestCounter;
+	// if true, only send 1 fragment per packet
+	bool m_bFileBackgroundTranmission;
+	// if true, larger reliable data will be bzip compressed
+	bool m_bUseCompression;
 
-	int32_t transferid;
-	
-	bool backgroundmode;
-	bool usecompression;
-	
-	bool tcpenabled;
-	int32_t unkstream1;
-	int32_t unkstream2;
-	int32_t unkstream3;
-	int32_t unkstream4;
-	bool unkstream5;
+	// TCP stream state maschine:
+	// true if TCP is active
+	bool m_StreamActive;
+	// STREAM_CMD_*
+	int32_t m_SteamType;
+	// each blob send of TCP as an increasing ID
+	int32_t m_StreamSeqNr;
+	// total length of current stream blob
+	int32_t m_StreamLength;
+	// length of already received bytes
+	int32_t m_StreamReceived;
+	// if receiving file, this is it's name
+	char m_SteamFile[MAX_OSPATH];
+	// Here goes the stream data (if not file). Only allocated if we're going to use it.
+	CUtlMemory<byte> m_StreamData;
 
-	CUtlMemory<uint8_t> unknownmem;
+	// packet history
+	netflow_t m_DataFlow[MAX_FLOWS];
+	// total bytes for each message group
+	int32_t m_MsgStats[INetChannelInfo::TOTAL];
 
-	// Flow in there somewhere
-	uint8_t unk16[8076];
+	// packets lost before getting last update (was global net_drop)
+	int32_t m_PacketDrop;
 
-	// 0x23D8 in Mac/Linux? Appears to be extra value in Windows somewhere, probably a class
-	int32_t dropcount;
-	
-	// Channel name
-	char name[32];
+	// channel name
+	char m_Name[32];
 
-	int32_t challenge;
-	
-	// After this many seconds without receiving a packet from the server, the client will disconnect itself (cl_timeout)
-	float timeout_seconds;
-	
-	INetChannelHandler *msghandler;
+	// unique, random challenge number
+	uint32_t m_ChallengeNr;
 
-	CUtlVector<INetMessage *> netmessages;
+	// in seconds
+	float m_Timeout;
 
-	IDemoRecorder *demorecorder;
-	
-	int32_t numqueuedpackets;
+	// who registers and processes messages
+	INetChannelHandler *m_MessageHandler;
+	// list of registered message
+	CUtlVector<INetMessage *> m_NetMessages;
+	// if != NULL points to a recording/playback demo object
+	IDemoRecorder *m_DemoRecorder;
+	int32_t m_nQueuedPackets;
 
-	float interpolation;
-	float frametime;
-	float frametimestddeviation;
+	float m_flInterpolationAmount;
+	float m_flRemoteFrameTime;
+	float m_flRemoteFrameTimeStdDeviation;
+	int32_t m_nMaxRoutablePayloadSize;
 
-	// Max # of payload bytes before we must split/fragment the packet (net_maxroutable)
-	int32_t splitsize;
-	// a
-	int32_t splitsequence;
+	int32_t m_nSplitPacketSequence;
 };
