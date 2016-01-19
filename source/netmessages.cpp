@@ -30,7 +30,7 @@ inline void SetupAccessors( lua_State *state, const char *name, GarrysMod::Lua::
 	LUA->PushCFunction( Get );
 	LUA->SetField( -2, getter.c_str( ) );
 
-	std::string setter = "Get";
+	std::string setter = "Set";
 	setter += name;
 	LUA->PushCFunction( Set );
 	LUA->SetField( -2, setter.c_str( ) );
