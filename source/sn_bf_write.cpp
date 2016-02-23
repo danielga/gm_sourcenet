@@ -36,34 +36,33 @@ bf_write **Push( lua_State *state, bf_write *writer, int32_t bufref )
 	return &udata->pwriter;
 }
 
-bf_write *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+bf_write *Get( lua_State *state, int32_t index, int32_t *bufref )
+{
+	UserData *udata = GetUserData( state, index );
 	bf_write *writer = udata->pwriter;
-	if( writer == nullptr && !cleanup )
+	if( writer == nullptr )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
-
-	if( cleanup )
-	{
-		udata->pwriter = nullptr;
-		udata->bufref = -1;
-	}
 
 	return writer;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	int32_t bufref = -1;
-	Get( state, 1, &bufref, true );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( bufref != -1 )
-		LUA->ReferenceFree( bufref );
+	udata->pwriter = nullptr;
+
+	LUA->ReferenceFree( udata->bufref );
+	udata->bufref = LUA_NOREF;
 
 	return 0;
 }
@@ -89,19 +88,17 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metatype, metaname );
-
-	LUA->PushBool( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->pwriter != nullptr );
+	LUA->PushBool( GetUserData( state, 1 )->pwriter != nullptr );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetBasePointer )
 {
-	int32_t bufref = -1;
+	int32_t bufref = LUA_NOREF;
 	bf_write *buf = Get( state, 1, &bufref );
 
-	if( bufref != -1 )
+	if( bufref != LUA_NOREF )
 		LUA->ReferencePush( bufref );
 	else
 		UCHARPTR::Push( state, buf->m_nDataBits, buf->GetBasePointer( ) );
@@ -193,9 +190,7 @@ LUA_FUNCTION_STATIC( WriteAngle )
 	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::ANGLE );
 
-	buf->WriteBitAngles( *static_cast<QAngle *>(
-		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
-	) );
+	buf->WriteBitAngles( global::GetAngle( state, 2 ) );
 
 	return 0;
 }
@@ -216,9 +211,7 @@ LUA_FUNCTION_STATIC( WriteVector )
 	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
-	buf->WriteBitVec3Coord( *static_cast<Vector *>(
-		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
-	) );
+	buf->WriteBitVec3Coord( global::GetVector( state, 2 ) );
 
 	return 0;
 }
@@ -228,9 +221,7 @@ LUA_FUNCTION_STATIC( WriteNormal )
 	bf_write *buf = Get( state, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
 
-	buf->WriteBitVec3Normal( *static_cast<Vector *>(
-		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data
-	) );
+	buf->WriteBitVec3Normal( global::GetVector( state, 2 ) );
 
 	return 0;
 }

@@ -1,6 +1,5 @@
 #include <main.hpp>
 #include <net.hpp>
-#include <protocol.hpp>
 #include <hooks.hpp>
 #include <sn_bf_write.hpp>
 #include <sn_bf_read.hpp>
@@ -24,32 +23,18 @@
 #include <cdll_int.h>
 #include <iserver.h>
 
-#if defined _WIN32
-
-#undef INVALID_HANDLE_VALUE
-
-#include <windows.h>
-
 namespace global
 {
 
+#if defined _WIN32
+
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
 static const size_t IServer_siglen = 16;
-
-static const size_t netpatch_len = 1;
-static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\x75";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xDB\x74\x2A\x8B\x43\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
 static const size_t netchunk_siglen = 16;
 
 #elif defined __linux
-
-#include <sys/mman.h>
-#include <unistd.h>
-
-namespace global
-{
 
 #if defined SOURCENET_SERVER
 
@@ -63,32 +48,22 @@ static const size_t IServer_siglen = 13;
 
 #endif
 
-static const size_t netpatch_len = 1;
-static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\x75";
-
 static const char *netchunk_sig = "\x74\x2A\x85\xFF\x74\x2A\x8B\x47\x0C\x83\xC0\x07\xC1\xF8\x03\x85";
 static const size_t netchunk_siglen = 16;
 
 #elif defined __APPLE__
 
-#include <sys/mman.h>
-#include <unistd.h>
-
-namespace global
-{
-
 static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
 static const size_t IServer_siglen = 16;
-
-static const size_t netpatch_len = 1;
-static char netpatch_old[netpatch_len] = { 0 };
-static const char *netpatch_new = "\x75";
 
 static const char *netchunk_sig = "\x74\x2A\x85\xD2\x74\x2A\x8B\x42\x0C\x83\xC0\x07\xC1\xf8\x03\x85";
 static const size_t netchunk_siglen = 16;
 
 #endif
+
+static const size_t netpatch_len = 1;
+static char netpatch_old[netpatch_len] = { 0 };
+static const char *netpatch_new = "\x75";
 
 static bool loaded = false;
 
@@ -134,6 +109,8 @@ CreateInterfaceFn engine_factory = nullptr;
 IVEngineServer *engine_server = nullptr;
 IVEngineClient *engine_client = nullptr;
 IServer *server = nullptr;
+
+bool is_dedicated = true;
 
 LUA_FUNCTION( index )
 {
@@ -181,47 +158,61 @@ void ThrowError( lua_State *state, const char *fmt, ... )
 	LUA->ThrowError( error );
 }
 
+const QAngle &GetAngle( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GarrysMod::Lua::Type::ANGLE );
+	return *static_cast<const QAngle *>(
+		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( index ) )->data
+	);
+}
+
 void PushAngle( lua_State *state, const QAngle &ang )
 {
-	QAngle *angle = new( std::nothrow ) QAngle( ang );
-	if( angle == nullptr )
-		LUA->ThrowError( "failed to allocate Angle" );
+	LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Angle" );
+	if( !LUA->IsType( -1, GarrysMod::Lua::Type::FUNCTION ) )
+	{
+		LUA->Pop( 1 );
+		return;
+	}
 
-	GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
-		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+	LUA->PushNumber( ang.x );
+	LUA->PushNumber( ang.y );
+	LUA->PushNumber( ang.z );
+	LUA->Call( 3, 1 );
+}
+
+const Vector &GetVector( lua_State *state, int32_t index )
+{
+	LUA->CheckType( index, GarrysMod::Lua::Type::VECTOR );
+	return *static_cast<const Vector *>(
+		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( index ) )->data
 	);
-	udata->type = GarrysMod::Lua::Type::VECTOR;
-	udata->data = angle;
-
-	LUA->CreateMetaTableType( "Angle", GarrysMod::Lua::Type::ANGLE );
-	LUA->SetMetaTable( -2 );
 }
 
 void PushVector( lua_State *state, const Vector &vec )
 {
-	Vector *vector = new( std::nothrow ) Vector( vec );
-	if( vector == nullptr )
-		LUA->ThrowError( "failed to allocate Vector" );
+	LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Vector" );
+	if( !LUA->IsType( -1, GarrysMod::Lua::Type::FUNCTION ) )
+	{
+		LUA->Pop( 1 );
+		return;
+	}
 
-	GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
-		LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-	);
-	udata->type = GarrysMod::Lua::Type::VECTOR;
-	udata->data = vector;
-
-	LUA->CreateMetaTableType( "Vector", GarrysMod::Lua::Type::VECTOR );
-	LUA->SetMetaTable( -2 );
+	LUA->PushNumber( vec.x );
+	LUA->PushNumber( vec.y );
+	LUA->PushNumber( vec.z );
+	LUA->Call( 3, 1 );
 }
 
 static void Initialize( lua_State *state )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 0.2.3" );
+	LUA->PushString( "sourcenet 1.0.0" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 203 );
+	LUA->PushNumber( 10000 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -248,12 +239,13 @@ GMOD_MODULE_OPEN( )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
 
 	global::engine_server = static_cast<IVEngineServer *>(
-		global::engine_factory( "VEngineServer021", nullptr )
+		global::engine_factory( INTERFACEVERSION_VENGINESERVER_VERSION_21, nullptr )
 	);
 	if( global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
-	if( !global::engine_server->IsDedicatedServer( ) )
+	global::is_dedicated = global::engine_server->IsDedicatedServer( );
+	if( !global::is_dedicated )
 	{
 		global::engine_client = static_cast<IVEngineClient *>(
 			global::engine_factory( "VEngineClient015", nullptr )
@@ -292,39 +284,23 @@ GMOD_MODULE_OPEN( )
 #endif
 
 	NetMessage::PreInitialize( state );
-
 	Hooks::PreInitialize( state );
 
 	sn_bf_write::Initialize( state );
-
 	sn_bf_read::Initialize( state );
-
 	NetChannel::Initialize( state );
-
 	subchannel::Initialize( state );
-
 	dataFragments::Initialize( state );
-
 	FileHandle::Initialize( state );
-
 	UCHARPTR::Initialize( state );
-
 	netadr::Initialize( state );
-
 	NetChannelHandler::Initialize( state );
-
 	NetworkStringTableContainer::Initialize( state );
-
 	NetworkStringTable::Initialize( state );
-
 	GameEventManager::Initialize( state );
-
 	GameEvent::Initialize( state );
-
 	NetMessage::Initialize( state );
-
 	Hooks::Initialize( state );
-
 	global::Initialize( state );
 
 	return 0;
@@ -344,35 +320,20 @@ GMOD_MODULE_CLOSE( )
 #endif
 
 	sn_bf_write::Deinitialize( state );
-
 	sn_bf_read::Deinitialize( state );
-
 	NetChannel::Deinitialize( state );
-
 	subchannel::Deinitialize( state );
-
 	dataFragments::Deinitialize( state );
-
 	FileHandle::Deinitialize( state );
-
 	UCHARPTR::Deinitialize( state );
-
 	netadr::Deinitialize( state );
-
 	NetChannelHandler::Deinitialize( state );
-
 	NetworkStringTableContainer::Deinitialize( state );
-
 	NetworkStringTable::Deinitialize( state );
-
 	GameEventManager::Deinitialize( state );
-
 	GameEvent::Deinitialize( state );
-
 	NetMessage::Deinitialize( state );
-
 	Hooks::Deinitialize( state );
-
 	global::Deinitialize( state );
 
 	return 0;

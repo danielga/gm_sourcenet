@@ -17,8 +17,7 @@ void Push(
 dataFragments_t *Get(
 	lua_State *state,
 	int32_t index,
-	CNetChan **netchan = nullptr,
-	bool cleanup = false
+	CNetChan **netchan = nullptr
 );
 
 void Initialize( lua_State *state );

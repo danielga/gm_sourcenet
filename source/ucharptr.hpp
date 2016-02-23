@@ -14,9 +14,10 @@ uint8_t *Get(
 	lua_State *state,
 	int32_t index,
 	int32_t *bits = nullptr,
-	bool cleanup = false,
 	bool *own = nullptr
 );
+
+uint8_t *Release( lua_State *state, int32_t index, int32_t *bits );
 
 void Initialize( lua_State *state );
 

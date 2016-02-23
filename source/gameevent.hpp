@@ -13,8 +13,7 @@ void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager );
 IGameEvent *Get(
 	lua_State *state,
 	int32_t index,
-	IGameEventManager2 **manager = nullptr,
-	bool cleanup = false
+	IGameEventManager2 **manager = nullptr
 );
 
 void Initialize( lua_State *state );

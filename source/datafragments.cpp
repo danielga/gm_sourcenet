@@ -18,7 +18,7 @@ static const char *metaname = "dataFragments_t";
 
 static bool IsValid( dataFragments_t *datafrag, CNetChan *netchan )
 {
-	return datafrag != nullptr && ( netchan == nullptr || NetChannel::IsValid( netchan ) );
+	return datafrag != nullptr && NetChannel::IsValid( netchan );
 }
 
 void Push( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
@@ -41,34 +41,36 @@ void Push( lua_State *state, dataFragments_t *datafrag, CNetChan *netchan )
 	lua_setfenv( state, -2 );
 }
 
-dataFragments_t *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+dataFragments_t *Get( lua_State *state, int32_t index, CNetChan **netchan )
+{
+	UserData *udata = GetUserData( state, index );
 	dataFragments_t *datafrag = udata->datafrag;
-	if( !IsValid( datafrag, udata->netchan ) && !cleanup )
+	if( !IsValid( datafrag, udata->netchan ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
-
-	if( cleanup )
-	{
-		udata->datafrag = nullptr;
-		udata->netchan = nullptr;
-	}
 
 	return datafrag;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	CNetChan *netchan = nullptr;
-	dataFragments_t *fragments = Get( state, 1, &netchan, true );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( netchan == nullptr )
-		delete fragments;
+	if( udata->netchan != nullptr )
+		delete udata->datafrag;
+
+	udata->netchan = nullptr;
+	udata->datafrag = nullptr;
+
+	return 0;
 
 	return 0;
 }
@@ -87,9 +89,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metatype, metaname );
-
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( 1 ) );
+	UserData *udata = GetUserData( state, 1 );
 	LUA->PushBool( IsValid( udata->datafrag, udata->netchan ) );
 
 	return 1;
@@ -108,7 +108,7 @@ LUA_FUNCTION_STATIC( SetFileHandle )
 	int32_t argt = LUA->GetType( 2 );
 	if( argt == FileHandle::metatype )
 		fragments->hfile = FileHandle::Get( state, 2 );
-	else if( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 )
+	else if( argt == GarrysMod::Lua::Type::NIL || ( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 ) )
 		fragments->hfile = nullptr;
 	else
 		luaL_typerror( state, 2, FileHandle::metaname );
@@ -161,13 +161,13 @@ LUA_FUNCTION_STATIC( SetBuffer )
 		uint8_t *oldbuf = fragments->buffer;
 
 		int32_t bits = 0;
-		fragments->buffer = UCHARPTR::Get( state, 2, &bits, true );
+		fragments->buffer = UCHARPTR::Release( state, 2, &bits );
 		fragments->bits = bits;
 		fragments->bytes = BitByte( bits );
 
 		delete[] oldbuf;
 	}
-	else if( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 )
+	else if( argt == GarrysMod::Lua::Type::NIL || ( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 ) )
 	{
 		delete[] fragments->buffer;
 

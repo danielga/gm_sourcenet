@@ -87,7 +87,7 @@ static std::unordered_map<std::string, void **> netmessages_vtables;
 
 static bool IsValid( INetMessage *msg, CNetChan *netchan )
 {
-	return msg != nullptr && ( netchan == nullptr || NetChannel::IsValid( netchan ) );
+	return msg != nullptr && NetChannel::IsValid( netchan );
 }
 
 void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
@@ -134,23 +134,21 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 	}
 }
 
-INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan, bool cleanup )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan )
+{
+	UserData *udata = GetUserData( state, index );
 	INetMessage *msg = udata->msg;
-	if( !IsValid( msg, udata->netchan ) && !cleanup )
+	if( !IsValid( msg, udata->netchan ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
-
-	if( cleanup )
-	{
-		udata->msg = nullptr;
-		udata->netchan = nullptr;
-	}
 
 	return msg;
 }
@@ -171,11 +169,15 @@ void Destroy( lua_State *state, CNetChan *netchan )
 
 LUA_FUNCTION_STATIC( gc )
 {
-	CNetChan *netchan = nullptr;
-	INetMessage *msg = Get( state, 1, &netchan, true );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( netchan == nullptr )
-		delete msg;
+	if( udata->netchan == nullptr )
+		delete udata->msg;
+
+	udata->netchan = nullptr;
+	udata->msg = nullptr;
+
+	return 0;
 
 	return 0;
 }

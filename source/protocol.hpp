@@ -61,7 +61,7 @@ enum
 #define PORT_MODMASTER 27011    // Default mod-master port
 
 // Must use atoi to convert to integer
-#define PORT_CLIENT			"27005"     
+#define PORT_CLIENT			"27005"
 #define PORT_SERVER			"27015"
 #define PORT_HLTV			"27020"
 #define PORT_MATCHMAKING	"27025"

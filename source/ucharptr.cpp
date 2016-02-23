@@ -48,13 +48,17 @@ uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 	return data;
 }
 
-uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool *own )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool *own )
+{
+	UserData *udata = GetUserData( state, index );
 	uint8_t *ptr = udata->data;
-	if( ptr == nullptr && !cleanup )
+	if( ptr == nullptr )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( bits != nullptr )
@@ -63,23 +67,36 @@ uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool cleanup, bool
 	if( own != nullptr )
 		*own = udata->own;
 
-	if( cleanup )
-	{
-		udata->data = nullptr;
-		udata->bits = 0;
-		udata->own = false;
-	}
+	return ptr;
+}
+
+uint8_t *Release( lua_State *state, int32_t index, int32_t *bits )
+{
+	UserData *udata = GetUserData( state, index );
+	uint8_t *ptr = udata->data;
+	if( ptr == nullptr )
+		global::ThrowError( state, "invalid %s", metaname );
+
+	if( bits != nullptr )
+		*bits = udata->bits;
+
+	udata->data = nullptr;
+	udata->bits = 0;
+	udata->own = false;
 
 	return ptr;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	bool own = false;
-	uint8_t *data = Get( state, 1, nullptr, true, &own );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( own )
-		delete[] data;
+	if( udata->own )
+		delete[] udata->data;
+
+	udata->data = nullptr;
+	udata->bits = 0;
+	udata->own = false;
 
 	return 0;
 }
@@ -107,7 +124,7 @@ LUA_FUNCTION_STATIC( IsValid )
 {
 	global::CheckType( state, 1, metatype, metaname );
 
-	LUA->PushBool( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->data != nullptr );
+	LUA->PushBool( GetUserData( state, 1 )->data != nullptr );
 
 	return 1;
 }

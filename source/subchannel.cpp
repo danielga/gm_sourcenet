@@ -17,7 +17,7 @@ static const char *metaname = "subchannel_t";
 
 static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
 {
-	return subchan != nullptr && ( netchan == nullptr || NetChannel::IsValid( netchan ) );
+	return subchan != nullptr && NetChannel::IsValid( netchan );
 }
 
 void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )

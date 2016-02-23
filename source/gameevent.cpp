@@ -34,34 +34,34 @@ void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 	lua_setfenv( state, -2 );
 }
 
-IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager, bool cleanup )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager )
+{
+	UserData *udata = GetUserData( state, index );
 	IGameEvent *event = udata->event;
-	if( ( event == nullptr || udata->manager == nullptr ) && !cleanup )
+	if( ( event == nullptr || udata->manager == nullptr ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( manager != nullptr )
 		*manager = udata->manager;
-
-	if( cleanup )
-	{
-		udata->event = nullptr;
-		udata->manager = nullptr;
-	}
 
 	return event;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	IGameEventManager2 *manager = nullptr;
-	IGameEvent *event = Get( state, 1, &manager, true );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( manager != nullptr )
-		manager->FreeEvent( event );
+	if( udata->manager != nullptr )
+		udata->manager->FreeEvent( udata->event );
+
+	udata->event = nullptr;
+	udata->manager = nullptr;
 
 	return 0;
 }

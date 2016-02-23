@@ -218,7 +218,7 @@ template<
 	class ClassName,
 	class BitBuf,
 	BitBuf ClassName::*M,
-	BitBuf *( *Getter )( lua_State *, int32_t, int32_t *, bool ),
+	BitBuf *( *Getter )( lua_State *, int32_t, int32_t * ),
 	BitBuf **( *Pusher )( lua_State *, BitBuf *, int32_t )
 >
 struct BitBufMember
@@ -233,7 +233,7 @@ struct BitBufMember
 	LUA_FUNCTION_STATIC( Set )
 	{
 		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *Getter( state, 2, nullptr, false );
+		msg->*M = *Getter( state, 2, nullptr );
 		return 0;
 	}
 

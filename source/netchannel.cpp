@@ -67,11 +67,15 @@ void Push( lua_State *state, CNetChan *netchan )
 	Hooks::HookCNetChan( state );
 }
 
-CNetChan *Get( lua_State *state, int32_t index )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	CNetChan *netchan = static_cast<UserData *>( LUA->GetUserdata( index ) )->netchan;
+CNetChan *Get( lua_State *state, int32_t index )
+{
+	CNetChan *netchan = GetUserData( state, 1 )->netchan;
 	if( !IsValid( netchan ) )
 		global::ThrowError( state, "invalid %s", metaname );
 
@@ -101,8 +105,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metatype, metaname );
-	LUA->PushBool( IsValid( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->netchan ) );
+	LUA->PushBool( IsValid( GetUserData( state, 1 )->netchan ) );
 	return 1;
 }
 
@@ -191,6 +194,38 @@ LUA_FUNCTION_STATIC( Transmit )
 		onlyReliable = LUA->GetBool( 2 );
 
 	LUA->PushBool( netchan->Transmit( onlyReliable ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( SendNetMsg )
+{
+	CNetChan *netchan = Get( state, 1 );
+	INetMessage *netmsg = NetMessage::Get( state, 2 );
+
+	bool reliable = false;
+	if( LUA->IsType( 3, GarrysMod::Lua::Type::BOOL ) )
+		reliable = LUA->GetBool( 3 );
+
+	bool voice = false;
+	if( LUA->IsType( 4, GarrysMod::Lua::Type::BOOL ) )
+		voice = LUA->GetBool( 4 );
+
+	LUA->PushBool( netchan->SendNetMsg( *netmsg, reliable, voice ) );
+
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( SendData )
+{
+	CNetChan *netchan = Get( state, 1 );
+	bf_write *netbuf = sn_bf_write::Get( state, 2 );
+
+	bool reliable = true;
+	if( LUA->IsType( 3, GarrysMod::Lua::Type::BOOL ) )
+		reliable = LUA->GetBool( 3 );
+
+	LUA->PushBool( netchan->SendData( *netbuf, reliable ) );
 
 	return 1;
 }
@@ -1089,6 +1124,12 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( Transmit );
 		LUA->SetField( -2, "Transmit" );
 
+		LUA->PushCFunction( SendNetMsg );
+		LUA->SetField( -2, "SendNetMsg" );
+
+		LUA->PushCFunction( SendData );
+		LUA->SetField( -2, "SendData" );
+
 		LUA->PushCFunction( SendFile );
 		LUA->SetField( -2, "SendFile" );
 
@@ -1316,13 +1357,13 @@ void Initialize( lua_State *state )
 
 
 	LUA->PushNumber( MAX_RATE );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_MAX" );
 
 	LUA->PushNumber( MIN_RATE );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MIN_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_MIN" );
 
 	LUA->PushNumber( DEFAULT_RATE );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "DEFAULT_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_DEFAULT" );
 
 
 
@@ -1333,23 +1374,23 @@ void Initialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_INCOMING" );
 
 	LUA->PushNumber( MAX_FLOWS );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FLOWS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_MAX" );
 
 
 
 	LUA->PushNumber( MAX_SUBCHANNELS );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_SUBCHANNELS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SUBCHANNEL_MAX" );
 
 
-
-	LUA->PushNumber( MAX_STREAMS );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_STREAMS" );
 
 	LUA->PushNumber( FRAG_NORMAL_STREAM );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_NORMAL_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_FRAG_NORMAL" );
 
 	LUA->PushNumber( FRAG_FILE_STREAM );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_FILE_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_FRAG_FILE" );
+
+	LUA->PushNumber( MAX_STREAMS );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_MAX" );
 
 
 
@@ -1365,13 +1406,13 @@ void Deinitialize( lua_State *state )
 
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_MAX" );
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MIN_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_MIN" );
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "DEFAULT_RATE" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "RATE_DEFAULT" );
 
 
 
@@ -1382,23 +1423,23 @@ void Deinitialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_INCOMING" );
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_FLOWS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FLOW_MAX" );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_SUBCHANNELS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SUBCHANNEL_MAX" );
 
 
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "MAX_STREAMS" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_FRAG_NORMAL" );
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_NORMAL_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_FRAG_FILE" );
 
 	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "FRAG_FILE_STREAM" );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "STREAM_MAX" );
 
 
 

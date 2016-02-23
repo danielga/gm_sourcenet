@@ -36,34 +36,33 @@ bf_read **Push( lua_State *state, bf_read *reader, int32_t bufref )
 	return &udata->preader;
 }
 
-bf_read *Get( lua_State *state, int32_t index, int32_t *bufref, bool cleanup )
+inline UserData *GetUserData( lua_State *state, int32_t index )
 {
 	global::CheckType( state, index, metatype, metaname );
+	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+}
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
+bf_read *Get( lua_State *state, int32_t index, int32_t *bufref )
+{
+	UserData *udata = GetUserData( state, index );
 	bf_read *reader = udata->preader;
-	if( udata->preader == nullptr && !cleanup )
+	if( udata->preader == nullptr )
 		global::ThrowError( state, "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = udata->bufref;
-
-	if( cleanup )
-	{
-		udata->preader = nullptr;
-		udata->bufref = -1;
-	}
 
 	return reader;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	int32_t bufref = -1;
-	Get( state, 1, &bufref, true );
+	UserData *udata = GetUserData( state, 1 );
 
-	if( bufref != -1 )
-		LUA->ReferenceFree( bufref );
+	LUA->ReferenceFree( udata->bufref );
+
+	udata->preader = nullptr;
+	udata->bufref = LUA_NOREF;
 
 	return 0;
 }
@@ -91,17 +90,17 @@ LUA_FUNCTION_STATIC( IsValid )
 {
 	global::CheckType( state, 1, metatype, metaname );
 
-	LUA->PushBool( static_cast<UserData *>( LUA->GetUserdata( 1 ) )->preader != nullptr );
+	LUA->PushBool( GetUserData( state, 1 )->preader != nullptr );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetBasePointer )
 {
-	int32_t bufref = -1;
+	int32_t bufref = LUA_NOREF;
 	bf_read *buf = Get( state, 1, &bufref );
 
-	if( bufref != -1 )
+	if( bufref != LUA_NOREF )
 		LUA->ReferencePush( bufref );
 	else
 		UCHARPTR::Push( state, buf->m_nDataBits, const_cast<uint8_t *>( buf->GetBasePointer( ) ) );

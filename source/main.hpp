@@ -3,7 +3,6 @@
 #include <GarrysMod/Lua/Interface.h>
 #include <lua.hpp>
 #include <cstdint>
-#include <new>
 #include <string>
 #include <interfaces.hpp>
 
@@ -43,6 +42,8 @@ extern IVEngineClient *engine_client;
 
 extern IServer *server;
 
+extern bool is_dedicated;
+
 LUA_FUNCTION( index );
 LUA_FUNCTION( newindex );
 LUA_FUNCTION( GetTable );
@@ -51,8 +52,10 @@ void CheckType( lua_State *state, int32_t index, int32_t type, const char *namet
 
 void ThrowError( lua_State *state, const char *fmt, ... );
 
+const QAngle &GetAngle( lua_State *state, int32_t index );
 void PushAngle( lua_State *state, const QAngle &ang );
 
+const Vector &GetVector( lua_State *state, int32_t index );
 void PushVector( lua_State *state, const Vector &vec );
 
 }
