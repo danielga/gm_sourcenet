@@ -17,7 +17,7 @@
 #include <netmessage.hpp>
 #include <symbolfinder.hpp>
 #include <vfnhook.h>
-#include <interfaces.hpp>
+#include <GarrysMod/Interfaces.hpp>
 #include <interface.h>
 #include <eiface.h>
 #include <cdll_int.h>

@@ -10,7 +10,7 @@
 #include <inetmsghandler.h>
 #include <cdll_int.h>
 #include <symbolfinder.hpp>
-#include <helpers.hpp>
+#include <GarrysMod/Helpers.hpp>
 
 namespace Hooks
 {

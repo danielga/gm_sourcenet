@@ -4,7 +4,7 @@
 #include <lua.hpp>
 #include <cstdint>
 #include <string>
-#include <interfaces.hpp>
+#include <GarrysMod/Interfaces.hpp>
 
 #if defined __linux || defined __APPLE__
 
