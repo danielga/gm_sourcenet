@@ -12,5 +12,5 @@ This project requires [garrysmod_common][2], a framework to facilitate the creat
 
 
   [1]: http://christopherthorne.googlecode.com/svn/trunk/gm_sourcenet3
-  [2]: https://bitbucket.org/danielga/garrysmod_common
+  [2]: https://github.com/danielga/garrysmod_common
   [3]: https://github.com/ValveSoftware/source-sdk-2013
