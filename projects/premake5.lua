@@ -1,7 +1,7 @@
 newoption({
 	trigger = "gmcommon",
 	description = "Sets the path to the garrysmod_common (https://github.com/danielga/garrysmod_common) directory",
-	value = "path to garrysmod_common dir"
+	value = "path to garrysmod_common directory"
 })
 
 local gmcommon = _OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON")
