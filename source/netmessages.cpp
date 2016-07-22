@@ -67,10 +67,50 @@ struct Member
 };
 
 template<class ClassName, bool ClassName::*M>
-using BoolMember = Member<ClassName, bool, M, bool, &LuaBase::PushBool, &LuaBase::GetBool>;
+struct BoolMember
+{
+	LUA_FUNCTION_STATIC( Get )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		LUA->PushBool( msg->*M );
+		return 1;
+	}
+
+	LUA_FUNCTION_STATIC( Set )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		msg->*M = LUA->GetBool( 2 );
+		return 0;
+	}
+
+	BoolMember( lua_State *state, const char *name )
+	{
+		SetupAccessors( state, name, Get, Set );
+	}
+};
 
 template<class ClassName, typename MemberType, MemberType ClassName::*M>
-using NumberMember = Member<ClassName, MemberType, M, double, &LuaBase::PushNumber, &LuaBase::GetNumber>;
+struct NumberMember
+{
+	LUA_FUNCTION_STATIC( Get )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		LUA->PushNumber( msg->*M );
+		return 1;
+	}
+
+	LUA_FUNCTION_STATIC( Set )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		msg->*M = LUA->GetNumber( 2 );
+		return 0;
+	}
+
+	NumberMember( lua_State *state, const char *name )
+	{
+		SetupAccessors( state, name, Get, Set );
+	}
+};
 
 template<class ClassName, typename MemberType, MemberType ClassName::*M>
 struct EnumMember
@@ -129,10 +169,70 @@ struct UserdataMember
 };
 
 template<class ClassName, QAngle ClassName::*M>
-using AngleMember = UserdataMember<ClassName, GarrysMod::Lua::Type::ANGLE, QAngle, M>;
+struct AngleMember
+{
+	LUA_FUNCTION_STATIC( Get )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+
+		QAngle *data = new( std::nothrow ) QAngle( msg->*M );
+		if( data == nullptr )
+			LUA->ThrowError( "failed to allocate userdata" );
+
+		GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
+			LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+			);
+		udata->data = data;
+		udata->type = GarrysMod::Lua::Type::ANGLE;
+
+		return 1;
+	}
+
+	LUA_FUNCTION_STATIC( Set )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		msg->*M = *static_cast<QAngle *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
+		return 0;
+	}
+
+	AngleMember( lua_State *state, const char *name )
+	{
+		SetupAccessors( state, name, Get, Set );
+	}
+};
 
 template<class ClassName, Vector ClassName::*M>
-using VectorMember = UserdataMember<ClassName, GarrysMod::Lua::Type::VECTOR, Vector, M>;
+struct VectorMember
+{
+	LUA_FUNCTION_STATIC( Get )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+
+		Vector *data = new( std::nothrow ) Vector( msg->*M );
+		if( data == nullptr )
+			LUA->ThrowError( "failed to allocate userdata" );
+
+		GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
+			LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
+			);
+		udata->data = data;
+		udata->type = GarrysMod::Lua::Type::VECTOR;
+
+		return 1;
+	}
+
+	LUA_FUNCTION_STATIC( Set )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		msg->*M = *static_cast<Vector *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
+		return 0;
+	}
+
+	VectorMember( lua_State *state, const char *name )
+	{
+		SetupAccessors( state, name, Get, Set );
+	}
+};
 
 template<
 	class ClassName,
@@ -214,40 +314,51 @@ template<class ClassName, const char *ClassName::*M> struct StringMember
 	}
 };
 
-template<
-	class ClassName,
-	class BitBuf,
-	BitBuf ClassName::*M,
-	BitBuf *( *Getter )( lua_State *, int32_t, int32_t * ),
-	BitBuf **( *Pusher )( lua_State *, BitBuf *, int32_t )
->
-struct BitBufMember
+template<class ClassName, bf_read ClassName::*M>
+struct ReaderMember
 {
 	LUA_FUNCTION_STATIC( Get )
 	{
 		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		Pusher( state, &( msg->*M ), -1 );
+		sn_bf_read::Push( state, &( msg->*M ), -1 );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( Set )
 	{
 		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *Getter( state, 2, nullptr );
+		msg->*M = *sn_bf_read::Get( state, 2, nullptr );
 		return 0;
 	}
 
-	BitBufMember( lua_State *state, const char *name )
+	ReaderMember( lua_State *state, const char *name )
 	{
 		SetupAccessors( state, name, Get, Set );
 	}
 };
 
-template<class ClassName, bf_read ClassName::*M>
-using ReaderMember = BitBufMember<ClassName, bf_read, M, &sn_bf_read::Get, &sn_bf_read::Push>;
-
 template<class ClassName, bf_write ClassName::*M>
-using WriterMember = BitBufMember<ClassName, bf_write, M, &sn_bf_write::Get, &sn_bf_write::Push>;
+struct WriterMember
+{
+	LUA_FUNCTION_STATIC( Get )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		sn_bf_write::Push( state, &( msg->*M ), -1 );
+		return 1;
+	}
+
+	LUA_FUNCTION_STATIC( Set )
+	{
+		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		msg->*M = *sn_bf_write::Get( state, 2, nullptr );
+		return 0;
+	}
+
+	WriterMember( lua_State *state, const char *name )
+	{
+		SetupAccessors( state, name, Get, Set );
+	}
+};
 
 CNetMessage::CNetMessage( ) :
 	m_bReliable( true ), m_NetChannel( nullptr ), m_pMessageHandler( nullptr )
