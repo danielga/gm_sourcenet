@@ -510,22 +510,22 @@ void Initialize( lua_State *state )
 
 	LUA->CreateTable( );
 
-		LUA->PushNumber( UpdateType::EnterPVS );
+		LUA->PushNumber( EnterPVS );
 		LUA->SetField( -2, "EnterPVS" );
 
-		LUA->PushNumber( UpdateType::LeavePVS );
+		LUA->PushNumber( LeavePVS );
 		LUA->SetField( -2, "LeavePVS" );
 
-		LUA->PushNumber( UpdateType::DeltaEnt );
+		LUA->PushNumber( DeltaEnt );
 		LUA->SetField( -2, "DeltaEnt" );
 
-		LUA->PushNumber( UpdateType::PreserveEnt );
+		LUA->PushNumber( PreserveEnt );
 		LUA->SetField( -2, "PreserveEnt" );
 
-		LUA->PushNumber( UpdateType::Finished );
+		LUA->PushNumber( Finished );
 		LUA->SetField( -2, "Finished" );
 
-		LUA->PushNumber( UpdateType::Failed );
+		LUA->PushNumber( Failed );
 		LUA->SetField( -2, "Failed" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "UpdateType" );
