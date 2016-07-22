@@ -178,8 +178,6 @@ LUA_FUNCTION_STATIC( gc )
 	udata->msg = nullptr;
 
 	return 0;
-
-	return 0;
 }
 
 LUA_FUNCTION_STATIC( eq )
