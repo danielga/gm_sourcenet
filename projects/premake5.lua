@@ -11,7 +11,7 @@ end
 
 include(gmcommon)
 
-CreateSolution({name = "sourcenet"})
+CreateWorkspace({name = "sourcenet"})
 	warnings("Default")
 
 	CreateProject({serverside = true})
