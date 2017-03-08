@@ -66,7 +66,7 @@ do \
 	++_argc
 
 #define HOOK_CALL( returns ) \
-	helpers::CallHookRun( LUA, _argc, returns );
+	helpers::CallHookRun( LUA, _argc, returns )
 
 #define HOOK_END( ) \
 } \
@@ -425,10 +425,12 @@ static bool CNetChan_ProcessMessages_d( CNetChan *netchan, bf_read &buf )
 			HOOK_PUSH( bf_write **writer = sn_bf_write::Push( state, &write ) );
 
 			if( !global::is_dedicated )
+			{
 				HOOK_PUSH( NetChannel::Push(
 					state,
 					static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
 				) );
+			}
 
 			HOOK_CALL( 0 );
 

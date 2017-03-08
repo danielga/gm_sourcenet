@@ -1048,7 +1048,8 @@ LUA_FUNCTION_STATIC( Constructor )
 	int32_t index = -1;
 	if( LUA->IsType( 1, GarrysMod::Lua::Type::ENTITY ) )
 	{
-		LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Entity" );
+		LUA->CreateMetaTableType( "Entity", GarrysMod::Lua::Type::ENTITY );
+		LUA->GetField( -1, "EntIndex" );
 		LUA->Push( 1 );
 		LUA->Call( 1, 1 );
 
