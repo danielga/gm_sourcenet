@@ -228,11 +228,11 @@ static void Initialize( lua_State *state )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 1.0.0" );
+	LUA->PushString( "sourcenet 1.0.1" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 10000 );
+	LUA->PushNumber( 10001 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );

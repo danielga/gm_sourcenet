@@ -116,6 +116,23 @@ LUA_FUNCTION_STATIC( GetPort )
 	return 1;
 }
 
+LUA_FUNCTION_STATIC( GetSteamID )
+{
+	netadr_t *adr = Get( state, 1 );
+
+	const CSteamID &steamID = adr->GetSteamID( );
+	EAccountType type = steamID.GetEAccountType( );
+	if( type == k_EAccountTypeInvalid || type == k_EAccountTypeIndividual )
+	{
+		AccountID_t accountID = steamID.GetAccountID( );
+		lua_pushfstring( state, "STEAM_0:%u:%u", accountID % 2, accountID / 2 );
+	}
+	else
+		lua_pushfstring( state, "%llu", steamID.ConvertToUint64( ) );
+
+	return 1;
+}
+
 LUA_FUNCTION_STATIC( GetType )
 {
 	netadr_t *adr = Get( state, 1 );
@@ -141,6 +158,9 @@ void Initialize( lua_State *state )
 		LUA->PushCFunction( global::newindex );
 		LUA->SetField( -2, "__newindex" );
 
+		LUA->PushCFunction( tostring );
+		LUA->SetField( -2, "ToString" );
+
 		LUA->PushCFunction( global::GetTable );
 		LUA->SetField( -2, "GetTable" );
 
@@ -161,6 +181,9 @@ void Initialize( lua_State *state )
 
 		LUA->PushCFunction( GetPort );
 		LUA->SetField( -2, "GetPort" );
+
+		LUA->PushCFunction( GetSteamID );
+		LUA->SetField( -2, "GetSteamID" );
 
 		LUA->PushCFunction( GetType );
 		LUA->SetField( -2, "GetType" );
