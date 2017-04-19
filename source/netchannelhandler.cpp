@@ -48,7 +48,7 @@ void Destroy( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler )
 	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 	LUA->PushUserdata( handler );
 	LUA->PushNil( );
-	LUA->SetTable( -2 );
+	LUA->SetTable( -3 );
 	LUA->Pop( 1 );
 }
 

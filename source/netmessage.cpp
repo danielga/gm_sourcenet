@@ -160,7 +160,7 @@ void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan )
 	{
 		LUA->PushUserdata( netchan->m_NetMessages[k] );
 		LUA->PushNil( );
-		LUA->SetTable( -2 );
+		LUA->SetTable( -3 );
 	}
 
 	LUA->Pop( 1 );
@@ -169,11 +169,8 @@ void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan )
 LUA_FUNCTION_STATIC( gc )
 {
 	Container *udata = GetUserData( LUA, 1 );
-	INetMessage *netmsg = udata->msg;
-	INetChannel *netchannel = udata->netchan;
-
-	if( netchannel == nullptr )
-		delete netmsg;
+	if( udata->netchan == nullptr )
+		delete udata->msg;
 
 	LUA->SetUserType( 1, nullptr );
 

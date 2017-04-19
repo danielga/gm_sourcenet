@@ -79,7 +79,7 @@ void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan )
 	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 	LUA->PushUserdata( netchan );
 	LUA->PushNil( );
-	LUA->SetTable( -2 );
+	LUA->SetTable( -3 );
 	LUA->Pop( 1 );
 }
 
