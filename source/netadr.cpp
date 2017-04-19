@@ -4,40 +4,37 @@
 namespace netadr
 {
 
-struct UserData
-{
-	netadr_t *pnetadr;
-	uint8_t type;
-	netadr_t netadr;
-};
-
-static const uint8_t metatype = global::metabase + 8;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "netadr_t";
 
-void Push( lua_State *state, const netadr_t &netadr )
+void Push( GarrysMod::Lua::ILuaBase *LUA, const netadr_t &netadr )
 {
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->type = metatype;
-	udata->pnetadr = &udata->netadr;
-	new( &udata->netadr ) netadr_t( netadr );
+	netadr_t *adr = LUA->NewUserType<netadr_t>( metatype );
+	*adr = netadr;
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 }
 
-static netadr_t *Get( lua_State *state, int32_t index )
+static netadr_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) )->pnetadr;
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<netadr_t>( index, metatype );
+}
+
+LUA_FUNCTION_STATIC( gc )
+{
+	LUA->SetUserType( 1, nullptr );
+	return 0;
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	netadr_t *adr1 = Get( state, 1 );
-	netadr_t *adr2 = Get( state, 2 );
+	netadr_t *adr1 = Get( LUA, 1 );
+	netadr_t *adr2 = Get( LUA, 2 );
 
 	bool baseonly = false;
 	if( LUA->IsType( 3, GarrysMod::Lua::Type::BOOL ) )
@@ -50,7 +47,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	bool baseonly = false;
 	if( LUA->IsType( 2, GarrysMod::Lua::Type::BOOL ) )
@@ -63,7 +60,7 @@ LUA_FUNCTION_STATIC( tostring )
 
 LUA_FUNCTION_STATIC( IsLocalhost )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushBool( adr->IsLocalhost( ) );
 
@@ -72,7 +69,7 @@ LUA_FUNCTION_STATIC( IsLocalhost )
 
 LUA_FUNCTION_STATIC( IsLoopback )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushBool( adr->IsLoopback( ) );
 
@@ -81,7 +78,7 @@ LUA_FUNCTION_STATIC( IsLoopback )
 
 LUA_FUNCTION_STATIC( IsReservedAdr )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushBool( adr->IsReservedAdr( ) );
 
@@ -90,7 +87,7 @@ LUA_FUNCTION_STATIC( IsReservedAdr )
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushBool( adr->IsValid( ) );
 
@@ -99,7 +96,7 @@ LUA_FUNCTION_STATIC( IsValid )
 
 LUA_FUNCTION_STATIC( GetIP )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushString( adr->ToString( true ) );
 	LUA->PushNumber( adr->GetIPHostByteOrder( ) );
@@ -109,7 +106,7 @@ LUA_FUNCTION_STATIC( GetIP )
 
 LUA_FUNCTION_STATIC( GetPort )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushNumber( adr->GetPort( ) );
 
@@ -118,33 +115,36 @@ LUA_FUNCTION_STATIC( GetPort )
 
 LUA_FUNCTION_STATIC( GetSteamID )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	const CSteamID &steamID = adr->GetSteamID( );
 	EAccountType type = steamID.GetEAccountType( );
 	if( type == k_EAccountTypeInvalid || type == k_EAccountTypeIndividual )
 	{
 		AccountID_t accountID = steamID.GetAccountID( );
-		lua_pushfstring( state, "STEAM_0:%u:%u", accountID % 2, accountID / 2 );
+		lua_pushfstring( LUA->state, "STEAM_0:%u:%u", accountID % 2, accountID / 2 );
 	}
 	else
-		lua_pushfstring( state, "%llu", steamID.ConvertToUint64( ) );
+		lua_pushfstring( LUA->state, "%llu", steamID.ConvertToUint64( ) );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetType )
 {
-	netadr_t *adr = Get( state, 1 );
+	netadr_t *adr = Get( LUA, 1 );
 
 	LUA->PushNumber( adr->GetType( ) );
 
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
+
+		LUA->PushCFunction( gc );
+		LUA->SetField( -2, "__gc" );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -191,7 +191,7 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );

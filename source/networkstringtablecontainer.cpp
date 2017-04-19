@@ -7,27 +7,21 @@
 namespace NetworkStringTableContainer
 {
 
-struct UserData
-{
-	INetworkStringTableContainer *container;
-	uint8_t type;
-};
-
-static const uint8_t metatype = global::metabase + 10;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "INetworkStringTableContainer";
 
 static GarrysMod::Lua::AutoReference container_ref;
 
-static INetworkStringTableContainer *Get( lua_State *state, int32_t index )
+static INetworkStringTableContainer *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) )->container;
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<INetworkStringTableContainer>( index, metatype );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	global::CheckType( state, 1, metatype, metaname );
-	global::CheckType( state, 2, metatype, metaname );
+	global::CheckType( LUA, 1, metatype, metaname );
+	global::CheckType( LUA, 2, metatype, metaname );
 
 	LUA->PushBool( true );
 	return 1;
@@ -35,27 +29,27 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetNumTables )
 {
-	LUA->PushNumber( Get( state, 1 )->GetNumTables( ) );
+	LUA->PushNumber( Get( LUA, 1 )->GetNumTables( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( FindTable )
 {
-	NetworkStringTable::Push( state, Get( state, 1 )->FindTable( LUA->CheckString( 2 ) ) );
+	NetworkStringTable::Push( LUA, Get( LUA, 1 )->FindTable( LUA->CheckString( 2 ) ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetTable )
 {
 	NetworkStringTable::Push(
-		state,
-		Get( state, 1 )->GetTable( static_cast<int32_t>( LUA->CheckNumber( 2 ) ) )
+		LUA,
+		Get( LUA, 1 )->GetTable( static_cast<int32_t>( LUA->CheckNumber( 2 ) ) )
 	);
 	return 1;
 }
@@ -66,7 +60,7 @@ LUA_FUNCTION_STATIC( Constructor )
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 #if defined SOURCENET_SERVER
 
@@ -86,22 +80,9 @@ void Initialize( lua_State *state )
 
 #endif
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->container = container;
-	udata->type = metatype;
-
-	LUA->CreateMetaTableType( metaname, metatype );
-	LUA->SetMetaTable( -2 );
-
-	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
-
-	container_ref.Setup( LUA );
-	container_ref.Create( );
 
 
-
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -131,6 +112,19 @@ void Initialize( lua_State *state )
 
 
 
+	LUA->PushUserType( container, metatype );
+
+	LUA->PushMetaTable( metatype );
+	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( LUA->state, -2 );
+
+	container_ref.Setup( LUA );
+	container_ref.Create( );
+
+
+
 	LUA->PushString( INSTANCE_BASELINE_TABLENAME );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "INSTANCE_BASELINE_TABLENAME" );
 
@@ -149,7 +143,7 @@ void Initialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );

@@ -9,14 +9,14 @@ namespace NetChannel
 
 bool IsValid( CNetChan *netchan );
 
-void Push( lua_State *state, CNetChan *netchan );
+void Push( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan );
 
-CNetChan *Get( lua_State *state, int32_t index );
+CNetChan *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index );
 
-void Destroy( lua_State *state, CNetChan *netchan );
+void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

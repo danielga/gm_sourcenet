@@ -9,21 +9,32 @@
 
 #include <string>
 
+#define LUA_FUNCTION_IMPLEMENT( FUNC ) \
+        static int FUNC##__Imp( GarrysMod::Lua::ILuaBase *LUA ) GMOD_NOEXCEPT
+
+#define LUA_FUNCTION_WRAP( FUNC )                       \
+        static int FUNC( lua_State *L ) GMOD_NOEXCEPT   \
+        {                                               \
+            GarrysMod::Lua::ILuaBase *LUA = L->luabase; \
+            LUA->SetState( L );                         \
+            return FUNC##__Imp( LUA );                  \
+        }
+
 namespace NetMessages
 {
 
 typedef GarrysMod::Lua::ILuaBase LuaBase;
 
-template<class ClassName> ClassName *CheckNetmessageType( lua_State *state )
+template<class ClassName> ClassName *CheckNetmessageType( GarrysMod::Lua::ILuaBase *LUA )
 {
-	ClassName *msg = static_cast<ClassName *>( NetMessage::Get( state, 1 ) );
+	ClassName *msg = static_cast<ClassName *>( NetMessage::Get( LUA, 1 ) );
 	if( msg->GetType( ) != ClassName::Type )
 		LUA->ThrowError( "tried to access netmessage member of wrong type" );
 
 	return msg;
 }
 
-inline void SetupAccessors( lua_State *state, const char *name, GarrysMod::Lua::CFunc Get, GarrysMod::Lua::CFunc Set )
+inline void SetupAccessors( GarrysMod::Lua::ILuaBase *LUA, const char *name, GarrysMod::Lua::CFunc Get, GarrysMod::Lua::CFunc Set )
 {
 	std::string getter = "Get";
 	getter += name;
@@ -46,191 +57,162 @@ template<
 >
 struct Member
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		( LUA->*Pusher )( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		msg->*M = ( LUA->*Getter )( 2 );
 		return 0;
 	}
 
-	Member( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	Member( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, bool ClassName::*M>
 struct BoolMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushBool( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		msg->*M = LUA->GetBool( 2 );
 		return 0;
 	}
 
-	BoolMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	BoolMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, typename MemberType, MemberType ClassName::*M>
 struct NumberMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushNumber( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		msg->*M = LUA->GetNumber( 2 );
 		return 0;
 	}
 
-	NumberMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	NumberMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, typename MemberType, MemberType ClassName::*M>
 struct EnumMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushNumber( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		msg->*M = static_cast<MemberType>( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
 		return 0;
 	}
 
-	EnumMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	EnumMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
-	}
-};
-
-template<class ClassName, uint8_t LuaType, typename MemberType, MemberType ClassName::*M>
-struct UserdataMember
-{
-	LUA_FUNCTION_STATIC( Get )
-	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-
-		MemberType *data = new( std::nothrow ) MemberType( msg->*M );
-		if( data == nullptr )
-			LUA->ThrowError( "failed to allocate userdata" );
-
-		GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
-			LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-		);
-		udata->data = data;
-		udata->type = LuaType;
-
-		return 1;
-	}
-
-	LUA_FUNCTION_STATIC( Set )
-	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *static_cast<MemberType *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
-		return 0;
-	}
-
-	UserdataMember( lua_State *state, const char *name )
-	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, QAngle ClassName::*M>
 struct AngleMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-
-		QAngle *data = new( std::nothrow ) QAngle( msg->*M );
-		if( data == nullptr )
-			LUA->ThrowError( "failed to allocate userdata" );
-
-		GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
-			LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-			);
-		udata->data = data;
-		udata->type = GarrysMod::Lua::Type::ANGLE;
-
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		LUA->PushAngle( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *static_cast<QAngle *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		msg->*M = LUA->GetAngle( 2 );
 		return 0;
 	}
 
-	AngleMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	AngleMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, Vector ClassName::*M>
 struct VectorMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-
-		Vector *data = new( std::nothrow ) Vector( msg->*M );
-		if( data == nullptr )
-			LUA->ThrowError( "failed to allocate userdata" );
-
-		GarrysMod::Lua::UserData *udata = static_cast<GarrysMod::Lua::UserData *>(
-			LUA->NewUserdata( sizeof( GarrysMod::Lua::UserData ) )
-			);
-		udata->data = data;
-		udata->type = GarrysMod::Lua::Type::VECTOR;
-
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		LUA->PushVector( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *static_cast<Vector *>( static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( 2 ) )->data );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		msg->*M = LUA->GetVector( 2 );
 		return 0;
 	}
 
-	VectorMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	VectorMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
@@ -242,16 +224,18 @@ template<
 >
 struct ArrayMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushString( reinterpret_cast<const char *>( msg->*M ), MaximumLength );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 
 		size_t len = 0;
 		const char *data = LUA->GetString( 2, &len );
@@ -263,100 +247,118 @@ struct ArrayMember
 		return 0;
 	}
 
-	ArrayMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	ArrayMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, size_t MaximumLength, char ( ClassName::*M )[MaximumLength]>
 struct StringArrayMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushString( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		V_strncpy( msg->*M, LUA->GetString( 2 ), MaximumLength );
 		return 0;
 	}
 
-	StringArrayMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	StringArrayMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, const char *ClassName::*M> struct StringMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		LUA->PushString( msg->*M );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 		msg->*M = LUA->GetString( 2 );
 		return 0;
 	}
 
-	StringMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	StringMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, bf_read ClassName::*M>
 struct ReaderMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		sn_bf_read::Push( state, &( msg->*M ), -1 );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		sn_bf_read::Push( LUA, &( msg->*M ), -1 );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *sn_bf_read::Get( state, 2, nullptr );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		msg->*M = *sn_bf_read::Get( LUA, 2, nullptr );
 		return 0;
 	}
 
-	ReaderMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	ReaderMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
 template<class ClassName, bf_write ClassName::*M>
 struct WriterMember
 {
-	LUA_FUNCTION_STATIC( Get )
+	LUA_FUNCTION_IMPLEMENT( Get )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		sn_bf_write::Push( state, &( msg->*M ), -1 );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		sn_bf_write::Push( LUA, &( msg->*M ), -1 );
 		return 1;
 	}
 
-	LUA_FUNCTION_STATIC( Set )
+	LUA_FUNCTION_WRAP( Get );
+
+	LUA_FUNCTION_IMPLEMENT( Set )
 	{
-		ClassName *msg = CheckNetmessageType<ClassName>( state );
-		msg->*M = *sn_bf_write::Get( state, 2, nullptr );
+		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
+		msg->*M = *sn_bf_write::Get( LUA, 2, nullptr );
 		return 0;
 	}
 
-	WriterMember( lua_State *state, const char *name )
+	LUA_FUNCTION_WRAP( Set );
+
+	WriterMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 	{
-		SetupAccessors( state, name, Get, Set );
+		SetupAccessors( LUA, name, Get, Set );
 	}
 };
 
@@ -433,11 +435,11 @@ const char *NET_Tick::Name = "net_Tick";
 const char *NET_Tick::LuaName = "NET_Tick";
 const int32_t NET_Tick::Type = net_Tick;
 
-void NET_Tick::SetupLua( lua_State *state )
+void NET_Tick::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<NET_Tick, int32_t, &NET_Tick::Tick>( state, "Tick" );
-	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTime>( state, "HostFrameTime" );
-	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTimeStdDeviation>( state, "HostFrameTimeStdDeviation" );
+	NumberMember<NET_Tick, int32_t, &NET_Tick::Tick>( LUA, "Tick" );
+	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTime>( LUA, "HostFrameTime" );
+	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTimeStdDeviation>( LUA, "HostFrameTimeStdDeviation" );
 }
 
 const char *NET_StringCmd::Name = "net_StringCmd";
@@ -448,18 +450,18 @@ NET_StringCmd::NET_StringCmd( ) :
 	Command( nullptr )
 { }
 
-void NET_StringCmd::SetupLua( lua_State *state )
+void NET_StringCmd::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringMember<NET_StringCmd, &NET_StringCmd::Command>( state, "Command" );
+	StringMember<NET_StringCmd, &NET_StringCmd::Command>( LUA, "Command" );
 }
 
 const char *NET_SetConVar::Name = "net_SetConVar";
 const char *NET_SetConVar::LuaName = "NET_SetConVar";
 const int32_t NET_SetConVar::Type = net_SetConVar;
 
-LUA_FUNCTION_STATIC( NET_SetConVar_GetConVars )
+LUA_FUNCTION_IMPLEMENT( NET_SetConVar_GetConVars )
 {
-	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( state );
+	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( LUA );
 
 	LUA->CreateTable( );
 
@@ -474,9 +476,11 @@ LUA_FUNCTION_STATIC( NET_SetConVar_GetConVars )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( NET_SetConVar_SetConVars )
+LUA_FUNCTION_WRAP( NET_SetConVar_GetConVars );
+
+LUA_FUNCTION_IMPLEMENT( NET_SetConVar_SetConVars )
 {
-	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( state );
+	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
 
 	auto &convars = msg->ConVars;
@@ -499,19 +503,21 @@ LUA_FUNCTION_STATIC( NET_SetConVar_SetConVars )
 	return 0;
 }
 
-void NET_SetConVar::SetupLua( lua_State *state )
+LUA_FUNCTION_WRAP( NET_SetConVar_SetConVars );
+
+void NET_SetConVar::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	SetupAccessors( state, "ConVars", NET_SetConVar_GetConVars, NET_SetConVar_SetConVars );
+	SetupAccessors( LUA, "ConVars", NET_SetConVar_GetConVars, NET_SetConVar_SetConVars );
 }
 
 const char *NET_SignonState::Name = "net_SignonState";
 const char *NET_SignonState::LuaName = "NET_SignonState";
 const int32_t NET_SignonState::Type = net_SignonState;
 
-void NET_SignonState::SetupLua( lua_State *state )
+void NET_SignonState::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<NET_SignonState, int32_t, &NET_SignonState::SignonState>( state, "SignonState" );
-	NumberMember<NET_SignonState, int32_t, &NET_SignonState::SpawnCount>( state, "SpawnCount" );
+	NumberMember<NET_SignonState, int32_t, &NET_SignonState::SignonState>( LUA, "SignonState" );
+	NumberMember<NET_SignonState, int32_t, &NET_SignonState::SpawnCount>( LUA, "SpawnCount" );
 }
 
 const char *SVC_Print::Name = "svc_Print";
@@ -522,9 +528,9 @@ SVC_Print::SVC_Print( ) :
 	Text( nullptr )
 { }
 
-void SVC_Print::SetupLua( lua_State *state )
+void SVC_Print::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringMember<SVC_Print, &SVC_Print::Text>( state, "Text" );
+	StringMember<SVC_Print, &SVC_Print::Text>( LUA, "Text" );
 }
 
 const char *SVC_ServerInfo::Name = "svc_ServerInfo";
@@ -536,46 +542,46 @@ SVC_ServerInfo::SVC_ServerInfo( ) :
 	HostName( nullptr ), LoadingURL( nullptr ), Gamemode( nullptr )
 { }
 
-void SVC_ServerInfo::SetupLua( lua_State *state )
+void SVC_ServerInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::Protocol>( state, "Protocol" );
-	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::ServerCount>( state, "ServerCount" );
-	BoolMember<SVC_ServerInfo, &SVC_ServerInfo::Dedicated>( state, "Dedicated" );
-	BoolMember<SVC_ServerInfo, &SVC_ServerInfo::HLTV>( state, "HLTV" );
-	NumberMember<SVC_ServerInfo, char, &SVC_ServerInfo::OS>( state, "OS" );
-	NumberMember<SVC_ServerInfo, CRC32_t, &SVC_ServerInfo::ClientCRC>( state, "ClientCRC" );
-	ArrayMember<SVC_ServerInfo, uint8_t, 16, &SVC_ServerInfo::MapMD5>( state, "MapMD5" );
-	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::MaxClients>( state, "MaxClients" );
-	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::MaxClasses>( state, "MaxClasses" );
-	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::PlayerSlot>( state, "PlayerSlot" );
-	NumberMember<SVC_ServerInfo, float, &SVC_ServerInfo::TickInterval>( state, "TickInterval" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::GameDir>( state, "GameDir" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::MapName>( state, "MapName" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::SkyName>( state, "SkyName" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::HostName>( state, "HostName" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::LoadingURL>( state, "LoadingURL" );
-	StringMember<SVC_ServerInfo, &SVC_ServerInfo::Gamemode>( state, "Gamemode" );
+	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::Protocol>( LUA, "Protocol" );
+	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::ServerCount>( LUA, "ServerCount" );
+	BoolMember<SVC_ServerInfo, &SVC_ServerInfo::Dedicated>( LUA, "Dedicated" );
+	BoolMember<SVC_ServerInfo, &SVC_ServerInfo::HLTV>( LUA, "HLTV" );
+	NumberMember<SVC_ServerInfo, char, &SVC_ServerInfo::OS>( LUA, "OS" );
+	NumberMember<SVC_ServerInfo, CRC32_t, &SVC_ServerInfo::ClientCRC>( LUA, "ClientCRC" );
+	ArrayMember<SVC_ServerInfo, uint8_t, 16, &SVC_ServerInfo::MapMD5>( LUA, "MapMD5" );
+	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::MaxClients>( LUA, "MaxClients" );
+	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::MaxClasses>( LUA, "MaxClasses" );
+	NumberMember<SVC_ServerInfo, int32_t, &SVC_ServerInfo::PlayerSlot>( LUA, "PlayerSlot" );
+	NumberMember<SVC_ServerInfo, float, &SVC_ServerInfo::TickInterval>( LUA, "TickInterval" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::GameDir>( LUA, "GameDir" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::MapName>( LUA, "MapName" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::SkyName>( LUA, "SkyName" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::HostName>( LUA, "HostName" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::LoadingURL>( LUA, "LoadingURL" );
+	StringMember<SVC_ServerInfo, &SVC_ServerInfo::Gamemode>( LUA, "Gamemode" );
 }
 
 const char *SVC_SendTable::Name = "svc_SendTable";
 const char *SVC_SendTable::LuaName = "SVC_SendTable";
 const int32_t SVC_SendTable::Type = svc_SendTable;
 
-void SVC_SendTable::SetupLua( lua_State *state )
+void SVC_SendTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	BoolMember<SVC_SendTable, &SVC_SendTable::NeedsDecoder>( state, "NeedsDecoder" );
-	NumberMember<SVC_SendTable, int32_t, &SVC_SendTable::Length>( state, "Length" );
-	ReaderMember<SVC_SendTable, &SVC_SendTable::DataIn>( state, "DataIn" );
-	WriterMember<SVC_SendTable, &SVC_SendTable::DataOut>( state, "DataOut" );
+	BoolMember<SVC_SendTable, &SVC_SendTable::NeedsDecoder>( LUA, "NeedsDecoder" );
+	NumberMember<SVC_SendTable, int32_t, &SVC_SendTable::Length>( LUA, "Length" );
+	ReaderMember<SVC_SendTable, &SVC_SendTable::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_SendTable, &SVC_SendTable::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_ClassInfo::Name = "svc_ClassInfo";
 const char *SVC_ClassInfo::LuaName = "SVC_ClassInfo";
 const int32_t SVC_ClassInfo::Type = svc_ClassInfo;
 
-LUA_FUNCTION_STATIC( SVC_ClassInfo_GetClasses )
+LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_GetClasses )
 {
-	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( state );
+	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( LUA );
 
 	LUA->CreateTable( );
 
@@ -599,9 +605,11 @@ LUA_FUNCTION_STATIC( SVC_ClassInfo_GetClasses )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( SVC_ClassInfo_SetClasses )
+LUA_FUNCTION_WRAP( SVC_ClassInfo_GetClasses );
+
+LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_SetClasses )
 {
-	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( state );
+	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
 
 	auto &classes = msg->Classes;
@@ -629,20 +637,22 @@ LUA_FUNCTION_STATIC( SVC_ClassInfo_SetClasses )
 	return 0;
 }
 
-void SVC_ClassInfo::SetupLua( lua_State *state )
+LUA_FUNCTION_WRAP( SVC_ClassInfo_SetClasses );
+
+void SVC_ClassInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	BoolMember<SVC_ClassInfo, &SVC_ClassInfo::CreateOnClient>( state, "CreateOnClient" );
-	SetupAccessors( state, "Classes", SVC_ClassInfo_GetClasses, SVC_ClassInfo_SetClasses );
-	NumberMember<SVC_ClassInfo, int32_t, &SVC_ClassInfo::NumServerClasses>( state, "NumServerClasses" );
+	BoolMember<SVC_ClassInfo, &SVC_ClassInfo::CreateOnClient>( LUA, "CreateOnClient" );
+	SetupAccessors( LUA, "Classes", SVC_ClassInfo_GetClasses, SVC_ClassInfo_SetClasses );
+	NumberMember<SVC_ClassInfo, int32_t, &SVC_ClassInfo::NumServerClasses>( LUA, "NumServerClasses" );
 }
 
 const char *SVC_SetPause::Name = "svc_SetPause";
 const char *SVC_SetPause::LuaName = "SVC_SetPause";
 const int32_t SVC_SetPause::Type = svc_SetPause;
 
-void SVC_SetPause::SetupLua( lua_State *state )
+void SVC_SetPause::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	BoolMember<SVC_SetPause, &SVC_SetPause::Paused>( state, "Paused" );
+	BoolMember<SVC_SetPause, &SVC_SetPause::Paused>( LUA, "Paused" );
 }
 
 const char *SVC_CreateStringTable::Name = "svc_CreateStringTable";
@@ -653,31 +663,31 @@ SVC_CreateStringTable::SVC_CreateStringTable( ) :
 	TableName( nullptr )
 { }
 
-void SVC_CreateStringTable::SetupLua( lua_State *state )
+void SVC_CreateStringTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringMember<SVC_CreateStringTable, &SVC_CreateStringTable::TableName>( state, "TableName" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::MaxEntries>( state, "MaxEntries" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::NumEntries>( state, "NumEntries" );
-	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::UserDataFixedSize>( state, "UserDataFixedSize" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSize>( state, "UserDataSize" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSizeBits>( state, "UserDataSizeBits" );
-	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::IsFilenames>( state, "IsFilenames" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::Length>( state, "Length" );
-	ReaderMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataIn>( state, "DataIn" );
-	WriterMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataOut>( state, "DataOut" );
+	StringMember<SVC_CreateStringTable, &SVC_CreateStringTable::TableName>( LUA, "TableName" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::MaxEntries>( LUA, "MaxEntries" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::NumEntries>( LUA, "NumEntries" );
+	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::UserDataFixedSize>( LUA, "UserDataFixedSize" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSize>( LUA, "UserDataSize" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSizeBits>( LUA, "UserDataSizeBits" );
+	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::IsFilenames>( LUA, "IsFilenames" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::Length>( LUA, "Length" );
+	ReaderMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_UpdateStringTable::Name = "svc_UpdateStringTable";
 const char *SVC_UpdateStringTable::LuaName = "SVC_UpdateStringTable";
 const int32_t SVC_UpdateStringTable::Type = svc_UpdateStringTable;
 
-void SVC_UpdateStringTable::SetupLua( lua_State *state )
+void SVC_UpdateStringTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::TableID>( state, "TableID" );
-	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::ChangedEntries>( state, "ChangedEntries" );
-	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::Length>( state, "Length" );
-	ReaderMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataIn>( state, "DataIn" );
-	WriterMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataOut>( state, "DataOut" );
+	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::TableID>( LUA, "TableID" );
+	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::ChangedEntries>( LUA, "ChangedEntries" );
+	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::Length>( LUA, "Length" );
+	ReaderMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_VoiceInit::Name = "svc_VoiceInit";
@@ -688,10 +698,10 @@ SVC_VoiceInit::SVC_VoiceInit( ) :
 	VoiceCodec( nullptr )
 { }
 
-void SVC_VoiceInit::SetupLua( lua_State *state )
+void SVC_VoiceInit::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringMember<SVC_VoiceInit, &SVC_VoiceInit::VoiceCodec>( state, "VoiceCodec" );
-	NumberMember<SVC_VoiceInit, int32_t, &SVC_VoiceInit::Quality>( state, "Quality" );
+	StringMember<SVC_VoiceInit, &SVC_VoiceInit::VoiceCodec>( LUA, "VoiceCodec" );
+	NumberMember<SVC_VoiceInit, int32_t, &SVC_VoiceInit::Quality>( LUA, "Quality" );
 }
 
 const char *SVC_VoiceData::Name = "svc_VoiceData";
@@ -702,21 +712,23 @@ SVC_VoiceData::SVC_VoiceData( ) :
 	DataOut( nullptr )
 { }
 
-LUA_FUNCTION_STATIC( SVC_VoiceData_GetDataOut )
+LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_GetDataOut )
 {
-	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( state );
+	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( LUA );
 
-	bf_write *writer = *sn_bf_write::Push( state );
+	bf_write *writer = *sn_bf_write::Push( LUA );
 
 	writer->StartWriting( msg->DataOut, BitByte( msg->Length ), 0, msg->Length );
 
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( SVC_VoiceData_SetDataOut )
+LUA_FUNCTION_WRAP( SVC_VoiceData_GetDataOut );
+
+LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_SetDataOut )
 {
-	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( state );
-	bf_write *writer = sn_bf_write::Get( state, 2 );
+	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( LUA );
+	bf_write *writer = sn_bf_write::Get( LUA, 2 );
 
 	msg->DataOut = writer->GetBasePointer( );
 	msg->Length = writer->GetNumBitsWritten( );
@@ -724,143 +736,145 @@ LUA_FUNCTION_STATIC( SVC_VoiceData_SetDataOut )
 	return 0;
 }
 
-void SVC_VoiceData::SetupLua( lua_State *state )
+LUA_FUNCTION_WRAP( SVC_VoiceData_SetDataOut );
+
+void SVC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_VoiceData, int32_t, &SVC_VoiceData::Client>( state, "Client" );
-	BoolMember<SVC_VoiceData, &SVC_VoiceData::Proximity>( state, "Proximity" );
-	NumberMember<SVC_VoiceData, int32_t, &SVC_VoiceData::Length>( state, "Length" );
-	NumberMember<SVC_VoiceData, uint64_t, &SVC_VoiceData::XUID>( state, "XUID" );
-	ReaderMember<SVC_VoiceData, &SVC_VoiceData::DataIn>( state, "DataIn" );
-	SetupAccessors( state, "DataOut", SVC_VoiceData_GetDataOut, SVC_VoiceData_SetDataOut );
+	NumberMember<SVC_VoiceData, int32_t, &SVC_VoiceData::Client>( LUA, "Client" );
+	BoolMember<SVC_VoiceData, &SVC_VoiceData::Proximity>( LUA, "Proximity" );
+	NumberMember<SVC_VoiceData, int32_t, &SVC_VoiceData::Length>( LUA, "Length" );
+	NumberMember<SVC_VoiceData, uint64_t, &SVC_VoiceData::XUID>( LUA, "XUID" );
+	ReaderMember<SVC_VoiceData, &SVC_VoiceData::DataIn>( LUA, "DataIn" );
+	SetupAccessors( LUA, "DataOut", SVC_VoiceData_GetDataOut, SVC_VoiceData_SetDataOut );
 }
 
 const char *SVC_Sounds::Name = "svc_Sounds";
 const char *SVC_Sounds::LuaName = "SVC_Sounds";
 const int32_t SVC_Sounds::Type = svc_Sounds;
 
-void SVC_Sounds::SetupLua( lua_State *state )
+void SVC_Sounds::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	BoolMember<SVC_Sounds, &SVC_Sounds::ReliableSound>( state, "ReliableSound" );
-	NumberMember<SVC_Sounds, int32_t, &SVC_Sounds::NumSounds>( state, "NumSounds" );
-	NumberMember<SVC_Sounds, int32_t, &SVC_Sounds::Length>( state, "Length" );
-	ReaderMember<SVC_Sounds, &SVC_Sounds::DataIn>( state, "DataIn" );
-	WriterMember<SVC_Sounds, &SVC_Sounds::DataOut>( state, "DataOut" );
+	BoolMember<SVC_Sounds, &SVC_Sounds::ReliableSound>( LUA, "ReliableSound" );
+	NumberMember<SVC_Sounds, int32_t, &SVC_Sounds::NumSounds>( LUA, "NumSounds" );
+	NumberMember<SVC_Sounds, int32_t, &SVC_Sounds::Length>( LUA, "Length" );
+	ReaderMember<SVC_Sounds, &SVC_Sounds::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_Sounds, &SVC_Sounds::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_SetView::Name = "svc_SetView";
 const char *SVC_SetView::LuaName = "SVC_SetView";
 const int32_t SVC_SetView::Type = svc_SetView;
 
-void SVC_SetView::SetupLua( lua_State *state )
+void SVC_SetView::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_SetView, int32_t, &SVC_SetView::EntityIndex>( state, "EntityIndex" );
+	NumberMember<SVC_SetView, int32_t, &SVC_SetView::EntityIndex>( LUA, "EntityIndex" );
 }
 
 const char *SVC_FixAngle::Name = "svc_FixAngle";
 const char *SVC_FixAngle::LuaName = "SVC_FixAngle";
 const int32_t SVC_FixAngle::Type = svc_FixAngle;
 
-void SVC_FixAngle::SetupLua( lua_State *state )
+void SVC_FixAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	BoolMember<SVC_FixAngle, &SVC_FixAngle::Relative>( state, "Relative" );
-	AngleMember<SVC_FixAngle, &SVC_FixAngle::Angle>( state, "Angle" );
+	BoolMember<SVC_FixAngle, &SVC_FixAngle::Relative>( LUA, "Relative" );
+	AngleMember<SVC_FixAngle, &SVC_FixAngle::Angle>( LUA, "Angle" );
 }
 
 const char *SVC_CrosshairAngle::Name = "svc_CrosshairAngle";
 const char *SVC_CrosshairAngle::LuaName = "SVC_CrosshairAngle";
 const int32_t SVC_CrosshairAngle::Type = svc_CrosshairAngle;
 
-void SVC_CrosshairAngle::SetupLua( lua_State *state )
+void SVC_CrosshairAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	AngleMember<SVC_CrosshairAngle, &SVC_CrosshairAngle::Angle>( state, "Angle" );
+	AngleMember<SVC_CrosshairAngle, &SVC_CrosshairAngle::Angle>( LUA, "Angle" );
 }
 
 const char *SVC_BSPDecal::Name = "svc_BSPDecal";
 const char *SVC_BSPDecal::LuaName = "SVC_BSPDecal";
 const int32_t SVC_BSPDecal::Type = svc_BSPDecal;
 
-void SVC_BSPDecal::SetupLua( lua_State *state )
+void SVC_BSPDecal::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	VectorMember<SVC_BSPDecal, &SVC_BSPDecal::Pos>( state, "Pos" );
-	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::DecalTextureIndex>( state, "DecalTextureIndex" );
-	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::EntityIndex>( state, "EntityIndex" );
-	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::ModelIndex>( state, "ModelIndex" );
-	BoolMember<SVC_BSPDecal, &SVC_BSPDecal::LowPriority>( state, "LowPriority" );
+	VectorMember<SVC_BSPDecal, &SVC_BSPDecal::Pos>( LUA, "Pos" );
+	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::DecalTextureIndex>( LUA, "DecalTextureIndex" );
+	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::EntityIndex>( LUA, "EntityIndex" );
+	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::ModelIndex>( LUA, "ModelIndex" );
+	BoolMember<SVC_BSPDecal, &SVC_BSPDecal::LowPriority>( LUA, "LowPriority" );
 }
 
 const char *SVC_UserMessage::Name = "svc_UserMessage";
 const char *SVC_UserMessage::LuaName = "SVC_UserMessage";
 const int32_t SVC_UserMessage::Type = svc_UserMessage;
 
-void SVC_UserMessage::SetupLua( lua_State *state )
+void SVC_UserMessage::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_UserMessage, int32_t, &SVC_UserMessage::MsgType>( state, "MsgType" );
-	NumberMember<SVC_UserMessage, int32_t, &SVC_UserMessage::Length>( state, "Length" );
-	ReaderMember<SVC_UserMessage, &SVC_UserMessage::DataIn>( state, "DataIn" );
-	WriterMember<SVC_UserMessage, &SVC_UserMessage::DataOut>( state, "DataOut" );
+	NumberMember<SVC_UserMessage, int32_t, &SVC_UserMessage::MsgType>( LUA, "MsgType" );
+	NumberMember<SVC_UserMessage, int32_t, &SVC_UserMessage::Length>( LUA, "Length" );
+	ReaderMember<SVC_UserMessage, &SVC_UserMessage::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_UserMessage, &SVC_UserMessage::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_EntityMessage::Name = "svc_EntityMessage";
 const char *SVC_EntityMessage::LuaName = "SVC_EntityMessage";
 const int32_t SVC_EntityMessage::Type = svc_EntityMessage;
 
-void SVC_EntityMessage::SetupLua( lua_State *state )
+void SVC_EntityMessage::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::EntityIndex>( state, "EntityIndex" );
-	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::ClassID>( state, "ClassID" );
-	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::Length>( state, "Length" );
-	ReaderMember<SVC_EntityMessage, &SVC_EntityMessage::DataIn>( state, "DataIn" );
-	WriterMember<SVC_EntityMessage, &SVC_EntityMessage::DataOut>( state, "DataOut" );
+	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::EntityIndex>( LUA, "EntityIndex" );
+	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::ClassID>( LUA, "ClassID" );
+	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::Length>( LUA, "Length" );
+	ReaderMember<SVC_EntityMessage, &SVC_EntityMessage::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_EntityMessage, &SVC_EntityMessage::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_GameEvent::Name = "svc_GameEvent";
 const char *SVC_GameEvent::LuaName = "SVC_GameEvent";
 const int32_t SVC_GameEvent::Type = svc_GameEvent;
 
-void SVC_GameEvent::SetupLua( lua_State *state )
+void SVC_GameEvent::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_GameEvent, int32_t, &SVC_GameEvent::Length>( state, "Length" );
-	ReaderMember<SVC_GameEvent, &SVC_GameEvent::DataIn>( state, "DataIn" );
-	WriterMember<SVC_GameEvent, &SVC_GameEvent::DataOut>( state, "DataOut" );
+	NumberMember<SVC_GameEvent, int32_t, &SVC_GameEvent::Length>( LUA, "Length" );
+	ReaderMember<SVC_GameEvent, &SVC_GameEvent::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_GameEvent, &SVC_GameEvent::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_PacketEntities::Name = "svc_PacketEntities";
 const char *SVC_PacketEntities::LuaName = "SVC_PacketEntities";
 const int32_t SVC_PacketEntities::Type = svc_PacketEntities;
 
-void SVC_PacketEntities::SetupLua( lua_State *state )
+void SVC_PacketEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::MaxEntries>( state, "MaxEntries" );
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::UpdatedEntries>( state, "UpdatedEntries" );
-	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::Delta>( state, "Delta" );
-	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::UpdateBaseline>( state, "UpdateBaseline" );
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::Baseline>( state, "Baseline" );
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::DeltaFrom>( state, "DeltaFrom" );
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::Length>( state, "Length" );
-	ReaderMember<SVC_PacketEntities, &SVC_PacketEntities::DataIn>( state, "DataIn" );
-	WriterMember<SVC_PacketEntities, &SVC_PacketEntities::DataOut>( state, "DataOut" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::MaxEntries>( LUA, "MaxEntries" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::UpdatedEntries>( LUA, "UpdatedEntries" );
+	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::Delta>( LUA, "Delta" );
+	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::UpdateBaseline>( LUA, "UpdateBaseline" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::Baseline>( LUA, "Baseline" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::DeltaFrom>( LUA, "DeltaFrom" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::Length>( LUA, "Length" );
+	ReaderMember<SVC_PacketEntities, &SVC_PacketEntities::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_PacketEntities, &SVC_PacketEntities::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_TempEntities::Name = "svc_TempEntities";
 const char *SVC_TempEntities::LuaName = "SVC_TempEntities";
 const int32_t SVC_TempEntities::Type = svc_TempEntities;
 
-void SVC_TempEntities::SetupLua( lua_State *state )
+void SVC_TempEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_TempEntities, int32_t, &SVC_TempEntities::NumEntries>( state, "NumEntries" );
-	NumberMember<SVC_TempEntities, int32_t, &SVC_TempEntities::Length>( state, "Length" );
-	ReaderMember<SVC_TempEntities, &SVC_TempEntities::DataIn>( state, "DataIn" );
-	WriterMember<SVC_TempEntities, &SVC_TempEntities::DataOut>( state, "DataOut" );
+	NumberMember<SVC_TempEntities, int32_t, &SVC_TempEntities::NumEntries>( LUA, "NumEntries" );
+	NumberMember<SVC_TempEntities, int32_t, &SVC_TempEntities::Length>( LUA, "Length" );
+	ReaderMember<SVC_TempEntities, &SVC_TempEntities::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_TempEntities, &SVC_TempEntities::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_Prefetch::Name = "svc_Prefetch";
 const char *SVC_Prefetch::LuaName = "SVC_Prefetch";
 const int32_t SVC_Prefetch::Type = svc_Prefetch;
 
-void SVC_Prefetch::SetupLua( lua_State *state )
+void SVC_Prefetch::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundType>( state, "SoundType" );
-	NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundIndex>( state, "SoundIndex" );
+	NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundType>( LUA, "SoundType" );
+	NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundIndex>( LUA, "SoundIndex" );
 }
 
 const char *SVC_Menu::Name = "svc_Menu";
@@ -879,22 +893,22 @@ SVC_Menu::~SVC_Menu( )
 
 // KeyValues *MenuKeyValues;
 
-void SVC_Menu::SetupLua( lua_State *state )
+void SVC_Menu::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	EnumMember<SVC_Menu, DIALOG_TYPE, &SVC_Menu::DialogType>( state, "DialogType" );
-	NumberMember<SVC_Menu, int32_t, &SVC_Menu::Length>( state, "Length" );
+	EnumMember<SVC_Menu, DIALOG_TYPE, &SVC_Menu::DialogType>( LUA, "DialogType" );
+	NumberMember<SVC_Menu, int32_t, &SVC_Menu::Length>( LUA, "Length" );
 }
 
 const char *SVC_GameEventList::Name = "svc_GameEventList";
 const char *SVC_GameEventList::LuaName = "SVC_GameEventList";
 const int32_t SVC_GameEventList::Type = svc_GameEventList;
 
-void SVC_GameEventList::SetupLua( lua_State *state )
+void SVC_GameEventList::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_GameEventList, int32_t, &SVC_GameEventList::NumEvents>( state, "NumEvents" );
-	NumberMember<SVC_GameEventList, int32_t, &SVC_GameEventList::Length>( state, "Length" );
-	ReaderMember<SVC_GameEventList, &SVC_GameEventList::DataIn>( state, "DataIn" );
-	WriterMember<SVC_GameEventList, &SVC_GameEventList::DataOut>( state, "DataOut" );
+	NumberMember<SVC_GameEventList, int32_t, &SVC_GameEventList::NumEvents>( LUA, "NumEvents" );
+	NumberMember<SVC_GameEventList, int32_t, &SVC_GameEventList::Length>( LUA, "Length" );
+	ReaderMember<SVC_GameEventList, &SVC_GameEventList::DataIn>( LUA, "DataIn" );
+	WriterMember<SVC_GameEventList, &SVC_GameEventList::DataOut>( LUA, "DataOut" );
 }
 
 const char *SVC_GetCvarValue::Name = "svc_GetCvarValue";
@@ -905,10 +919,10 @@ SVC_GetCvarValue::SVC_GetCvarValue( ) :
 	CvarName( nullptr )
 { }
 
-void SVC_GetCvarValue::SetupLua( lua_State *state )
+void SVC_GetCvarValue::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_GetCvarValue, QueryCvarCookie_t, &SVC_GetCvarValue::Cookie>( state, "Cookie" );
-	StringMember<SVC_GetCvarValue, &SVC_GetCvarValue::CvarName>( state, "CvarName" );
+	NumberMember<SVC_GetCvarValue, QueryCvarCookie_t, &SVC_GetCvarValue::Cookie>( LUA, "Cookie" );
+	StringMember<SVC_GetCvarValue, &SVC_GetCvarValue::CvarName>( LUA, "CvarName" );
 }
 
 const char *SVC_CmdKeyValues::Name = "svc_CmdKeyValues";
@@ -927,7 +941,7 @@ SVC_CmdKeyValues::~SVC_CmdKeyValues( )
 
 // KeyValues *CmdKeyValues;
 
-void SVC_CmdKeyValues::SetupLua( lua_State *state )
+void SVC_CmdKeyValues::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 
 }
@@ -936,18 +950,18 @@ const char *SVC_GMod_ServerToClient::Name = "svc_GMod_ServerToClient";
 const char *SVC_GMod_ServerToClient::LuaName = "SVC_GMod_ServerToClient";
 const int32_t SVC_GMod_ServerToClient::Type = svc_GMod_ServerToClient;
 
-void SVC_GMod_ServerToClient::SetupLua( lua_State *state )
+void SVC_GMod_ServerToClient::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	ReaderMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::Data>( state, "Data" );
+	ReaderMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::Data>( LUA, "Data" );
 }
 
 const char *CLC_ClientInfo::Name = "clc_ClientInfo";
 const char *CLC_ClientInfo::LuaName = "CLC_ClientInfo";
 const int32_t CLC_ClientInfo::Type = clc_ClientInfo;
 
-LUA_FUNCTION_STATIC( CLC_ClientInfo_GetCustomFiles )
+LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_GetCustomFiles )
 {
-	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( state );
+	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( LUA );
 
 	LUA->CreateTable( );
 
@@ -961,9 +975,11 @@ LUA_FUNCTION_STATIC( CLC_ClientInfo_GetCustomFiles )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( CLC_ClientInfo_SetCustomFiles )
+LUA_FUNCTION_WRAP( CLC_ClientInfo_GetCustomFiles );
+
+LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_SetCustomFiles )
 {
-	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( state );
+	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
 
 	memset( msg->CustomFiles, 0, sizeof( msg->CustomFiles ) );
@@ -979,58 +995,60 @@ LUA_FUNCTION_STATIC( CLC_ClientInfo_SetCustomFiles )
 	return 0;
 }
 
-void CLC_ClientInfo::SetupLua( lua_State *state )
+LUA_FUNCTION_WRAP( CLC_ClientInfo_SetCustomFiles );
+
+void CLC_ClientInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<CLC_ClientInfo, CRC32_t, &CLC_ClientInfo::SendTableCRC>( state, "SendTableCRC" );
-	NumberMember<CLC_ClientInfo, int32_t, &CLC_ClientInfo::ServerCount>( state, "ServerCount" );
-	BoolMember<CLC_ClientInfo, &CLC_ClientInfo::HLTV>( state, "HLTV" );
-	NumberMember<CLC_ClientInfo, uint32_t, &CLC_ClientInfo::FriendsID>( state, "FriendsID" );
-	StringArrayMember<CLC_ClientInfo, 32, &CLC_ClientInfo::FriendsName>( state, "FriendsName" );
-	SetupAccessors( state, "CustomFiles", CLC_ClientInfo_GetCustomFiles, CLC_ClientInfo_SetCustomFiles );
+	NumberMember<CLC_ClientInfo, CRC32_t, &CLC_ClientInfo::SendTableCRC>( LUA, "SendTableCRC" );
+	NumberMember<CLC_ClientInfo, int32_t, &CLC_ClientInfo::ServerCount>( LUA, "ServerCount" );
+	BoolMember<CLC_ClientInfo, &CLC_ClientInfo::HLTV>( LUA, "HLTV" );
+	NumberMember<CLC_ClientInfo, uint32_t, &CLC_ClientInfo::FriendsID>( LUA, "FriendsID" );
+	StringArrayMember<CLC_ClientInfo, 32, &CLC_ClientInfo::FriendsName>( LUA, "FriendsName" );
+	SetupAccessors( LUA, "CustomFiles", CLC_ClientInfo_GetCustomFiles, CLC_ClientInfo_SetCustomFiles );
 }
 
 const char *CLC_Move::Name = "clc_Move";
 const char *CLC_Move::LuaName = "CLC_Move";
 const int32_t CLC_Move::Type = clc_Move;
 
-void CLC_Move::SetupLua( lua_State *state )
+void CLC_Move::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<CLC_Move, int32_t, &CLC_Move::BackupCommands>( state, "BackupCommands" );
-	NumberMember<CLC_Move, int32_t, &CLC_Move::NewCommands>( state, "NewCommands" );
-	NumberMember<CLC_Move, int32_t, &CLC_Move::Length>( state, "Length" );
-	ReaderMember<CLC_Move, &CLC_Move::DataIn>( state, "DataIn" );
-	WriterMember<CLC_Move, &CLC_Move::DataOut>( state, "DataOut" );
+	NumberMember<CLC_Move, int32_t, &CLC_Move::BackupCommands>( LUA, "BackupCommands" );
+	NumberMember<CLC_Move, int32_t, &CLC_Move::NewCommands>( LUA, "NewCommands" );
+	NumberMember<CLC_Move, int32_t, &CLC_Move::Length>( LUA, "Length" );
+	ReaderMember<CLC_Move, &CLC_Move::DataIn>( LUA, "DataIn" );
+	WriterMember<CLC_Move, &CLC_Move::DataOut>( LUA, "DataOut" );
 }
 
 const char *CLC_VoiceData::Name = "clc_VoiceData";
 const char *CLC_VoiceData::LuaName = "CLC_VoiceData";
 const int32_t CLC_VoiceData::Type = clc_VoiceData;
 
-void CLC_VoiceData::SetupLua( lua_State *state )
+void CLC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<CLC_VoiceData, int32_t, &CLC_VoiceData::Length>( state, "Length" );
-	ReaderMember<CLC_VoiceData, &CLC_VoiceData::DataIn>( state, "DataIn" );
-	WriterMember<CLC_VoiceData, &CLC_VoiceData::DataOut>( state, "DataOut" );
-	NumberMember<CLC_VoiceData, uint64_t, &CLC_VoiceData::XUID>( state, "XUID" );
+	NumberMember<CLC_VoiceData, int32_t, &CLC_VoiceData::Length>( LUA, "Length" );
+	ReaderMember<CLC_VoiceData, &CLC_VoiceData::DataIn>( LUA, "DataIn" );
+	WriterMember<CLC_VoiceData, &CLC_VoiceData::DataOut>( LUA, "DataOut" );
+	NumberMember<CLC_VoiceData, uint64_t, &CLC_VoiceData::XUID>( LUA, "XUID" );
 }
 
 const char *CLC_BaselineAck::Name = "clc_BaselineAck";
 const char *CLC_BaselineAck::LuaName = "CLC_BaselineAck";
 const int32_t CLC_BaselineAck::Type = clc_BaselineAck;
 
-void CLC_BaselineAck::SetupLua( lua_State *state )
+void CLC_BaselineAck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<CLC_BaselineAck, int32_t, &CLC_BaselineAck::BaselineTick>( state, "BaselineTick" );
-	NumberMember<CLC_BaselineAck, int32_t, &CLC_BaselineAck::BaselineNr>( state, "BaselineNr" );
+	NumberMember<CLC_BaselineAck, int32_t, &CLC_BaselineAck::BaselineTick>( LUA, "BaselineTick" );
+	NumberMember<CLC_BaselineAck, int32_t, &CLC_BaselineAck::BaselineNr>( LUA, "BaselineNr" );
 }
 
 const char *CLC_ListenEvents::Name = "clc_ListenEvents";
 const char *CLC_ListenEvents::LuaName = "CLC_ListenEvents";
 const int32_t CLC_ListenEvents::Type = clc_ListenEvents;
 
-LUA_FUNCTION_STATIC( CLC_ListenEvents_GetEventArray )
+LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_GetEventArray )
 {
-	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( state );
+	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( LUA );
 
 	LUA->CreateTable( );
 
@@ -1046,9 +1064,11 @@ LUA_FUNCTION_STATIC( CLC_ListenEvents_GetEventArray )
 	return 1;
 }
 
-LUA_FUNCTION_STATIC( CLC_ListenEvents_SetEventArray )
+LUA_FUNCTION_WRAP( CLC_ListenEvents_GetEventArray );
+
+LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_SetEventArray )
 {
-	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( state );
+	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
 
 	size_t idx = 0;
@@ -1067,9 +1087,11 @@ LUA_FUNCTION_STATIC( CLC_ListenEvents_SetEventArray )
 	return 0;
 }
 
-void CLC_ListenEvents::SetupLua( lua_State *state )
+LUA_FUNCTION_WRAP( CLC_ListenEvents_SetEventArray );
+
+void CLC_ListenEvents::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	SetupAccessors( state, "EventArray", CLC_ListenEvents_GetEventArray, CLC_ListenEvents_SetEventArray );
+	SetupAccessors( LUA, "EventArray", CLC_ListenEvents_GetEventArray, CLC_ListenEvents_SetEventArray );
 }
 
 const char *CLC_RespondCvarValue::Name = "clc_RespondCvarValue";
@@ -1080,23 +1102,23 @@ CLC_RespondCvarValue::CLC_RespondCvarValue( ) :
 	CvarName( nullptr ), CvarValue( nullptr )
 { }
 
-void CLC_RespondCvarValue::SetupLua( lua_State *state )
+void CLC_RespondCvarValue::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<CLC_RespondCvarValue, QueryCvarCookie_t, &CLC_RespondCvarValue::Cookie>( state, "Cookie" );
-	StringMember<CLC_RespondCvarValue, &CLC_RespondCvarValue::CvarName>( state, "CvarName" );
-	StringMember<CLC_RespondCvarValue, &CLC_RespondCvarValue::CvarValue>( state, "CvarValue" );
-	EnumMember<CLC_RespondCvarValue, EQueryCvarValueStatus, &CLC_RespondCvarValue::StatusCode>( state, "StatusCode" );
+	NumberMember<CLC_RespondCvarValue, QueryCvarCookie_t, &CLC_RespondCvarValue::Cookie>( LUA, "Cookie" );
+	StringMember<CLC_RespondCvarValue, &CLC_RespondCvarValue::CvarName>( LUA, "CvarName" );
+	StringMember<CLC_RespondCvarValue, &CLC_RespondCvarValue::CvarValue>( LUA, "CvarValue" );
+	EnumMember<CLC_RespondCvarValue, EQueryCvarValueStatus, &CLC_RespondCvarValue::StatusCode>( LUA, "StatusCode" );
 }
 
 const char *CLC_FileCRCCheck::Name = "clc_FileCRCCheck";
 const char *CLC_FileCRCCheck::LuaName = "CLC_FileCRCCheck";
 const int32_t CLC_FileCRCCheck::Type = clc_FileCRCCheck;
 
-void CLC_FileCRCCheck::SetupLua( lua_State *state )
+void CLC_FileCRCCheck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringArrayMember<CLC_FileCRCCheck, 260, &CLC_FileCRCCheck::PathID>( state, "PathID" );
-	StringArrayMember<CLC_FileCRCCheck, 260, &CLC_FileCRCCheck::Filename>( state, "Filename" );
-	NumberMember<CLC_FileCRCCheck, CRC32_t, &CLC_FileCRCCheck::CRC>( state, "CRC" );
+	StringArrayMember<CLC_FileCRCCheck, 260, &CLC_FileCRCCheck::PathID>( LUA, "PathID" );
+	StringArrayMember<CLC_FileCRCCheck, 260, &CLC_FileCRCCheck::Filename>( LUA, "Filename" );
+	NumberMember<CLC_FileCRCCheck, CRC32_t, &CLC_FileCRCCheck::CRC>( LUA, "CRC" );
 }
 
 const char *CLC_CmdKeyValues::Name = "clc_CmdKeyValues";
@@ -1115,7 +1137,7 @@ CLC_CmdKeyValues::~CLC_CmdKeyValues( )
 
 // KeyValues *CmdKeyValues;
 
-void CLC_CmdKeyValues::SetupLua( lua_State *state )
+void CLC_CmdKeyValues::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 
 }
@@ -1124,20 +1146,20 @@ const char *CLC_FileMD5Check::Name = "clc_FileMD5Check";
 const char *CLC_FileMD5Check::LuaName = "CLC_FileMD5Check";
 const int32_t CLC_FileMD5Check::Type = clc_FileMD5Check;
 
-void CLC_FileMD5Check::SetupLua( lua_State *state )
+void CLC_FileMD5Check::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	StringArrayMember<CLC_FileMD5Check, 260, &CLC_FileMD5Check::PathID>( state, "PathID" );
-	StringArrayMember<CLC_FileMD5Check, 260, &CLC_FileMD5Check::Filename>( state, "Filename" );
-	ArrayMember<CLC_FileMD5Check, uint8_t, 16, &CLC_FileMD5Check::MD5>( state, "MD5" );
+	StringArrayMember<CLC_FileMD5Check, 260, &CLC_FileMD5Check::PathID>( LUA, "PathID" );
+	StringArrayMember<CLC_FileMD5Check, 260, &CLC_FileMD5Check::Filename>( LUA, "Filename" );
+	ArrayMember<CLC_FileMD5Check, uint8_t, 16, &CLC_FileMD5Check::MD5>( LUA, "MD5" );
 }
 
 const char *CLC_GMod_ClientToServer::Name = "clc_GMod_ClientToServer";
 const char *CLC_GMod_ClientToServer::LuaName = "CLC_GMod_ClientToServer";
 const int32_t CLC_GMod_ClientToServer::Type = clc_GMod_ClientToServer;
 
-void CLC_GMod_ClientToServer::SetupLua( lua_State *state )
+void CLC_GMod_ClientToServer::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	ReaderMember<CLC_GMod_ClientToServer, &CLC_GMod_ClientToServer::Data>( state, "Data" );
+	ReaderMember<CLC_GMod_ClientToServer, &CLC_GMod_ClientToServer::Data>( LUA, "Data" );
 }
 
 }

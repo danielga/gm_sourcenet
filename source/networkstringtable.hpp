@@ -7,10 +7,10 @@ class INetworkStringTable;
 namespace NetworkStringTable
 {
 
-void Push( lua_State *state, INetworkStringTable *table );
+void Push( GarrysMod::Lua::ILuaBase *LUA, INetworkStringTable *table );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

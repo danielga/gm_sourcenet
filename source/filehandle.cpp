@@ -3,16 +3,10 @@
 namespace FileHandle
 {
 
-struct UserData
-{
-	FileHandle_t file;
-	uint8_t type;
-};
-
-const uint8_t metatype = global::metabase + 6;
+uint8_t metatype = GarrysMod::Lua::Type::NONE;
 const char *metaname = "FileHandle_t";
 
-void Push( lua_State *state, FileHandle_t file )
+void Push( GarrysMod::Lua::ILuaBase *LUA, FileHandle_t file )
 {
 	if( file == nullptr )
 	{
@@ -20,38 +14,36 @@ void Push( lua_State *state, FileHandle_t file )
 		return;
 	}
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->file = file;
-	udata->type = metatype;
+	LUA->PushUserType( file, metatype );
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 }
 
-FileHandle_t Get( lua_State *state, int32_t index )
+FileHandle_t Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) )->file;
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<FileHandle_t>( index, metatype );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
+	LUA->PushBool( Get( LUA, 1 ) == Get( LUA, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( state, global::tostring_format, metaname, Get( state, 1 ) );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -71,7 +63,7 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );

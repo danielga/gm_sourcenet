@@ -5,8 +5,8 @@
 namespace NetworkStringTableContainer
 {
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

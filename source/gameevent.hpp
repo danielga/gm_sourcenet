@@ -8,16 +8,16 @@ class IGameEvent;
 namespace GameEvent
 {
 
-void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager );
+void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager );
 
 IGameEvent *Get(
-	lua_State *state,
+	GarrysMod::Lua::ILuaBase *LUA,
 	int32_t index,
 	IGameEventManager2 **manager = nullptr
 );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

@@ -4,16 +4,10 @@
 namespace NetworkStringTable
 {
 
-struct UserData
-{
-	INetworkStringTable *table;
-	uint8_t type;
-};
-
-static const uint8_t metatype = global::metabase + 11;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "IGameEvent";
 
-void Push( lua_State *state, INetworkStringTable *table )
+void Push( GarrysMod::Lua::ILuaBase *LUA, INetworkStringTable *table )
 {
 	if( table == nullptr )
 	{
@@ -21,27 +15,25 @@ void Push( lua_State *state, INetworkStringTable *table )
 		return;
 	}
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->type = metatype;
-	udata->table = table;
+	LUA->PushUserType( table, metatype );
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 }
 
-INetworkStringTable *Get( lua_State *state, int32_t index )
+INetworkStringTable *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) )->table;
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<INetworkStringTable>( index, metatype );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	INetworkStringTable *table1 = Get( state, 1 );
-	INetworkStringTable *table2 = Get( state, 2 );
+	INetworkStringTable *table1 = Get( LUA, 1 );
+	INetworkStringTable *table2 = Get( LUA, 2 );
 
 	LUA->PushBool( table1 == table2 );
 
@@ -49,16 +41,16 @@ LUA_FUNCTION_STATIC( eq )
 }
 LUA_FUNCTION_STATIC( tostring )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
-	lua_pushfstring( state, global::tostring_format, metaname, table );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, table );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetName )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
 	LUA->PushString( table->GetTableName( ) );
 
@@ -67,7 +59,7 @@ LUA_FUNCTION_STATIC( GetName )
 
 LUA_FUNCTION_STATIC( GetID )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
 	LUA->PushNumber( table->GetTableId( ) );
 
@@ -76,7 +68,7 @@ LUA_FUNCTION_STATIC( GetID )
 
 LUA_FUNCTION_STATIC( GetNumStrings )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
 	LUA->PushNumber( table->GetNumStrings( ) );
 
@@ -85,7 +77,7 @@ LUA_FUNCTION_STATIC( GetNumStrings )
 
 LUA_FUNCTION_STATIC( GetMaxStrings )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
 	LUA->PushNumber( table->GetMaxStrings( ) );
 
@@ -94,7 +86,7 @@ LUA_FUNCTION_STATIC( GetMaxStrings )
 
 LUA_FUNCTION_STATIC( GetEntryBits )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 
 	LUA->PushNumber( table->GetEntryBits( ) );
 
@@ -103,7 +95,7 @@ LUA_FUNCTION_STATIC( GetEntryBits )
 
 LUA_FUNCTION_STATIC( SetTick )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	table->SetTick( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -113,7 +105,7 @@ LUA_FUNCTION_STATIC( SetTick )
 
 LUA_FUNCTION_STATIC( ChangedSinceTick )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	LUA->PushBool( table->ChangedSinceTick( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
@@ -123,7 +115,7 @@ LUA_FUNCTION_STATIC( ChangedSinceTick )
 
 LUA_FUNCTION_STATIC( AddString )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
@@ -139,7 +131,7 @@ LUA_FUNCTION_STATIC( AddString )
 
 LUA_FUNCTION_STATIC( SetStringUserData )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	const char *str = table->GetString( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -153,7 +145,7 @@ LUA_FUNCTION_STATIC( SetStringUserData )
 
 LUA_FUNCTION_STATIC( FindStringIndex )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( table->FindStringIndex( LUA->GetString( 2 ) ) );
@@ -163,7 +155,7 @@ LUA_FUNCTION_STATIC( FindStringIndex )
 
 LUA_FUNCTION_STATIC( GetString )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	const char *str = table->GetString( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
@@ -177,7 +169,7 @@ LUA_FUNCTION_STATIC( GetString )
 
 LUA_FUNCTION_STATIC( GetStringUserData )
 {
-	INetworkStringTable *table = Get( state, 1 );
+	INetworkStringTable *table = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t len = 0;
@@ -192,9 +184,9 @@ LUA_FUNCTION_STATIC( GetStringUserData )
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -250,7 +242,7 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );

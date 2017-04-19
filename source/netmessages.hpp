@@ -52,7 +52,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t Tick;
 	float HostFrameTime;
@@ -68,7 +68,7 @@ public:
 
 	NET_StringCmd( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	const char *Command;
 
@@ -83,7 +83,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	typedef struct cvar_s
 	{
@@ -101,7 +101,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t SignonState;
 	int32_t SpawnCount;
@@ -116,7 +116,7 @@ public:
 
 	SVC_Print( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	const char *Text;
 
@@ -133,7 +133,7 @@ public:
 
 	SVC_ServerInfo( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t Protocol;
 	int32_t ServerCount;
@@ -169,7 +169,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bool NeedsDecoder;
 	int32_t Length;
@@ -184,7 +184,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	typedef struct class_s
 	{
@@ -205,7 +205,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bool Paused;
 };
@@ -219,7 +219,7 @@ public:
 
 	SVC_CreateStringTable( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	const char *TableName;
 	int32_t MaxEntries;
@@ -243,7 +243,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t TableID;
 	int32_t ChangedEntries;
@@ -261,7 +261,7 @@ public:
 
 	SVC_VoiceInit( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	const char *VoiceCodec;
 	int32_t Quality;
@@ -279,7 +279,7 @@ public:
 
 	SVC_VoiceData( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t Client;
 	bool Proximity;
@@ -296,7 +296,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bool ReliableSound;
 	int32_t NumSounds;
@@ -312,7 +312,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t EntityIndex;
 };
@@ -324,7 +324,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bool Relative; 
 	QAngle Angle;
@@ -337,7 +337,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	QAngle Angle;
 };
@@ -349,7 +349,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	Vector Pos;
 	int32_t DecalTextureIndex;
@@ -365,7 +365,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t MsgType;
 	int32_t Length;
@@ -380,7 +380,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t EntityIndex;
 	int32_t ClassID;
@@ -396,7 +396,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t Length;
 	bf_read DataIn;
@@ -410,7 +410,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t MaxEntries;
 	int32_t UpdatedEntries;
@@ -430,7 +430,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t NumEntries;
 	int32_t Length;
@@ -445,7 +445,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	enum
 	{
@@ -467,7 +467,7 @@ public:
 
 	~SVC_Menu( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	KeyValues *MenuKeyValues;
 	DIALOG_TYPE DialogType;
@@ -481,7 +481,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t NumEvents;
 	int32_t Length;
@@ -498,7 +498,7 @@ public:
 
 	SVC_GetCvarValue( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	QueryCvarCookie_t Cookie;
 	const char *CvarName;
@@ -518,7 +518,7 @@ public:
 
 	~SVC_CmdKeyValues( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	KeyValues *CmdKeyValues;
 };
@@ -530,7 +530,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bf_read Data;
 };
@@ -542,7 +542,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	CRC32_t SendTableCRC;
 	int32_t ServerCount;
@@ -559,7 +559,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t BackupCommands;
 	int32_t NewCommands;
@@ -575,7 +575,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t Length;
 	bf_read DataIn;
@@ -590,7 +590,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	int32_t BaselineTick;
 	int32_t BaselineNr;
@@ -603,7 +603,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	CBitVec<MAX_EVENT_NUMBER> EventArray;
 };
@@ -617,7 +617,7 @@ public:
 
 	CLC_RespondCvarValue( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	QueryCvarCookie_t Cookie;
 	const char *CvarName;
@@ -636,7 +636,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	char PathID[260];
 	char Filename[260];
@@ -653,7 +653,7 @@ public:
 	CLC_CmdKeyValues( );
 	~CLC_CmdKeyValues( );
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	KeyValues *CmdKeyValues;
 };
@@ -665,7 +665,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	char PathID[260];
 	char Filename[260];
@@ -679,7 +679,7 @@ public:
 	static const char *LuaName;
 	static const int32_t Type;
 
-	static void SetupLua( lua_State *state );
+	static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
 	bf_read Data;
 };

@@ -9,19 +9,19 @@ namespace dataFragments
 {
 
 void Push(
-	lua_State *state,
-	dataFragments_t *datafrag,
+	GarrysMod::Lua::ILuaBase *LUA,
+	dataFragments_t *datafrag = nullptr,
 	CNetChan *netchan = nullptr
 );
 
 dataFragments_t *Get(
-	lua_State *state,
+	GarrysMod::Lua::ILuaBase *LUA,
 	int32_t index,
 	CNetChan **netchan = nullptr
 );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

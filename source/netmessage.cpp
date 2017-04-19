@@ -71,18 +71,17 @@ static const uintptr_t CLC_CmdKeyValues_offset = 1258;
 
 #endif
 
-struct UserData
+struct Container
 {
 	INetMessage *msg;
-	uint8_t type;
 	CNetChan *netchan;
 };
 
-const uint8_t metatype = global::metabase + 14;
-const char *metaname = "INetMessage";
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static const char *metaname = "INetMessage";
 static const char *table_name = "sourcenet_INetMessage";
 
-static std::unordered_map<std::string, void ( * )( lua_State *state )> netmessages_setup;
+static std::unordered_map<std::string, void ( * )( GarrysMod::Lua::ILuaBase *LUA )> netmessages_setup;
 static std::unordered_map<std::string, void **> netmessages_vtables;
 
 static bool IsValid( INetMessage *msg, CNetChan *netchan )
@@ -90,7 +89,7 @@ static bool IsValid( INetMessage *msg, CNetChan *netchan )
 	return msg != nullptr && NetChannel::IsValid( netchan );
 }
 
-void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
+void Push( GarrysMod::Lua::ILuaBase *LUA, INetMessage *msg, CNetChan *netchan )
 {
 	if( msg == nullptr )
 	{
@@ -109,21 +108,20 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 
 	LUA->Pop( 1 );
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
+	Container *udata = LUA->NewUserType<Container>( metatype );
 	udata->msg = msg;
-	udata->type = metatype;
 	udata->netchan = netchan;
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
 
 	auto it = netmessages_setup.find( msg->GetName( ) );
 	if( it != netmessages_setup.end( ) )
-		( *it ).second( state );
+		( *it ).second( LUA );
 
-	lua_setfenv( state, -3 );
+	lua_setfenv( LUA->state, -3 );
 
 	if( netchan != nullptr )
 	{
@@ -134,26 +132,27 @@ void Push( lua_State *state, INetMessage *msg, CNetChan *netchan )
 	}
 }
 
-inline UserData *GetUserData( lua_State *state, int32_t index )
+inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<Container>( index, metatype );
 }
 
-INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan )
+INetMessage *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, CNetChan **netchan )
 {
-	UserData *udata = GetUserData( state, index );
+	Container *udata = GetUserData( LUA, index );
 	INetMessage *msg = udata->msg;
-	if( !IsValid( msg, udata->netchan ) )
-		global::ThrowError( state, "invalid %s", metaname );
+	CNetChan *netchannel = udata->netchan;
+	if( !IsValid( msg, netchannel ) )
+		global::ThrowError( LUA, "invalid %s", metaname );
 
-	if( netchan != nullptr )
-		*netchan = udata->netchan;
+	if( netchannel != nullptr )
+		*netchan = netchannel;
 
 	return msg;
 }
 
-void Destroy( lua_State *state, CNetChan *netchan )
+void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan )
 {
 	LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 
@@ -169,68 +168,69 @@ void Destroy( lua_State *state, CNetChan *netchan )
 
 LUA_FUNCTION_STATIC( gc )
 {
-	UserData *udata = GetUserData( state, 1 );
+	Container *udata = GetUserData( LUA, 1 );
+	INetMessage *netmsg = udata->msg;
+	INetChannel *netchannel = udata->netchan;
 
-	if( udata->netchan == nullptr )
-		delete udata->msg;
+	if( netchannel == nullptr )
+		delete netmsg;
 
-	udata->netchan = nullptr;
-	udata->msg = nullptr;
+	LUA->SetUserType( 1, nullptr );
 
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	LUA->PushBool( Get( state, 1 ) == Get( state, 2 ) );
+	LUA->PushBool( Get( LUA, 1 ) == Get( LUA, 2 ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	LUA->PushString( Get( state, 1 )->ToString( ) );
+	LUA->PushString( Get( LUA, 1 )->ToString( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetType )
 {
-	LUA->PushNumber( Get( state, 1 )->GetType( ) );
+	LUA->PushNumber( Get( LUA, 1 )->GetType( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetGroup )
 {
-	LUA->PushNumber( Get( state, 1 )->GetGroup( ) );
+	LUA->PushNumber( Get( LUA, 1 )->GetGroup( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetName )
 {
-	LUA->PushString( Get( state, 1 )->GetName( ) );
+	LUA->PushString( Get( LUA, 1 )->GetName( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetNetChannel )
 {
-	NetChannel::Push( state, static_cast<CNetChan *>( Get( state, 1 )->GetNetChannel( ) ) );
+	NetChannel::Push( LUA, static_cast<CNetChan *>( Get( LUA, 1 )->GetNetChannel( ) ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetNetChannel )
 {
-	Get( state, 1 )->SetNetChannel( NetChannel::Get( state, 2 ) );
+	Get( LUA, 1 )->SetNetChannel( NetChannel::Get( LUA, 2 ) );
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( IsReliable )
 {
-	LUA->PushBool( Get( state, 1 )->IsReliable( ) );
+	LUA->PushBool( Get( LUA, 1 )->IsReliable( ) );
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SetReliable )
 {
-	INetMessage *msg = Get( state, 1 );
+	INetMessage *msg = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 
 	msg->SetReliable( LUA->GetBool( 2 ) );
@@ -240,8 +240,8 @@ LUA_FUNCTION_STATIC( SetReliable )
 
 LUA_FUNCTION_STATIC( ReadFromBuffer )
 {
-	INetMessage *msg = Get( state, 1 );
-	bf_read *reader = sn_bf_read::Get( state, 2 );
+	INetMessage *msg = Get( LUA, 1 );
+	bf_read *reader = sn_bf_read::Get( LUA, 2 );
 
 	LUA->PushBool( msg->ReadFromBuffer( *reader ) );
 
@@ -250,8 +250,8 @@ LUA_FUNCTION_STATIC( ReadFromBuffer )
 
 LUA_FUNCTION_STATIC( WriteToBuffer )
 {
-	INetMessage *msg = Get( state, 1 );
-	bf_write *writer = sn_bf_write::Get( state, 2 );
+	INetMessage *msg = Get( LUA, 1 );
+	bf_write *writer = sn_bf_write::Get( LUA, 2 );
 
 	LUA->PushBool( msg->WriteToBuffer( *writer ) );
 
@@ -260,7 +260,7 @@ LUA_FUNCTION_STATIC( WriteToBuffer )
 
 LUA_FUNCTION_STATIC( Process )
 {
-	LUA->PushBool( Get( state, 1 )->Process( ) );
+	LUA->PushBool( Get( LUA, 1 )->Process( ) );
 	return 1;
 }
 
@@ -341,11 +341,11 @@ inline bool PossibleVTable( const hde32s &hs )
 
 }
 
-static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode )
+static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, uint8_t *funcCode )
 {
 	CNetMessage *msg = new( std::nothrow ) CNetMessage;
 	if( msg == nullptr )
-		global::ThrowError( state, "failed to create CNetMessage object for netmessages resolution" );
+		global::ThrowError( LUA, "failed to create CNetMessage object for netmessages resolution" );
 
 	void **msgvtable = msg->GetVTable( );
 
@@ -369,7 +369,7 @@ static void ResolveMessagesFromFunctionCode( lua_State *state, uint8_t *funcCode
 	delete msg;
 }
 
-void PreInitialize( lua_State *state )
+void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	SymbolFinder symfinder;
 
@@ -381,7 +381,7 @@ void PreInitialize( lua_State *state )
 	if( CBaseClientState_ConnectionStart == nullptr )
 		LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
 
-	ResolveMessagesFromFunctionCode( state, CBaseClientState_ConnectionStart );
+	ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
 
 	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
 		global::engine_lib.c_str( ),
@@ -391,12 +391,12 @@ void PreInitialize( lua_State *state )
 	if( CBaseClient_ConnectionStart == nullptr )
 		LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
 
-	ResolveMessagesFromFunctionCode( state, CBaseClient_ConnectionStart );
+	ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
 
 	uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CreateStringTable_offset;
-	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
 		SVC_CreateStringTable + sizeof( uintptr_t ) +
 			*reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
 	) );
@@ -404,34 +404,36 @@ void PreInitialize( lua_State *state )
 	uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
 		SVC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
 	) );
 
 	uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClient_ConnectionStart
 	) + CLC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( state, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
 		CLC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
 	) );
 }
 
-template<class NetMessage> int Constructor( lua_State *state )
+template<class NetMessage> int Constructor( lua_State *L )
 {
-	Push( state, new( std::nothrow ) NetMessage );
+	GarrysMod::Lua::ILuaBase *LUA = L->luabase;
+	LUA->SetState( L );
+	Push( LUA, new( std::nothrow ) NetMessage );
 	return 1;
 }
 
-template<class NetMessage> void Register( lua_State *state )
+template<class NetMessage> void Register( GarrysMod::Lua::ILuaBase *LUA )
 {
 	NetMessage *msg = new( std::nothrow ) NetMessage;
 	if( msg == nullptr )
-		global::ThrowError( state, "failed to create object for '%s'", NetMessage::Name );
+		global::ThrowError( LUA, "failed to create object for '%s'", NetMessage::Name );
 
 	if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
 	{
 		delete msg;
-		global::ThrowError( state, "failed to find vtable for '%s'", NetMessage::Name );
+		global::ThrowError( LUA, "failed to find vtable for '%s'", NetMessage::Name );
 	}
 
 	BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );
@@ -443,18 +445,18 @@ template<class NetMessage> void Register( lua_State *state )
 	netmessages_setup[NetMessage::Name] = NetMessage::SetupLua;
 }
 
-template<class NetMessage> void UnRegister( lua_State *state )
+template<class NetMessage> void UnRegister( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, NetMessage::Name );
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->CreateTable( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -734,92 +736,92 @@ void Initialize( lua_State *state )
 
 
 
-	Register<NET_Tick>( state );
-	Register<NET_StringCmd>( state );
-	Register<NET_SetConVar>( state );
-	Register<NET_SignonState>( state );
+	Register<NET_Tick>( LUA );
+	Register<NET_StringCmd>( LUA );
+	Register<NET_SetConVar>( LUA );
+	Register<NET_SignonState>( LUA );
 
-	Register<SVC_Print>( state );
-	Register<SVC_ServerInfo>( state );
-	Register<SVC_SendTable>( state );
-	Register<SVC_ClassInfo>( state );
-	Register<SVC_SetPause>( state );
-	Register<SVC_CreateStringTable>( state );
-	Register<SVC_UpdateStringTable>( state );
-	Register<SVC_VoiceInit>( state );
-	Register<SVC_VoiceData>( state );
-	Register<SVC_Sounds>( state );
-	Register<SVC_SetView>( state );
-	Register<SVC_FixAngle>( state );
-	Register<SVC_CrosshairAngle>( state );
-	Register<SVC_BSPDecal>( state );
-	Register<SVC_UserMessage>( state );
-	Register<SVC_EntityMessage>( state );
-	Register<SVC_GameEvent>( state );
-	Register<SVC_PacketEntities>( state );
-	Register<SVC_TempEntities>( state );
-	Register<SVC_Prefetch>( state );
-	Register<SVC_Menu>( state );
-	Register<SVC_GameEventList>( state );
-	Register<SVC_GetCvarValue>( state );
-	Register<SVC_CmdKeyValues>( state );
-	Register<SVC_GMod_ServerToClient>( state );
+	Register<SVC_Print>( LUA );
+	Register<SVC_ServerInfo>( LUA );
+	Register<SVC_SendTable>( LUA );
+	Register<SVC_ClassInfo>( LUA );
+	Register<SVC_SetPause>( LUA );
+	Register<SVC_CreateStringTable>( LUA );
+	Register<SVC_UpdateStringTable>( LUA );
+	Register<SVC_VoiceInit>( LUA );
+	Register<SVC_VoiceData>( LUA );
+	Register<SVC_Sounds>( LUA );
+	Register<SVC_SetView>( LUA );
+	Register<SVC_FixAngle>( LUA );
+	Register<SVC_CrosshairAngle>( LUA );
+	Register<SVC_BSPDecal>( LUA );
+	Register<SVC_UserMessage>( LUA );
+	Register<SVC_EntityMessage>( LUA );
+	Register<SVC_GameEvent>( LUA );
+	Register<SVC_PacketEntities>( LUA );
+	Register<SVC_TempEntities>( LUA );
+	Register<SVC_Prefetch>( LUA );
+	Register<SVC_Menu>( LUA );
+	Register<SVC_GameEventList>( LUA );
+	Register<SVC_GetCvarValue>( LUA );
+	Register<SVC_CmdKeyValues>( LUA );
+	Register<SVC_GMod_ServerToClient>( LUA );
 
-	Register<CLC_ClientInfo>( state );
-	Register<CLC_Move>( state );
-	Register<CLC_VoiceData>( state );
-	Register<CLC_BaselineAck>( state );
-	Register<CLC_ListenEvents>( state );
-	Register<CLC_RespondCvarValue>( state );
-	Register<CLC_FileCRCCheck>( state );
-	Register<CLC_CmdKeyValues>( state );
-	Register<CLC_FileMD5Check>( state );
-	Register<CLC_GMod_ClientToServer>( state );
+	Register<CLC_ClientInfo>( LUA );
+	Register<CLC_Move>( LUA );
+	Register<CLC_VoiceData>( LUA );
+	Register<CLC_BaselineAck>( LUA );
+	Register<CLC_ListenEvents>( LUA );
+	Register<CLC_RespondCvarValue>( LUA );
+	Register<CLC_FileCRCCheck>( LUA );
+	Register<CLC_CmdKeyValues>( LUA );
+	Register<CLC_FileMD5Check>( LUA );
+	Register<CLC_GMod_ClientToServer>( LUA );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	UnRegister<NET_Tick>( state );
-	UnRegister<NET_StringCmd>( state );
-	UnRegister<NET_SetConVar>( state );
-	UnRegister<NET_SignonState>( state );
+	UnRegister<NET_Tick>( LUA );
+	UnRegister<NET_StringCmd>( LUA );
+	UnRegister<NET_SetConVar>( LUA );
+	UnRegister<NET_SignonState>( LUA );
 
-	UnRegister<SVC_Print>( state );
-	UnRegister<SVC_ServerInfo>( state );
-	UnRegister<SVC_SendTable>( state );
-	UnRegister<SVC_ClassInfo>( state );
-	UnRegister<SVC_SetPause>( state );
-	UnRegister<SVC_CreateStringTable>( state );
-	UnRegister<SVC_UpdateStringTable>( state );
-	UnRegister<SVC_VoiceInit>( state );
-	UnRegister<SVC_VoiceData>( state );
-	UnRegister<SVC_Sounds>( state );
-	UnRegister<SVC_SetView>( state );
-	UnRegister<SVC_FixAngle>( state );
-	UnRegister<SVC_CrosshairAngle>( state );
-	UnRegister<SVC_BSPDecal>( state );
-	UnRegister<SVC_UserMessage>( state );
-	UnRegister<SVC_EntityMessage>( state );
-	UnRegister<SVC_GameEvent>( state );
-	UnRegister<SVC_PacketEntities>( state );
-	UnRegister<SVC_TempEntities>( state );
-	UnRegister<SVC_Prefetch>( state );
-	UnRegister<SVC_Menu>( state );
-	UnRegister<SVC_GameEventList>( state );
-	UnRegister<SVC_GetCvarValue>( state );
-	UnRegister<SVC_CmdKeyValues>( state );
-	UnRegister<SVC_GMod_ServerToClient>( state );
+	UnRegister<SVC_Print>( LUA );
+	UnRegister<SVC_ServerInfo>( LUA );
+	UnRegister<SVC_SendTable>( LUA );
+	UnRegister<SVC_ClassInfo>( LUA );
+	UnRegister<SVC_SetPause>( LUA );
+	UnRegister<SVC_CreateStringTable>( LUA );
+	UnRegister<SVC_UpdateStringTable>( LUA );
+	UnRegister<SVC_VoiceInit>( LUA );
+	UnRegister<SVC_VoiceData>( LUA );
+	UnRegister<SVC_Sounds>( LUA );
+	UnRegister<SVC_SetView>( LUA );
+	UnRegister<SVC_FixAngle>( LUA );
+	UnRegister<SVC_CrosshairAngle>( LUA );
+	UnRegister<SVC_BSPDecal>( LUA );
+	UnRegister<SVC_UserMessage>( LUA );
+	UnRegister<SVC_EntityMessage>( LUA );
+	UnRegister<SVC_GameEvent>( LUA );
+	UnRegister<SVC_PacketEntities>( LUA );
+	UnRegister<SVC_TempEntities>( LUA );
+	UnRegister<SVC_Prefetch>( LUA );
+	UnRegister<SVC_Menu>( LUA );
+	UnRegister<SVC_GameEventList>( LUA );
+	UnRegister<SVC_GetCvarValue>( LUA );
+	UnRegister<SVC_CmdKeyValues>( LUA );
+	UnRegister<SVC_GMod_ServerToClient>( LUA );
 
-	UnRegister<CLC_ClientInfo>( state );
-	UnRegister<CLC_Move>( state );
-	UnRegister<CLC_VoiceData>( state );
-	UnRegister<CLC_BaselineAck>( state );
-	UnRegister<CLC_ListenEvents>( state );
-	UnRegister<CLC_RespondCvarValue>( state );
-	UnRegister<CLC_FileCRCCheck>( state );
-	UnRegister<CLC_CmdKeyValues>( state );
-	UnRegister<CLC_FileMD5Check>( state );
-	UnRegister<CLC_GMod_ClientToServer>( state );
+	UnRegister<CLC_ClientInfo>( LUA );
+	UnRegister<CLC_Move>( LUA );
+	UnRegister<CLC_VoiceData>( LUA );
+	UnRegister<CLC_BaselineAck>( LUA );
+	UnRegister<CLC_ListenEvents>( LUA );
+	UnRegister<CLC_RespondCvarValue>( LUA );
+	UnRegister<CLC_FileCRCCheck>( LUA );
+	UnRegister<CLC_CmdKeyValues>( LUA );
+	UnRegister<CLC_FileMD5Check>( LUA );
+	UnRegister<CLC_GMod_ClientToServer>( LUA );
 
 
 

@@ -4,23 +4,22 @@
 namespace UCHARPTR
 {
 
-struct UserData
+struct Container
 {
 	uint8_t *data;
-	uint8_t type;
 	int32_t bits;
 	bool own;
 };
 
-const uint8_t metatype = global::metabase + 7;
+uint8_t metatype = GarrysMod::Lua::Type::NONE;
 const char *metaname = "UCHARPTR";
 
-uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
+uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )
 {
-	if( bits < 0 )
+	if( bits <= 0 )
 		global::ThrowError(
-			state,
-			"invalid amount of bits for a buffer (%d is less than zero)",
+			LUA,
+			"invalid amount of bits for a buffer (%d is less than or equal to zero)",
 			bits
 		);
 
@@ -28,83 +27,78 @@ uint8_t *Push( lua_State *state, int32_t bits, uint8_t *data )
 	if( data == nullptr )
 	{
 		own = true;
-		data = new( std::nothrow ) uint8_t[bits == 0 ? 1 : ( bits + 7 ) >> 3];
+		data = new( std::nothrow ) uint8_t[( bits + 7 ) >> 3];
 		if( data == nullptr )
 			LUA->ThrowError( "failed to allocate buffer" );
 	}
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->type = metatype;
-	udata->data = data;
-	udata->bits = bits;
-	udata->own = own;
+	Container *container = LUA->NewUserType<Container>( metatype );
+	container->data = data;
+	container->bits = bits;
+	container->own = own;
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 
 	return data;
 }
 
-inline UserData *GetUserData( lua_State *state, int32_t index )
+inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<Container>( index, metatype );
 }
 
-uint8_t *Get( lua_State *state, int32_t index, int32_t *bits, bool *own )
+uint8_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits, bool *own )
 {
-	UserData *udata = GetUserData( state, index );
-	uint8_t *ptr = udata->data;
+	Container *container = GetUserData( LUA, index );
+	uint8_t *ptr = container->data;
 	if( ptr == nullptr )
-		global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( LUA, "invalid %s", metaname );
 
 	if( bits != nullptr )
-		*bits = udata->bits;
+		*bits = container->bits;
 
 	if( own != nullptr )
-		*own = udata->own;
+		*own = container->own;
 
 	return ptr;
 }
 
-uint8_t *Release( lua_State *state, int32_t index, int32_t *bits )
+uint8_t *Release( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits )
 {
-	UserData *udata = GetUserData( state, index );
-	uint8_t *ptr = udata->data;
+	Container *container = GetUserData( LUA, index );
+	uint8_t *ptr = container->data;
 	if( ptr == nullptr )
-		global::ThrowError( state, "invalid %s", metaname );
+		global::ThrowError( LUA, "invalid %s", metaname );
 
 	if( bits != nullptr )
-		*bits = udata->bits;
+		*bits = container->bits;
 
-	udata->data = nullptr;
-	udata->bits = 0;
-	udata->own = false;
+	LUA->SetUserType( index, nullptr );
 
 	return ptr;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	UserData *udata = GetUserData( state, 1 );
+	Container *container = GetUserData( LUA, 1 );
 
-	if( udata->own )
-		delete[] udata->data;
+	if( container->own )
+		delete[] container->data;
 
-	udata->data = nullptr;
-	udata->bits = 0;
-	udata->own = false;
+	LUA->SetUserType( 1, nullptr );
 
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	uint8_t *ptr1 = Get( state, 1 );
-	uint8_t *ptr2 = Get( state, 2 );
+	uint8_t *ptr1 = Get( LUA, 1 );
+	uint8_t *ptr2 = Get( LUA, 2 );
 
 	LUA->PushBool( ptr1 == ptr2 );
 
@@ -113,18 +107,18 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	uint8_t *ptr = Get( state, 1 );
+	uint8_t *ptr = Get( LUA, 1 );
 
-	lua_pushfstring( state, global::tostring_format, metaname, ptr );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, ptr );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metatype, metaname );
+	global::CheckType( LUA, 1, metatype, metaname );
 
-	LUA->PushBool( GetUserData( state, 1 )->data != nullptr );
+	LUA->PushBool( GetUserData( LUA, 1 )->data != nullptr );
 
 	return 1;
 }
@@ -132,7 +126,7 @@ LUA_FUNCTION_STATIC( IsValid )
 LUA_FUNCTION_STATIC( Size )
 {
 	int32_t bits = 0;
-	Get( state, 1, &bits );
+	Get( LUA, 1, &bits );
 
 	LUA->PushNumber( bits );
 
@@ -142,9 +136,9 @@ LUA_FUNCTION_STATIC( Size )
 LUA_FUNCTION_STATIC( Copy )
 {
 	int32_t bits = 0;
-	uint8_t *src = Get( state, 1, &bits );
+	uint8_t *src = Get( LUA, 1, &bits );
 
-	uint8_t *data = Push( state, bits );
+	uint8_t *data = Push( LUA, bits );
 	memcpy( data, src, ( bits + 7 ) >> 3 );
 
 	return 1;
@@ -154,14 +148,14 @@ LUA_FUNCTION_STATIC( Constructor )
 {
 	LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 
-	Push( state, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
+	Push( LUA, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
 
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -196,7 +190,7 @@ void Initialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );

@@ -8,16 +8,16 @@ class CNetChan;
 namespace NetMessage
 {
 
-void Push( lua_State *state, INetMessage *msg, CNetChan *netchan = nullptr );
+void Push( GarrysMod::Lua::ILuaBase *LUA, INetMessage *msg, CNetChan *netchan = nullptr );
 
-INetMessage *Get( lua_State *state, int32_t index, CNetChan **netchan = nullptr );
+INetMessage *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, CNetChan **netchan = nullptr );
 
-void Destroy( lua_State *state, CNetChan *netchan );
+void Destroy( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan );
 
-void PreInitialize( lua_State *state );
+void PreInitialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

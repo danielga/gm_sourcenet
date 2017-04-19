@@ -118,9 +118,7 @@ const char *tostring_format = "%s: %p";
 
 #endif
 
-const uint8_t metabase = 100;
-
-lua_State *lua_state = nullptr;
+GarrysMod::Lua::ILuaBase *lua = nullptr;
 
 SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
 static uint8_t *net_thread_chunk = nullptr;
@@ -142,7 +140,7 @@ LUA_FUNCTION( index )
 
 	LUA->Pop( 2 );
 
-	lua_getfenv( state, 1 );
+	lua_getfenv( LUA->state, 1 );
 	LUA->Push( 2 );
 	LUA->RawGet( -2 );
 	return 1;
@@ -150,7 +148,7 @@ LUA_FUNCTION( index )
 
 LUA_FUNCTION( newindex )
 {
-	lua_getfenv( state, 1 );
+	lua_getfenv( LUA->state, 1 );
 	LUA->Push( 2 );
 	LUA->Push( 3 );
 	LUA->RawSet( -3 );
@@ -159,80 +157,34 @@ LUA_FUNCTION( newindex )
 
 LUA_FUNCTION( GetTable )
 {
-	lua_getfenv( state, 1 );
+	lua_getfenv( LUA->state, 1 );
 	return 1;
 }
 
-void CheckType( lua_State *state, int32_t index, int32_t type, const char *nametype )
+void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype )
 {
 	if( !LUA->IsType( index, type ) )
-		luaL_typerror( state, index, nametype );
+		luaL_typerror( LUA->state, index, nametype );
 }
 
-void ThrowError( lua_State *state, const char *fmt, ... )
+void ThrowError( GarrysMod::Lua::ILuaBase *LUA, const char *fmt, ... )
 {
 	va_list args;
 	va_start( args, fmt );
-	const char *error = lua_pushvfstring( state, fmt, args );
+	const char *error = lua_pushvfstring( LUA->state, fmt, args );
 	va_end( args );
 	LUA->ThrowError( error );
 }
 
-const QAngle &GetAngle( lua_State *state, int32_t index )
-{
-	LUA->CheckType( index, GarrysMod::Lua::Type::ANGLE );
-	return *static_cast<const QAngle *>(
-		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( index ) )->data
-	);
-}
-
-void PushAngle( lua_State *state, const QAngle &ang )
-{
-	LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Angle" );
-	if( !LUA->IsType( -1, GarrysMod::Lua::Type::FUNCTION ) )
-	{
-		LUA->Pop( 1 );
-		return;
-	}
-
-	LUA->PushNumber( ang.x );
-	LUA->PushNumber( ang.y );
-	LUA->PushNumber( ang.z );
-	LUA->Call( 3, 1 );
-}
-
-const Vector &GetVector( lua_State *state, int32_t index )
-{
-	LUA->CheckType( index, GarrysMod::Lua::Type::VECTOR );
-	return *static_cast<const Vector *>(
-		static_cast<GarrysMod::Lua::UserData *>( LUA->GetUserdata( index ) )->data
-	);
-}
-
-void PushVector( lua_State *state, const Vector &vec )
-{
-	LUA->GetField( GarrysMod::Lua::INDEX_GLOBAL, "Vector" );
-	if( !LUA->IsType( -1, GarrysMod::Lua::Type::FUNCTION ) )
-	{
-		LUA->Pop( 1 );
-		return;
-	}
-
-	LUA->PushNumber( vec.x );
-	LUA->PushNumber( vec.y );
-	LUA->PushNumber( vec.z );
-	LUA->Call( 3, 1 );
-}
-
-static void Initialize( lua_State *state )
+static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 1.0.1" );
+	LUA->PushString( "sourcenet 1.0.2" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 10001 );
+	LUA->PushNumber( 10002 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -240,7 +192,7 @@ static void Initialize( lua_State *state )
 	loaded = true;
 }
 
-static void Deinitialize( lua_State *state )
+static void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -252,7 +204,7 @@ static void Deinitialize( lua_State *state )
 
 GMOD_MODULE_OPEN( )
 {
-	global::lua_state = state;
+	global::lua = LUA;
 
 	global::engine_factory = global::engine_loader.GetFactory( );
 	if( global::engine_factory == nullptr )
@@ -303,25 +255,25 @@ GMOD_MODULE_OPEN( )
 
 #endif
 
-	NetMessage::PreInitialize( state );
-	Hooks::PreInitialize( state );
+	NetMessage::PreInitialize( LUA );
+	Hooks::PreInitialize( LUA );
 
-	sn_bf_write::Initialize( state );
-	sn_bf_read::Initialize( state );
-	NetChannel::Initialize( state );
-	subchannel::Initialize( state );
-	dataFragments::Initialize( state );
-	FileHandle::Initialize( state );
-	UCHARPTR::Initialize( state );
-	netadr::Initialize( state );
-	NetChannelHandler::Initialize( state );
-	NetworkStringTableContainer::Initialize( state );
-	NetworkStringTable::Initialize( state );
-	GameEventManager::Initialize( state );
-	GameEvent::Initialize( state );
-	NetMessage::Initialize( state );
-	Hooks::Initialize( state );
-	global::Initialize( state );
+	sn_bf_write::Initialize( LUA );
+	sn_bf_read::Initialize( LUA );
+	NetChannel::Initialize( LUA );
+	subchannel::Initialize( LUA );
+	dataFragments::Initialize( LUA );
+	FileHandle::Initialize( LUA );
+	UCHARPTR::Initialize( LUA );
+	netadr::Initialize( LUA );
+	NetChannelHandler::Initialize( LUA );
+	NetworkStringTableContainer::Initialize( LUA );
+	NetworkStringTable::Initialize( LUA );
+	GameEventManager::Initialize( LUA );
+	GameEvent::Initialize( LUA );
+	NetMessage::Initialize( LUA );
+	Hooks::Initialize( LUA );
+	global::Initialize( LUA );
 
 	return 0;
 }
@@ -339,22 +291,22 @@ GMOD_MODULE_CLOSE( )
 
 #endif
 
-	sn_bf_write::Deinitialize( state );
-	sn_bf_read::Deinitialize( state );
-	NetChannel::Deinitialize( state );
-	subchannel::Deinitialize( state );
-	dataFragments::Deinitialize( state );
-	FileHandle::Deinitialize( state );
-	UCHARPTR::Deinitialize( state );
-	netadr::Deinitialize( state );
-	NetChannelHandler::Deinitialize( state );
-	NetworkStringTableContainer::Deinitialize( state );
-	NetworkStringTable::Deinitialize( state );
-	GameEventManager::Deinitialize( state );
-	GameEvent::Deinitialize( state );
-	NetMessage::Deinitialize( state );
-	Hooks::Deinitialize( state );
-	global::Deinitialize( state );
+	sn_bf_write::Deinitialize( LUA );
+	sn_bf_read::Deinitialize( LUA );
+	NetChannel::Deinitialize( LUA );
+	subchannel::Deinitialize( LUA );
+	dataFragments::Deinitialize( LUA );
+	FileHandle::Deinitialize( LUA );
+	UCHARPTR::Deinitialize( LUA );
+	netadr::Deinitialize( LUA );
+	NetChannelHandler::Deinitialize( LUA );
+	NetworkStringTableContainer::Deinitialize( LUA );
+	NetworkStringTable::Deinitialize( LUA );
+	GameEventManager::Deinitialize( LUA );
+	GameEvent::Deinitialize( LUA );
+	NetMessage::Deinitialize( LUA );
+	Hooks::Deinitialize( LUA );
+	global::Deinitialize( LUA );
 
 	return 0;
 }

@@ -5,14 +5,13 @@
 namespace subchannel
 {
 
-struct UserData
+struct Container
 {
 	subchannel_t *subchan;
-	uint8_t type;
 	CNetChan *netchan;
 };
 
-static const uint8_t metatype = global::metabase + 4;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "subchannel_t";
 
 static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
@@ -20,31 +19,31 @@ static bool IsValid( subchannel_t *subchan, CNetChan *netchan )
 	return subchan != nullptr && NetChannel::IsValid( netchan );
 }
 
-void Push( lua_State *state, subchannel_t *subchan, CNetChan *netchan )
+void Push( GarrysMod::Lua::ILuaBase *LUA, subchannel_t *subchan, CNetChan *netchan )
 {
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->type = metatype;
+	Container *udata = LUA->NewUserType<Container>( metatype );
 	udata->subchan = subchan;
+	udata->netchan = netchan;
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 }
 
-static subchannel_t *Get( lua_State *state, int32_t index )
+static subchannel_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
+	global::CheckType( LUA, index, metatype, metaname );
+	Container *udata = LUA->GetUserType<Container>( index, metatype );
+	subchannel_t *subchan = udata->subchan;
+	if( !IsValid( subchan, udata->netchan ) )
+		global::ThrowError( LUA, "invalid %s", metaname );
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( index ) );
-	if( !IsValid( udata->subchan, udata->netchan ) )
-		global::ThrowError( state, "invalid %s", metaname );
-
-	return udata->subchan;
+	return subchan;
 }
 
-inline int32_t VerifyStream( lua_State *state, int32_t stream )
+inline int32_t VerifyStream( GarrysMod::Lua::ILuaBase *LUA, int32_t stream )
 {
 	if( stream < 0 || stream >= MAX_STREAMS )
 	{
@@ -57,8 +56,8 @@ inline int32_t VerifyStream( lua_State *state, int32_t stream )
 
 LUA_FUNCTION_STATIC( eq )
 {
-	subchannel_t *subchan1 = Get( state, 1 );
-	subchannel_t *subchan2 = Get( state, 2 );
+	subchannel_t *subchan1 = Get( LUA, 1 );
+	subchannel_t *subchan2 = Get( LUA, 2 );
 
 	LUA->PushBool( subchan1 == subchan2 );
 
@@ -67,18 +66,18 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 
-	lua_pushfstring( state, global::tostring_format, metaname, subchan );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, subchan );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( IsValid )
 {
-	global::CheckType( state, 1, metatype, metaname );
+	global::CheckType( LUA, 1, metatype, metaname );
 
-	UserData *udata = static_cast<UserData *>( LUA->GetUserdata( 1 ) );
+	Container *udata = LUA->GetUserType<Container>( 1, metatype );
 	LUA->PushBool( IsValid( udata->subchan, udata->netchan ) );
 
 	return 1;
@@ -86,12 +85,12 @@ LUA_FUNCTION_STATIC( IsValid )
 
 LUA_FUNCTION_STATIC( GetFragmentOffset )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int32_t ret = VerifyStream( state, stream );
+	int32_t ret = VerifyStream( LUA, stream );
 	if( ret != 0 )
 		return ret;
 
@@ -102,13 +101,13 @@ LUA_FUNCTION_STATIC( GetFragmentOffset )
 
 LUA_FUNCTION_STATIC( SetFragmentOffset )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int32_t ret = VerifyStream( state, stream );
+	int32_t ret = VerifyStream( LUA, stream );
 	if( ret != 0 )
 		return ret;
 
@@ -119,12 +118,12 @@ LUA_FUNCTION_STATIC( SetFragmentOffset )
 
 LUA_FUNCTION_STATIC( GetFragmentNumber )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int32_t ret = VerifyStream( state, stream );
+	int32_t ret = VerifyStream( LUA, stream );
 	if( ret != 0 )
 		return ret;
 
@@ -135,13 +134,13 @@ LUA_FUNCTION_STATIC( GetFragmentNumber )
 
 LUA_FUNCTION_STATIC( SetFragmentNumber )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
 	int32_t stream = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 
-	int32_t ret = VerifyStream( state, stream );
+	int32_t ret = VerifyStream( LUA, stream );
 	if( ret != 0 )
 		return ret;
 
@@ -152,7 +151,7 @@ LUA_FUNCTION_STATIC( SetFragmentNumber )
 
 LUA_FUNCTION_STATIC( GetSequence )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 
 	LUA->PushNumber( subchan->sequence );
 
@@ -161,7 +160,7 @@ LUA_FUNCTION_STATIC( GetSequence )
 
 LUA_FUNCTION_STATIC( SetSequence )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->sequence = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -171,7 +170,7 @@ LUA_FUNCTION_STATIC( SetSequence )
 
 LUA_FUNCTION_STATIC( GetState )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 
 	LUA->PushNumber( subchan->state );
 
@@ -180,7 +179,7 @@ LUA_FUNCTION_STATIC( GetState )
 
 LUA_FUNCTION_STATIC( SetState )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->state = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -190,7 +189,7 @@ LUA_FUNCTION_STATIC( SetState )
 
 LUA_FUNCTION_STATIC( GetIndex )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 
 	LUA->PushNumber( subchan->index );
 
@@ -199,7 +198,7 @@ LUA_FUNCTION_STATIC( GetIndex )
 
 LUA_FUNCTION_STATIC( SetIndex )
 {
-	subchannel_t *subchan = Get( state, 1 );
+	subchannel_t *subchan = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 	subchan->index = static_cast<int32_t>( LUA->GetNumber( 2 ) );
@@ -207,9 +206,9 @@ LUA_FUNCTION_STATIC( SetIndex )
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -262,7 +261,7 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );

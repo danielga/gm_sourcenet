@@ -1,20 +1,20 @@
 #include <gameevent.hpp>
 #include <igameevents.h>
+#include <gameeventmanager.hpp>
 
 namespace GameEvent
 {
 
-struct UserData
+struct Container
 {
 	IGameEvent *event;
-	uint8_t type;
 	IGameEventManager2 *manager;
 };
 
-static const uint8_t metatype = global::metabase + 13;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "IGameEvent";
 
-void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
+void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager )
 {
 	if( event == nullptr )
 	{
@@ -22,54 +22,51 @@ void Push( lua_State *state, IGameEvent *event, IGameEventManager2 *manager )
 		return;
 	}
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->type = metatype;
+	Container *udata = LUA->NewUserType<Container>( metatype );
 	udata->event = event;
 	udata->manager = manager;
 
-	LUA->CreateMetaTableType( metaname, metatype );
+	LUA->PushMetaTable( metatype );
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
+	lua_setfenv( LUA->state, -2 );
 }
 
-inline UserData *GetUserData( lua_State *state, int32_t index )
+inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) );
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<Container>( index, metatype );
 }
 
-IGameEvent *Get( lua_State *state, int32_t index, IGameEventManager2 **manager )
+IGameEvent *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, IGameEventManager2 **manager )
 {
-	UserData *udata = GetUserData( state, index );
-	IGameEvent *event = udata->event;
-	if( ( event == nullptr || udata->manager == nullptr ) )
-		global::ThrowError( state, "invalid %s", metaname );
+	Container *udata = GetUserData( LUA, index );
+	if( udata == nullptr )
+		global::ThrowError( LUA, "invalid %s", metaname );
 
 	if( manager != nullptr )
 		*manager = udata->manager;
 
-	return event;
+	return udata->event;
 }
 
 LUA_FUNCTION_STATIC( gc )
 {
-	UserData *udata = GetUserData( state, 1 );
+	Container *udata = GetUserData( LUA, 1 );
 
 	if( udata->manager != nullptr )
 		udata->manager->FreeEvent( udata->event );
 
-	udata->event = nullptr;
-	udata->manager = nullptr;
+	LUA->SetUserType( 1, nullptr );
 
 	return 0;
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	IGameEvent *event1 = Get( state, 1 );
-	IGameEvent *event2 = Get( state, 2 );
+	IGameEvent *event1 = Get( LUA, 1 );
+	IGameEvent *event2 = Get( LUA, 2 );
 
 	LUA->PushBool( event1 == event2 );
 
@@ -78,16 +75,16 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 
-	lua_pushfstring( state, global::tostring_format, metaname, event );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, event );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( GetName )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 
 	LUA->PushString( event->GetName( ) );
 
@@ -96,7 +93,7 @@ LUA_FUNCTION_STATIC( GetName )
 
 LUA_FUNCTION_STATIC( IsReliable )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 
 	LUA->PushBool( event->IsReliable( ) );
 
@@ -105,7 +102,7 @@ LUA_FUNCTION_STATIC( IsReliable )
 
 LUA_FUNCTION_STATIC( IsLocal )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 
 	LUA->PushBool( event->IsLocal( ) );
 
@@ -114,7 +111,7 @@ LUA_FUNCTION_STATIC( IsLocal )
 
 LUA_FUNCTION_STATIC( IsEmpty )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 
 	LUA->PushBool( event->IsEmpty( LUA->GetString( 2 ) ) );
 
@@ -123,7 +120,7 @@ LUA_FUNCTION_STATIC( IsEmpty )
 
 LUA_FUNCTION_STATIC( GetBool )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushBool( event->GetBool( LUA->GetString( 2 ) ) );
@@ -133,7 +130,7 @@ LUA_FUNCTION_STATIC( GetBool )
 
 LUA_FUNCTION_STATIC( GetInt )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( event->GetInt( LUA->GetString( 2 ) ) );
@@ -143,7 +140,7 @@ LUA_FUNCTION_STATIC( GetInt )
 
 LUA_FUNCTION_STATIC( GetFloat )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushNumber( event->GetFloat( LUA->GetString( 2 ) ) );
@@ -153,7 +150,7 @@ LUA_FUNCTION_STATIC( GetFloat )
 
 LUA_FUNCTION_STATIC( GetString )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	LUA->PushString( event->GetString( LUA->GetString( 2 ) ) );
@@ -163,7 +160,7 @@ LUA_FUNCTION_STATIC( GetString )
 
 LUA_FUNCTION_STATIC( SetBool )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::BOOL );
 
@@ -174,7 +171,7 @@ LUA_FUNCTION_STATIC( SetBool )
 
 LUA_FUNCTION_STATIC( SetInt )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -185,7 +182,7 @@ LUA_FUNCTION_STATIC( SetInt )
 
 LUA_FUNCTION_STATIC( SetFloat )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
@@ -196,7 +193,7 @@ LUA_FUNCTION_STATIC( SetFloat )
 
 LUA_FUNCTION_STATIC( SetString )
 {
-	IGameEvent *event = Get( state, 1 );
+	IGameEvent *event = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
@@ -205,9 +202,9 @@ LUA_FUNCTION_STATIC( SetString )
 	return 0;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -266,7 +263,7 @@ void Initialize( lua_State *state )
 	LUA->Pop( 1 );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );

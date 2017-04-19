@@ -7,14 +7,14 @@ class INetChannelHandler;
 namespace NetChannelHandler
 {
 
-void Push( lua_State *state, INetChannelHandler *handler );
+void Push( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler );
 
-INetChannelHandler *Get( lua_State *state, int32_t index );
+INetChannelHandler *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index );
 
-void Destroy( lua_State *state, INetChannelHandler *handler );
+void Destroy( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

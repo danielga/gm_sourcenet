@@ -56,7 +56,7 @@ static uintptr_t INetChannelHandler_vtable = 0;
 #define HOOK_INIT( name ) \
 do \
 { \
-	lua_State *state = global::lua_state; \
+	GarrysMod::Lua::ILuaBase *LUA = global::lua; \
 	if( !helpers::PushHookRun( LUA, name ) ) \
 		break; \
 	int32_t _argc = 0
@@ -90,7 +90,7 @@ while( false )
 	{ \
 		if( !IS_ATTACHED( name ) ) \
 		{ \
-			meta *temp = namespc::Get( state, 1 ); \
+			meta *temp = namespc::Get( LUA, 1 ); \
 			meta##_vtable = VTBL( temp ); \
 			HOOKVFUNC( temp, offset, name##_o, name##_d ); \
 			REGISTER_ATTACH( name ); \
@@ -112,12 +112,12 @@ DEFVFUNC_( CNetChan_SendDatagram_o, int32_t, ( CNetChan *netchan, bf_write *data
 int32_t VFUNC CNetChan_SendDatagram_d( CNetChan *netchan, bf_write *data )
 {
 	HOOK_INIT( "PreSendDatagram" );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 
 		if( !global::is_dedicated )
 		{
 			HOOK_PUSH( NetChannel::Push(
-				state,
+				LUA,
 				static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
 			) );
 		}
@@ -126,10 +126,10 @@ int32_t VFUNC CNetChan_SendDatagram_d( CNetChan *netchan, bf_write *data )
 			HOOK_PUSH( LUA->PushNil( ) );
 		}
 
-		HOOK_PUSH( bf_write **writer1 = sn_bf_write::Push( state, data ) );
-		HOOK_PUSH( bf_write **writer2 = sn_bf_write::Push( state, &netchan->m_StreamReliable ) );
-		HOOK_PUSH( bf_write **writer3 = sn_bf_write::Push( state, &netchan->m_StreamUnreliable ) );
-		HOOK_PUSH( bf_write **writer4 = sn_bf_write::Push( state, &netchan->m_StreamVoice ) );
+		HOOK_PUSH( bf_write **writer1 = sn_bf_write::Push( LUA, data ) );
+		HOOK_PUSH( bf_write **writer2 = sn_bf_write::Push( LUA, &netchan->m_StreamReliable ) );
+		HOOK_PUSH( bf_write **writer3 = sn_bf_write::Push( LUA, &netchan->m_StreamUnreliable ) );
+		HOOK_PUSH( bf_write **writer4 = sn_bf_write::Push( LUA, &netchan->m_StreamVoice ) );
 		HOOK_CALL( 0 );
 
 		*writer1 = nullptr;
@@ -141,7 +141,7 @@ int32_t VFUNC CNetChan_SendDatagram_d( CNetChan *netchan, bf_write *data )
 	int32_t r = CNetChan_SendDatagram_o( netchan, data );
 
 	HOOK_INIT( "PostSendDatagram" );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
@@ -167,14 +167,14 @@ DEFVFUNC_( CNetChan_ProcessPacket_o, void, (
 void VFUNC CNetChan_ProcessPacket_d( CNetChan *netchan, netpacket_t *packet, bool bHasHeader )
 {
 	HOOK_INIT( "PreProcessPacket" );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
 	CNetChan_ProcessPacket_o( netchan, packet, bHasHeader );
 
 	HOOK_INIT( "PostProcessPacket" );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 }
@@ -194,7 +194,7 @@ DEFVFUNC_( CNetChan_Shutdown_o, void, ( CNetChan *netchan, const char *reason ) 
 void VFUNC CNetChan_Shutdown_d( CNetChan *netchan, const char *reason )
 {
 	HOOK_INIT( "PreNetChannelShutdown" );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 
 		// Fuck Linux
 		if( reason != nullptr && reason != reinterpret_cast<const char *>( 0x02 ) )
@@ -209,9 +209,9 @@ void VFUNC CNetChan_Shutdown_d( CNetChan *netchan, const char *reason )
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
-	NetMessage::Destroy( global::lua_state, netchan );
+	NetMessage::Destroy( global::lua, netchan );
 
-	NetChannel::Destroy( global::lua_state, netchan );
+	NetChannel::Destroy( global::lua, netchan );
 
 	CNetChan_Shutdown_o( netchan, reason );
 
@@ -230,8 +230,8 @@ DEFVFUNC_( INetChannelHandler_ConnectionStart_o, void, (
 void VFUNC INetChannelHandler_ConnectionStart_d( INetChannelHandler *handler, CNetChan *netchan )
 {
 	HOOK_INIT( "INetChannelHandler::ConnectionStart" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
-		HOOK_PUSH( NetChannel::Push( state, netchan ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
@@ -251,12 +251,12 @@ void VFUNC INetChannelHandler_ConnectionClosing_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::ConnectionClosing" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushString( reason ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
-	NetChannelHandler::Destroy( global::lua_state, handler );
+	NetChannelHandler::Destroy( global::lua, handler );
 
 	INetChannelHandler_ConnectionClosing_o( handler, reason );
 }
@@ -274,12 +274,12 @@ void VFUNC INetChannelHandler_ConnectionCrashed_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::ConnectionCrashed" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushString( reason ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
-	NetChannelHandler::Destroy( global::lua_state, handler );
+	NetChannelHandler::Destroy( global::lua, handler );
 
 	INetChannelHandler_ConnectionCrashed_o( handler, reason );
 }
@@ -299,7 +299,7 @@ void VFUNC INetChannelHandler_PacketStart_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::PacketStart" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
 		HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
 		HOOK_CALL( 0 );
@@ -315,7 +315,7 @@ DEFVFUNC_( INetChannelHandler_PacketEnd_o, void, ( INetChannelHandler *handler )
 void VFUNC INetChannelHandler_PacketEnd_d( INetChannelHandler *handler )
 {
 	HOOK_INIT( "INetChannelHandler::PacketEnd" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_CALL( 0 );
 	HOOK_END( );
 
@@ -337,7 +337,7 @@ void VFUNC INetChannelHandler_FileRequested_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::FileRequested" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushString( fileName ) );
 		HOOK_PUSH( LUA->PushNumber( transferID ) );
 		HOOK_CALL( 0 );
@@ -361,7 +361,7 @@ void VFUNC INetChannelHandler_FileReceived_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::FileReceived" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushString( fileName ) );
 		HOOK_PUSH( LUA->PushNumber( transferID ) );
 		HOOK_CALL( 0 );
@@ -385,7 +385,7 @@ void VFUNC INetChannelHandler_FileDenied_d(
 )
 {
 	HOOK_INIT( "INetChannelHandler::FileDenied" );
-		HOOK_PUSH( NetChannelHandler::Push( state, handler ) );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
 		HOOK_PUSH( LUA->PushString( fileName ) );
 		HOOK_PUSH( LUA->PushNumber( transferID ) );
 		HOOK_CALL( 0 );
@@ -420,14 +420,14 @@ static bool CNetChan_ProcessMessages_d( CNetChan *netchan, bf_read &buf )
 		write.SeekToBit( bitsread );
 
 		HOOK_INIT( "PreProcessMessages" );
-			HOOK_PUSH( NetChannel::Push( state, netchan ) );
-			HOOK_PUSH( bf_read **reader = sn_bf_read::Push( state, &buf ) );
-			HOOK_PUSH( bf_write **writer = sn_bf_write::Push( state, &write ) );
+			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
+			HOOK_PUSH( bf_read **reader = sn_bf_read::Push( LUA, &buf ) );
+			HOOK_PUSH( bf_write **writer = sn_bf_write::Push( LUA, &write ) );
 
 			if( !global::is_dedicated )
 			{
 				HOOK_PUSH( NetChannel::Push(
-					state,
+					LUA,
 					static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
 				) );
 			}
@@ -487,7 +487,7 @@ LUA_FUNCTION_STATIC( Empty )
 	return 0;
 }
 
-void PreInitialize( lua_State *state )
+void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	SymbolFinder symfinder;
 
@@ -501,7 +501,7 @@ void PreInitialize( lua_State *state )
 		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
@@ -579,22 +579,22 @@ void Initialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	Detach__CNetChan_SendDatagram( state );
-	Detach__CNetChan_ProcessPacket( state );
-	Detach__CNetChan_Shutdown( state );
+	Detach__CNetChan_SendDatagram( LUA->state );
+	Detach__CNetChan_ProcessPacket( LUA->state );
+	Detach__CNetChan_Shutdown( LUA->state );
 
-	Detach__INetChannelHandler_ConnectionStart( state );
-	Detach__INetChannelHandler_ConnectionClosing( state );
-	Detach__INetChannelHandler_ConnectionCrashed( state );
-	Detach__INetChannelHandler_PacketStart( state );
-	Detach__INetChannelHandler_PacketEnd( state );
-	Detach__INetChannelHandler_FileRequested( state );
-	Detach__INetChannelHandler_FileReceived( state );
-	Detach__INetChannelHandler_FileDenied( state );
+	Detach__INetChannelHandler_ConnectionStart( LUA->state );
+	Detach__INetChannelHandler_ConnectionClosing( LUA->state );
+	Detach__INetChannelHandler_ConnectionCrashed( LUA->state );
+	Detach__INetChannelHandler_PacketStart( LUA->state );
+	Detach__INetChannelHandler_PacketEnd( LUA->state );
+	Detach__INetChannelHandler_FileRequested( LUA->state );
+	Detach__INetChannelHandler_FileReceived( LUA->state );
+	Detach__INetChannelHandler_FileDenied( LUA->state );
 
-	Detach__CNetChan_ProcessMessages( state );
+	Detach__CNetChan_ProcessMessages( LUA->state );
 
 
 
@@ -671,7 +671,7 @@ void Deinitialize( lua_State *state )
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
 }
 
-void HookCNetChan( lua_State *state )
+void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA )
 {
 	if( !IS_ATTACHED( CNetChan_Shutdown ) )
 	{
@@ -681,7 +681,7 @@ void HookCNetChan( lua_State *state )
 	}
 }
 
-void HookINetChannelHandler( lua_State *state )
+void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA )
 {
 	if( !IS_ATTACHED( INetChannelHandler_ConnectionClosing ) )
 	{

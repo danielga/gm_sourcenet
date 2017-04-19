@@ -7,15 +7,15 @@ typedef void *FileHandle_t;
 namespace FileHandle
 {
 
-extern const uint8_t metatype;
+extern uint8_t metatype;
 extern const char *metaname;
 
-void Push( lua_State *state, FileHandle_t file );
+void Push( GarrysMod::Lua::ILuaBase *LUA, FileHandle_t file );
 
-FileHandle_t Get( lua_State *state, int32_t index );
+FileHandle_t Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
 }

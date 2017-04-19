@@ -1,4 +1,5 @@
 #include <main.hpp>
+#include <gameeventmanager.hpp>
 #include <GarrysMod/Lua/AutoReference.h>
 #include <gameevent.hpp>
 #include <sn_bf_read.hpp>
@@ -8,27 +9,21 @@
 namespace GameEventManager
 {
 
-struct UserData
-{
-	IGameEventManager2 *manager;
-	uint8_t type;
-};
-
-static const uint8_t metatype = global::metabase + 12;
+static uint8_t metatype = GarrysMod::Lua::Type::NONE;
 static const char *metaname = "IGameEventManager2";
 
 static GarrysMod::Lua::AutoReference manager_ref;
 
-static IGameEventManager2 *Get( lua_State *state, int32_t index )
+static IGameEventManager2 *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	global::CheckType( state, index, metatype, metaname );
-	return static_cast<UserData *>( LUA->GetUserdata( index ) )->manager;
+	global::CheckType( LUA, index, metatype, metaname );
+	return LUA->GetUserType<IGameEventManager2>( index, metatype );
 }
 
 LUA_FUNCTION_STATIC( eq )
 {
-	Get( state, 1 );
-	Get( state, 2 );
+	Get( LUA, 1 );
+	Get( LUA, 2 );
 
 	LUA->PushBool( true );
 
@@ -37,30 +32,30 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	IGameEventManager2 *manager = Get( state, 1 );
+	IGameEventManager2 *manager = Get( LUA, 1 );
 
-	lua_pushfstring( state, global::tostring_format, metaname, manager );
+	lua_pushfstring( LUA->state, global::tostring_format, metaname, manager );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( CreateEvent )
 {
-	IGameEventManager2 *manager = Get( state, 1 );
+	IGameEventManager2 *manager = Get( LUA, 1 );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	IGameEvent *event = manager->CreateEvent( LUA->GetString( 2 ), true );
 
-	GameEvent::Push( state, event, manager );
+	GameEvent::Push( LUA, event, manager );
 
 	return 1;
 }
 
 LUA_FUNCTION_STATIC( SerializeEvent )
 {
-	IGameEventManager2 *manager = Get( state, 1 );
-	IGameEvent *event = GameEvent::Get( state, 2 );
-	bf_write *buf = sn_bf_write::Get( state, 3 );
+	IGameEventManager2 *manager = Get( LUA, 1 );
+	IGameEvent *event = GameEvent::Get( LUA, 2 );
+	bf_write *buf = sn_bf_write::Get( LUA, 3 );
 
 	LUA->PushBool( manager->SerializeEvent( event, buf ) );
 
@@ -69,12 +64,12 @@ LUA_FUNCTION_STATIC( SerializeEvent )
 
 LUA_FUNCTION_STATIC( UnserializeEvent )
 {
-	IGameEventManager2 *manager = Get( state, 1 );
-	bf_read *buf = sn_bf_read::Get( state, 2 );
+	IGameEventManager2 *manager = Get( LUA, 1 );
+	bf_read *buf = sn_bf_read::Get( LUA, 2 );
 
 	IGameEvent *event = manager->UnserializeEvent( buf );
 
-	GameEvent::Push( state, event, manager );
+	GameEvent::Push( LUA, event, manager );
 
 	return 1;
 }
@@ -85,7 +80,7 @@ LUA_FUNCTION_STATIC( Constructor )
 	return 1;
 }
 
-void Initialize( lua_State *state )
+void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	IGameEventManager2 *manager = global::engine_loader.GetInterface<IGameEventManager2>(
 		INTERFACEVERSION_GAMEEVENTSMANAGER2
@@ -93,22 +88,9 @@ void Initialize( lua_State *state )
 	if( manager == nullptr )
 		LUA->ThrowError( "failed to obtain IGameEventManager2" );
 
-	UserData *udata = static_cast<UserData *>( LUA->NewUserdata( sizeof( UserData ) ) );
-	udata->manager = manager;
-	udata->type = metatype;
-
-	LUA->CreateMetaTableType( metaname, metatype );
-	LUA->SetMetaTable( -2 );
-
-	LUA->CreateTable( );
-	lua_setfenv( state, -2 );
-
-	manager_ref.Setup( LUA );
-	manager_ref.Create( );
 
 
-
-	LUA->CreateMetaTableType( metaname, metatype );
+	metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( eq );
 		LUA->SetField( -2, "__eq" );
@@ -138,11 +120,24 @@ void Initialize( lua_State *state )
 
 
 
+	LUA->PushUserType( manager, metatype );
+
+	LUA->PushMetaTable( metatype );
+	LUA->SetMetaTable( -2 );
+
+	LUA->CreateTable( );
+	lua_setfenv( LUA->state, -2 );
+
+	manager_ref.Setup( LUA );
+	manager_ref.Create( );
+
+
+
 	LUA->PushCFunction( Constructor );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );
 }
 
-void Deinitialize( lua_State *state )
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, metaname );

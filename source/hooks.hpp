@@ -8,14 +8,14 @@ class INetChannelHandler;
 namespace Hooks
 {
 
-void PreInitialize( lua_State *state );
+void PreInitialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Initialize( lua_State *state );
+void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Deinitialize( lua_State *state );
+void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void HookCNetChan( lua_State *state );
+void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA );
 
-void HookINetChannelHandler( lua_State *state );
+void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA );
 
 }
