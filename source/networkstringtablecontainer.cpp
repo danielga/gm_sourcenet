@@ -29,7 +29,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, Get( LUA, 1 ) );
+	lua_pushfstring( LUA->GetState(), global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
@@ -118,7 +118,7 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState(), -2 );
 
 	container_ref.Setup( LUA );
 	container_ref.Create( );

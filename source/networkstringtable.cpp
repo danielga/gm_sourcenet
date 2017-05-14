@@ -21,7 +21,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, INetworkStringTable *table )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState(), -2 );
 }
 
 INetworkStringTable *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -43,7 +43,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	INetworkStringTable *table = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, table );
+	lua_pushfstring( LUA->GetState(), global::tostring_format, metaname, table );
 
 	return 1;
 }
