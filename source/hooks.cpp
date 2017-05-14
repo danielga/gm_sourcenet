@@ -581,20 +581,20 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	Detach__CNetChan_SendDatagram( LUA->state );
-	Detach__CNetChan_ProcessPacket( LUA->state );
-	Detach__CNetChan_Shutdown( LUA->state );
+	Detach__CNetChan_SendDatagram( LUA->GetState() );
+	Detach__CNetChan_ProcessPacket( LUA->GetState() );
+	Detach__CNetChan_Shutdown( LUA->GetState() );
 
-	Detach__INetChannelHandler_ConnectionStart( LUA->state );
-	Detach__INetChannelHandler_ConnectionClosing( LUA->state );
-	Detach__INetChannelHandler_ConnectionCrashed( LUA->state );
-	Detach__INetChannelHandler_PacketStart( LUA->state );
-	Detach__INetChannelHandler_PacketEnd( LUA->state );
-	Detach__INetChannelHandler_FileRequested( LUA->state );
-	Detach__INetChannelHandler_FileReceived( LUA->state );
-	Detach__INetChannelHandler_FileDenied( LUA->state );
+	Detach__INetChannelHandler_ConnectionStart( LUA->GetState() );
+	Detach__INetChannelHandler_ConnectionClosing( LUA->GetState() );
+	Detach__INetChannelHandler_ConnectionCrashed( LUA->GetState() );
+	Detach__INetChannelHandler_PacketStart( LUA->GetState() );
+	Detach__INetChannelHandler_PacketEnd( LUA->GetState() );
+	Detach__INetChannelHandler_FileRequested( LUA->GetState() );
+	Detach__INetChannelHandler_FileReceived( LUA->GetState() );
+	Detach__INetChannelHandler_FileDenied( LUA->GetState() );
 
-	Detach__CNetChan_ProcessMessages( LUA->state );
+	Detach__CNetChan_ProcessMessages( LUA->GetState() );
 
 
 

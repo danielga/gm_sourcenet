@@ -41,7 +41,7 @@ uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState(), -2 );
 
 	return data;
 }
@@ -109,7 +109,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	uint8_t *ptr = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, ptr );
+	lua_pushfstring( LUA->GetState(), global::tostring_format, metaname, ptr );
 
 	return 1;
 }

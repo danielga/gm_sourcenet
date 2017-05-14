@@ -29,7 +29,7 @@ bf_read **Push( GarrysMod::Lua::ILuaBase *LUA, bf_read *reader, int32_t bufref )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState(), -2 );
 
 	return &container->preader;
 }
@@ -78,7 +78,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	bf_read *buf = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, buf );
+	lua_pushfstring( LUA->GetState(), global::tostring_format, metaname, buf );
 
 	return 1;
 }
