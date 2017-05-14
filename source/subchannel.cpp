@@ -29,7 +29,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, subchannel_t *subchan, CNetChan *netch
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState( ), -2 );
 }
 
 static subchannel_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -68,7 +68,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	subchannel_t *subchan = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, subchan );
+	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, subchan );
 
 	return 1;
 }

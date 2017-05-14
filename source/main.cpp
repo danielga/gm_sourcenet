@@ -87,21 +87,21 @@ static const char *netpatch_new = "\x75";
 
 static bool loaded = false;
 
-const std::string engine_lib = helpers::GetBinaryFileName(
+const std::string engine_lib = Helpers::GetBinaryFileName(
 	"engine",
 	false,
 	IS_SERVERSIDE,
 	"bin/"
 );
 
-const std::string client_lib = helpers::GetBinaryFileName(
+const std::string client_lib = Helpers::GetBinaryFileName(
 	"client",
 	false,
 	IS_SERVERSIDE,
 	"garrysmod/bin/"
 );
 
-const std::string server_lib = helpers::GetBinaryFileName(
+const std::string server_lib = Helpers::GetBinaryFileName(
 	"server",
 	false,
 	IS_SERVERSIDE,
@@ -140,7 +140,7 @@ LUA_FUNCTION( index )
 
 	LUA->Pop( 2 );
 
-	lua_getfenv( LUA->state, 1 );
+	lua_getfenv( LUA->GetState( ), 1 );
 	LUA->Push( 2 );
 	LUA->RawGet( -2 );
 	return 1;
@@ -148,7 +148,7 @@ LUA_FUNCTION( index )
 
 LUA_FUNCTION( newindex )
 {
-	lua_getfenv( LUA->state, 1 );
+	lua_getfenv( LUA->GetState( ), 1 );
 	LUA->Push( 2 );
 	LUA->Push( 3 );
 	LUA->RawSet( -3 );
@@ -157,21 +157,21 @@ LUA_FUNCTION( newindex )
 
 LUA_FUNCTION( GetTable )
 {
-	lua_getfenv( LUA->state, 1 );
+	lua_getfenv( LUA->GetState( ), 1 );
 	return 1;
 }
 
 void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype )
 {
 	if( !LUA->IsType( index, type ) )
-		luaL_typerror( LUA->state, index, nametype );
+		luaL_typerror( LUA->GetState( ), index, nametype );
 }
 
 void ThrowError( GarrysMod::Lua::ILuaBase *LUA, const char *fmt, ... )
 {
 	va_list args;
 	va_start( args, fmt );
-	const char *error = lua_pushvfstring( LUA->state, fmt, args );
+	const char *error = lua_pushvfstring( LUA->GetState( ), fmt, args );
 	va_end( args );
 	LUA->ThrowError( error );
 }
@@ -211,7 +211,7 @@ GMOD_MODULE_OPEN( )
 		LUA->ThrowError( "failed to retrieve engine factory function" );
 
 	global::engine_server = static_cast<IVEngineServer *>(
-		global::engine_factory( INTERFACEVERSION_VENGINESERVER_VERSION_21, nullptr )
+		global::engine_factory( INTERFACEVERSION_VENGINESERVER, nullptr )
 	);
 	if( global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );

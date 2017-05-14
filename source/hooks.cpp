@@ -10,7 +10,7 @@
 #include <inetmsghandler.h>
 #include <cdll_int.h>
 #include <symbolfinder.hpp>
-#include <GarrysMod/Helpers.hpp>
+#include <GarrysMod/LuaHelpers.hpp>
 
 namespace Hooks
 {
@@ -57,7 +57,7 @@ static uintptr_t INetChannelHandler_vtable = 0;
 do \
 { \
 	GarrysMod::Lua::ILuaBase *LUA = global::lua; \
-	if( !helpers::PushHookRun( LUA, name ) ) \
+	if( !LuaHelpers::PushHookRun( LUA, name ) ) \
 		break; \
 	int32_t _argc = 0
 
@@ -66,7 +66,7 @@ do \
 	++_argc
 
 #define HOOK_CALL( returns ) \
-	helpers::CallHookRun( LUA, _argc, returns )
+	LuaHelpers::CallHookRun( LUA, _argc, returns )
 
 #define HOOK_END( ) \
 } \
@@ -581,20 +581,20 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	Detach__CNetChan_SendDatagram( LUA->state );
-	Detach__CNetChan_ProcessPacket( LUA->state );
-	Detach__CNetChan_Shutdown( LUA->state );
+	Detach__CNetChan_SendDatagram( LUA->GetState( ) );
+	Detach__CNetChan_ProcessPacket( LUA->GetState( ) );
+	Detach__CNetChan_Shutdown( LUA->GetState( ) );
 
-	Detach__INetChannelHandler_ConnectionStart( LUA->state );
-	Detach__INetChannelHandler_ConnectionClosing( LUA->state );
-	Detach__INetChannelHandler_ConnectionCrashed( LUA->state );
-	Detach__INetChannelHandler_PacketStart( LUA->state );
-	Detach__INetChannelHandler_PacketEnd( LUA->state );
-	Detach__INetChannelHandler_FileRequested( LUA->state );
-	Detach__INetChannelHandler_FileReceived( LUA->state );
-	Detach__INetChannelHandler_FileDenied( LUA->state );
+	Detach__INetChannelHandler_ConnectionStart( LUA->GetState( ) );
+	Detach__INetChannelHandler_ConnectionClosing( LUA->GetState( ) );
+	Detach__INetChannelHandler_ConnectionCrashed( LUA->GetState( ) );
+	Detach__INetChannelHandler_PacketStart( LUA->GetState( ) );
+	Detach__INetChannelHandler_PacketEnd( LUA->GetState( ) );
+	Detach__INetChannelHandler_FileRequested( LUA->GetState( ) );
+	Detach__INetChannelHandler_FileReceived( LUA->GetState( ) );
+	Detach__INetChannelHandler_FileDenied( LUA->GetState( ) );
 
-	Detach__CNetChan_ProcessMessages( LUA->state );
+	Detach__CNetChan_ProcessMessages( LUA->GetState( ) );
 
 
 

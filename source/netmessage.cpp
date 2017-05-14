@@ -121,7 +121,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, INetMessage *msg, CNetChan *netchan )
 	if( it != netmessages_setup.end( ) )
 		( *it ).second( LUA );
 
-	lua_setfenv( LUA->state, -3 );
+	lua_setfenv( LUA->GetState( ), -3 );
 
 	if( netchan != nullptr )
 	{

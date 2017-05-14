@@ -16,7 +16,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, const netadr_t &netadr )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState( ), -2 );
 }
 
 static netadr_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -122,10 +122,10 @@ LUA_FUNCTION_STATIC( GetSteamID )
 	if( type == k_EAccountTypeInvalid || type == k_EAccountTypeIndividual )
 	{
 		AccountID_t accountID = steamID.GetAccountID( );
-		lua_pushfstring( LUA->state, "STEAM_0:%u:%u", accountID % 2, accountID / 2 );
+		lua_pushfstring( LUA->GetState( ), "STEAM_0:%u:%u", accountID % 2, accountID / 2 );
 	}
 	else
-		lua_pushfstring( LUA->state, "%llu", steamID.ConvertToUint64( ) );
+		lua_pushfstring( LUA->GetState( ), "%llu", steamID.ConvertToUint64( ) );
 
 	return 1;
 }

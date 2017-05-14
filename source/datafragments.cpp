@@ -40,7 +40,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, dataFragments_t *datafrag, CNetChan *n
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->state, -2 );
+	lua_setfenv( LUA->GetState( ), -2 );
 }
 
 inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -82,7 +82,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->state, global::tostring_format, metaname, Get( LUA, 1 ) );
+	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
@@ -109,7 +109,7 @@ LUA_FUNCTION_STATIC( SetFileHandle )
 	else if( argt == GarrysMod::Lua::Type::NIL || ( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 ) )
 		fragments->hfile = nullptr;
 	else
-		luaL_typerror( LUA->state, 2, FileHandle::metaname );
+		luaL_typerror( LUA->GetState( ), 2, FileHandle::metaname );
 
 	return 0;
 }
@@ -175,7 +175,7 @@ LUA_FUNCTION_STATIC( SetBuffer )
 	}
 	else
 	{
-		luaL_typerror( LUA->state, 2, UCHARPTR::metaname );
+		luaL_typerror( LUA->GetState( ), 2, UCHARPTR::metaname );
 	}
 		
 	return 0;
