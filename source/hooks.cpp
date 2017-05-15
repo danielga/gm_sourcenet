@@ -19,8 +19,8 @@ namespace Hooks
 
 typedef bool ( __thiscall *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
 
-static const char *CNetChan_ProcessMessages_sig = "\x55\x8B\xEC\x83\xEC\x2C\x53\x89\x4D\xFC";
-static const size_t CNetChan_ProcessMessages_siglen = 10;
+static const char CNetChan_ProcessMessages_sig[] = "\x55\x8B\xEC\x83\xEC\x2C\xF7\x05";
+static const size_t CNetChan_ProcessMessages_siglen = sizeof( CNetChan_ProcessMessages_sig ) - 1;
 
 #elif defined __linux
 
@@ -28,14 +28,14 @@ typedef bool ( *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
 
 #if defined SOURCENET_SERVER
 
-static const char *CNetChan_ProcessMessages_sig = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
+static const char CNetChan_ProcessMessages_sig[] = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
 static const size_t CNetChan_ProcessMessages_siglen = 0;
 
 #elif defined SOURCENET_CLIENT
 
-static const char *CNetChan_ProcessMessages_sig =
+static const char CNetChan_ProcessMessages_sig[] =
 	"\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x35\x2A\x2A\x2A\x2A\x8B";
-static const size_t CNetChan_ProcessMessages_siglen = 16;
+static const size_t CNetChan_ProcessMessages_siglen = sizeof( CNetChan_ProcessMessages_sig ) - 1;
 
 #endif
 
@@ -43,7 +43,7 @@ static const size_t CNetChan_ProcessMessages_siglen = 16;
 
 typedef bool ( *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
 
-static const char *CNetChan_ProcessMessages_sig = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
+static const char CNetChan_ProcessMessages_sig[] = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
 static const size_t CNetChan_ProcessMessages_siglen = 0;
 
 #endif
