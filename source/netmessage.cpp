@@ -7,7 +7,8 @@
 #include <net.hpp>
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
-#include <hde.h>
+#include <distorm.h>
+#include <mnemonics.h>
 #include <unordered_map>
 
 namespace NetMessage
@@ -298,53 +299,20 @@ inline void BuildVTable( void **source, void **destination )
 	ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 }
 
-inline bool IsEndOfFunction( const hde32s &hs )
+inline bool IsEndOfFunction( const _DInst &instruction )
 {
-
-#if defined _WIN32
-
-	return hs.opcode == 0xC3 || hs.opcode == 0xC2;
-
-#elif defined __linux
-
-	return hs.opcode == 0xC9;
-
-#elif defined __APPLE__
-
-	return hs.opcode == 0xC3;
-
-#endif
-
+	return ( META_GET_FC( instruction.meta ) & FC_RET ) != 0;
 }
 
-inline bool PossibleVTable( const hde32s &hs )
+inline bool IsPossibleVTable( const _DInst &instruction )
 {
-	if( hs.len != 6 )
-		return false;
-
-	uint8_t opcode = hs.opcode, modrm = hs.modrm;
-
-#if defined _WIN32
-
-	return opcode == 0xC7 && ( modrm == 0x01 || modrm == 0x02 || modrm == 0x03 || modrm == 0x06 );
-
-#elif defined __linux
-
-	return opcode == 0xC7 && ( modrm == 0x00 || modrm == 0x02 || modrm == 0x03 || modrm == 0x06 );
-
-#elif defined __APPLE__
-
-	if( opcode == 0x8D && modrm == 0x80 )
-		return true;
-
-	return opcode == 0x8B && ( modrm == 0x80 || modrm == 0x83 || modrm == 0x87 || modrm == 0x8A ||
-		modrm == 0x8B || modrm == 0x8E || modrm == 0x8F || modrm == 0x97 );
-
-#endif
-
+	return instruction.size == 6 &&
+		instruction.opcode == I_MOV &&
+		instruction.ops[0].type == O_SMEM &&
+		instruction.ops[1].type == O_IMM;
 }
 
-static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, uint8_t *funcCode )
+static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, const uint8_t *funcCode )
 {
 	CNetMessage *msg = new( std::nothrow ) CNetMessage;
 	if( msg == nullptr )
@@ -352,21 +320,60 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, uint
 
 	void **msgvtable = msg->GetVTable( );
 
-	hde32s hs;
-	for(
-		uint32_t len = hde32_disasm( funcCode, &hs );
-		!IsEndOfFunction( hs );
-		funcCode += len, len = hde32_disasm( funcCode, &hs )
-	)
-		if( PossibleVTable( hs ) )
-		{
-			void **vtable = reinterpret_cast<void **>( hs.imm.imm32 );
-			msg->InstallVTable( vtable );
+	_CodeInfo ci = {
+		reinterpret_cast<_OffsetType>( funcCode ),
+		0,
+		funcCode,
+		10000,
+		Decode32Bits,
+		DF_STOP_ON_RET
+	};
 
-			const char *name = msg->GetName( );
-			if( netmessages_vtables.find( name ) == netmessages_vtables.end( ) )
-				netmessages_vtables[name] = vtable;
+	_DInst instructions[1000] = { { 0 } };
+
+	while( true )
+	{
+		uint32_t decoded = 0;
+		_DecodeResult res = distorm_decompose( &ci, instructions, 1000, &decoded );
+		if( res == DECRES_INPUTERR )
+		{
+			msg->InstallVTable( msgvtable );
+			delete msg;
+			global::ThrowError( LUA, "input to disassemble is problematic" );
 		}
+
+		for( uint32_t k = 0; k < decoded; ++k )
+		{
+			_DInst &instruction = instructions[k];
+			if( instruction.flags == FLAG_NOT_DECODABLE )
+			{
+				msg->InstallVTable( msgvtable );
+				delete msg;
+				global::ThrowError( LUA, "unable to decode an instruction" );
+			}
+
+			if( IsEndOfFunction( instruction ) )
+				break;
+
+			if( IsPossibleVTable( instruction ) )
+			{
+				void **vtable = reinterpret_cast<void **>( instruction.imm.dword );
+				msg->InstallVTable( vtable );
+
+				const char *name = msg->GetName( );
+				if( netmessages_vtables.find( name ) == netmessages_vtables.end( ) )
+					netmessages_vtables[name] = vtable;
+			}
+		}
+
+		if( res == DECRES_SUCCESS || decoded == 0 )
+			break;
+
+		_OffsetType read = ci.nextOffset - ci.codeOffset;
+		ci.codeOffset = ci.nextOffset;
+		ci.code += read;
+		ci.codeLen -= read;
+	}
 
 	msg->InstallVTable( msgvtable );
 	delete msg;
@@ -376,7 +383,7 @@ void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	SymbolFinder symfinder;
 
-	uint8_t *CBaseClient_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
+	const uint8_t *CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
 		global::engine_lib.c_str( ),
 		CBaseClient_ConnectionStart_sig,
 		CBaseClient_ConnectionStart_siglen
@@ -386,7 +393,7 @@ void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 
 	ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
 
-	uint8_t *CBaseClientState_ConnectionStart = static_cast<uint8_t *>( symfinder.ResolveOnBinary(
+	const uint8_t *CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
 		global::engine_lib.c_str( ),
 		CBaseClientState_ConnectionStart_sig,
 		CBaseClientState_ConnectionStart_siglen,
@@ -403,7 +410,7 @@ void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CreateStringTable_offset;
-	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 		SVC_CreateStringTable + sizeof( uintptr_t ) +
 			*reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
 	) );
@@ -411,14 +418,14 @@ void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClientState_ConnectionStart
 	) + SVC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 		SVC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
 	) );
 
 	uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 		CBaseClient_ConnectionStart
 	) + CLC_CmdKeyValues_offset;
-	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<uint8_t *>(
+	ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 		CLC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
 	) );
 }

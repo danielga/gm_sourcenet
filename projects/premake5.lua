@@ -1,8 +1,8 @@
-if os.is("windows") and _ACTION ~= "vs2010" then
+if os.istarget("windows") and _ACTION ~= "vs2010" then
 	error("The only supported compilation platform for this project on Windows is Visual Studio 2010.")
-elseif os.is("linux") then
+elseif os.istarget("linux") then
 	print("WARNING: The only supported compilation platforms (tested) for this project on Linux are GCC/G++ 4.8 or 4.9. However, any version between 4.4 and 4.9 *MIGHT* work.")
-elseif os.is("macosx") then
+elseif os.istarget("macosx") then
 	print("WARNING: The only supported compilation platform (tested) for this project on Mac OSX is Xcode 4.1. However, any Xcode version *MIGHT* work as long as the Mac OSX 10.5 SDK is used (-mmacosx-version-min=10.5).")
 end
 
@@ -33,6 +33,7 @@ CreateWorkspace({name = "sourcenet", allow_debug = false})
 		IncludeSDKTier1()
 		IncludeScanning()
 		IncludeDetouring()
+		IncludeDisassembler()
 
 	CreateProject({serverside = false})
 		IncludeLuaShared()
@@ -41,3 +42,4 @@ CreateWorkspace({name = "sourcenet", allow_debug = false})
 		IncludeSDKTier1()
 		IncludeScanning()
 		IncludeDetouring()
+		IncludeDisassembler()
