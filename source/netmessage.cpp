@@ -40,12 +40,6 @@ static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 static const char CBaseClient_ConnectionStart_sig[] = "@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
 static const size_t CBaseClient_ConnectionStart_siglen = 0;
 
-static const uintptr_t CLC_CmdKeyValues_offset = 752;
-
-static const uintptr_t SVC_CreateStringTable_offset = 576;
-
-static const uintptr_t SVC_CmdKeyValues_offset = 1731;
-
 #elif defined SOURCENET_CLIENT
 
 static const char CBaseClient_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
@@ -54,13 +48,13 @@ static const size_t CBaseClient_ConnectionStart_siglen = sizeof( CBaseClient_Con
 static const char CBaseClientState_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
 static const size_t CBaseClientState_ConnectionStart_siglen = sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
-static const uintptr_t CLC_CmdKeyValues_offset = 814;
-
-static const uintptr_t SVC_CreateStringTable_offset = 591;
-
-static const uintptr_t SVC_CmdKeyValues_offset = 1717;
-
 #endif
+
+static const uintptr_t CLC_CmdKeyValues_offset = 716;
+
+static const uintptr_t SVC_CreateStringTable_offset = 571;
+
+static const uintptr_t SVC_CmdKeyValues_offset = 1691;
 
 #elif defined __APPLE__
 
@@ -70,11 +64,11 @@ static const size_t CBaseClient_ConnectionStart_siglen = 0;
 static const char CBaseClientState_ConnectionStart_sig[] = "@__ZN16CBaseClientState15ConnectionStartEP11INetChannel";
 static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 
-static const uintptr_t CLC_CmdKeyValues_offset = 1258;
+static const uintptr_t CLC_CmdKeyValues_offset = 1130;
 
-static const uintptr_t SVC_CreateStringTable_offset = 778;
+static const uintptr_t SVC_CreateStringTable_offset = 776;
 
-static const uintptr_t SVC_CmdKeyValues_offset = 2771;
+static const uintptr_t SVC_CmdKeyValues_offset = 2782;
 
 #endif
 
@@ -299,19 +293,6 @@ inline void BuildVTable( void **source, void **destination )
 	ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 }
 
-inline bool IsEndOfFunction( const _DInst &instruction )
-{
-	return ( META_GET_FC( instruction.meta ) & FC_RET ) != 0
-
-#if defined __linux
-
-		&& ( META_GET_FC( instruction.meta ) & FC_UNC_BRANCH ) != 0
-
-#endif
-
-		;
-}
-
 inline bool IsPossibleVTable( const _DInst &instruction )
 {
 	return instruction.size == 6 &&
@@ -338,8 +319,8 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 
 #if defined __linux
 
-		// stop when a jmp is reached, for example
-		// there's only one at the end of both ConnectionStarts
+		// stop when a jmp is reached
+		// there's only one at the end of both ConnectionStarts on Linux
 		| DF_STOP_ON_UNC_BRANCH
 
 #endif
@@ -368,9 +349,6 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 				delete msg;
 				global::ThrowError( LUA, "unable to decode an instruction" );
 			}
-
-			if( IsEndOfFunction( instruction ) )
-				break;
 
 			if( IsPossibleVTable( instruction ) )
 			{
