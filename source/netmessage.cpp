@@ -7,8 +7,7 @@
 #include <net.hpp>
 #include <inetmessage.h>
 #include <symbolfinder.hpp>
-#include <distorm.h>
-#include <mnemonics.h>
+#include <hde.h>
 #include <unordered_map>
 
 namespace NetMessage
@@ -267,11 +266,11 @@ inline void BuildVTable( void **source, void **destination )
 
 #if defined _WIN32
 
-	static size_t offset = 0;
+	static const size_t offset = 0;
 
 #elif defined __linux || defined __APPLE__
 
-	static size_t offset = 1;
+	static const size_t offset = 1;
 
 #endif
 
@@ -293,12 +292,54 @@ inline void BuildVTable( void **source, void **destination )
 	ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 }
 
-inline bool IsPossibleVTable( const _DInst &instruction )
+inline bool IsEndOfFunction( const hde32s &instruction )
 {
-	return instruction.size == 6 &&
-		instruction.opcode == I_MOV &&
-		instruction.ops[0].type == O_SMEM &&
-		instruction.ops[1].type == O_IMM;
+	return instruction.opcode == 0xC3
+
+#if defined _WIN32
+
+		|| instruction.opcode == 0xC2
+
+#elif defined __linux
+
+		|| instruction.opcode == 0x5D
+
+#endif
+
+		;
+}
+
+inline bool IsMoveInstruction( uint8_t opcode )
+{
+
+#if defined _WIN32 || defined __linux
+
+	return opcode == 0xC7;
+
+#elif defined __APPLE__
+
+	return opcode == 0x8B;
+
+#endif
+
+}
+
+inline bool IsPossibleVTable( const hde32s &instruction )
+{
+
+#if defined __linux
+
+	if( instruction.len == 7 &&
+		IsMoveInstruction( instruction.opcode ) &&
+		( instruction.flags & F_IMM32 ) != 0 &&
+		instruction.imm.imm32 >= 10000 )
+		return true;
+
+#endif
+
+	return instruction.len == 6 &&
+		IsMoveInstruction( instruction.opcode ) &&
+		( instruction.flags & F_IMM32 ) != 0;
 }
 
 static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, const uint8_t *funcCode )
@@ -309,66 +350,21 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 
 	void **msgvtable = msg->GetVTable( );
 
-	_CodeInfo ci = {
-		reinterpret_cast<_OffsetType>( funcCode ),
-		0,
-		funcCode,
-		10000,
-		Decode32Bits,
-		DF_STOP_ON_RET
-
-#if defined __linux
-
-		// stop when a jmp is reached
-		// there's only one at the end of both ConnectionStarts on Linux
-		| DF_STOP_ON_UNC_BRANCH
-
-#endif
-
-	};
-
-	_DInst instructions[1000] = { { 0 } };
-
-	while( true )
-	{
-		uint32_t decoded = 0;
-		_DecodeResult res = distorm_decompose( &ci, instructions, 1000, &decoded );
-		if( res == DECRES_INPUTERR )
+	hde32s hs;
+	for(
+		uint32_t len = hde32_disasm( funcCode, &hs );
+		!IsEndOfFunction( hs );
+		funcCode += len, len = hde32_disasm( funcCode, &hs )
+	)
+		if( IsPossibleVTable( hs ) )
 		{
-			msg->InstallVTable( msgvtable );
-			delete msg;
-			global::ThrowError( LUA, "input to disassemble is problematic" );
+			void **vtable = reinterpret_cast<void **>( hs.imm.imm32 );
+			msg->InstallVTable( vtable );
+
+			const char *name = msg->GetName( );
+			if( netmessages_vtables.find( name ) == netmessages_vtables.end( ) )
+				netmessages_vtables[name] = vtable;
 		}
-
-		for( uint32_t k = 0; k < decoded; ++k )
-		{
-			_DInst &instruction = instructions[k];
-			if( instruction.flags == FLAG_NOT_DECODABLE )
-			{
-				msg->InstallVTable( msgvtable );
-				delete msg;
-				global::ThrowError( LUA, "unable to decode an instruction" );
-			}
-
-			if( IsPossibleVTable( instruction ) )
-			{
-				void **vtable = reinterpret_cast<void **>( instruction.imm.dword );
-				msg->InstallVTable( vtable );
-
-				const char *name = msg->GetName( );
-				if( netmessages_vtables.find( name ) == netmessages_vtables.end( ) )
-					netmessages_vtables[name] = vtable;
-			}
-		}
-
-		if( res == DECRES_SUCCESS || decoded == 0 )
-			break;
-
-		_OffsetType read = ci.nextOffset - ci.codeOffset;
-		ci.codeOffset = ci.nextOffset;
-		ci.code += read;
-		ci.codeLen -= read;
-	}
 
 	msg->InstallVTable( msgvtable );
 	delete msg;
