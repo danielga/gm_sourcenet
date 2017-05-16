@@ -301,7 +301,15 @@ inline void BuildVTable( void **source, void **destination )
 
 inline bool IsEndOfFunction( const _DInst &instruction )
 {
-	return ( META_GET_FC( instruction.meta ) & FC_RET ) != 0;
+	return ( META_GET_FC( instruction.meta ) & FC_RET ) != 0
+
+#if defined __linux
+
+		&& ( META_GET_FC( instruction.meta ) & FC_UNC_BRANCH ) != 0
+
+#endif
+
+		;
 }
 
 inline bool IsPossibleVTable( const _DInst &instruction )
@@ -327,6 +335,15 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 		10000,
 		Decode32Bits,
 		DF_STOP_ON_RET
+
+#if defined __linux
+
+		// stop when a jmp is reached, for example
+		// there's only one at the end of both ConnectionStarts
+		| DF_STOP_ON_UNC_BRANCH
+
+#endif
+
 	};
 
 	_DInst instructions[1000] = { { 0 } };
