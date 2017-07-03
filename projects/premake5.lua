@@ -11,7 +11,7 @@ end
 
 include(gmcommon)
 
-CreateWorkspace({name = "sourcenet", allow_debug = false, abi_compatible = true})
+CreateWorkspace({name = "sourcenet", abi_compatible = true})
 	CreateProject({serverside = true})
 		IncludeLuaShared()
 		IncludeSDKCommon()
