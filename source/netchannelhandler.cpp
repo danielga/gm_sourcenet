@@ -40,7 +40,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler )
 INetChannelHandler *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
 	global::CheckType( LUA, index, metatype, metaname );
-	return LUA->GetUserType<INetChannelHandler>( index, index );
+	return LUA->GetUserType<INetChannelHandler>( index, metatype );
 }
 
 void Destroy( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler )
