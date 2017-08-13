@@ -88,7 +88,6 @@ const char *tostring_format = "%s: %p";
 GarrysMod::Lua::ILuaBase *lua = nullptr;
 
 SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
-static uint8_t *net_thread_chunk = nullptr;
 
 IVEngineServer *engine_server = nullptr;
 IVEngineClient *engine_client = nullptr;
