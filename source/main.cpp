@@ -28,27 +28,27 @@ namespace global
 
 #if defined _WIN32
 
-static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
-static const size_t IServer_siglen = 16;
+static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
+static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #elif defined __linux
 
 #if defined SOURCENET_SERVER
 
-static const char *IServer_sig = "@sv";
+static const char IServer_sig[] = "@sv";
 static const size_t IServer_siglen = 0;
 
 #elif defined SOURCENET_CLIENT
 
-static const char *IServer_sig = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8D\x5D\x80\xC7";
-static const size_t IServer_siglen = 13;
+static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xC7\x85\x68\xFF\xFF\xFF\x68";
+static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #endif
 
 #elif defined __APPLE__
 
-static const char *IServer_sig = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xD9\x9D\x9C\xFE";
-static const size_t IServer_siglen = 16;
+static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xF3\x0F\x10\x45";
+static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #endif
 
@@ -89,7 +89,6 @@ GarrysMod::Lua::ILuaBase *lua = nullptr;
 
 SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
 static uint8_t *net_thread_chunk = nullptr;
-CreateInterfaceFn engine_factory = nullptr;
 
 IVEngineServer *engine_server = nullptr;
 IVEngineClient *engine_client = nullptr;
@@ -147,11 +146,11 @@ static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 1.0.3" );
+	LUA->PushString( "sourcenet 1.0.4" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 10003 );
+	LUA->PushNumber( 10004 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -173,22 +172,14 @@ GMOD_MODULE_OPEN( )
 {
 	global::lua = LUA;
 
-	global::engine_factory = global::engine_loader.GetFactory( );
-	if( global::engine_factory == nullptr )
-		LUA->ThrowError( "failed to retrieve engine factory function" );
-
-	global::engine_server = static_cast<IVEngineServer *>(
-		global::engine_factory( INTERFACEVERSION_VENGINESERVER, nullptr )
-	);
+	global::engine_server = global::engine_loader.GetInterface<IVEngineServer>( INTERFACEVERSION_VENGINESERVER );
 	if( global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
 	global::is_dedicated = global::engine_server->IsDedicatedServer( );
 	if( !global::is_dedicated )
 	{
-		global::engine_client = static_cast<IVEngineClient *>(
-			global::engine_factory( "VEngineClient015", nullptr )
-		);
+		global::engine_client = global::engine_loader.GetInterface<IVEngineClient>( "VEngineClient015" );
 		if( global::engine_client == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}

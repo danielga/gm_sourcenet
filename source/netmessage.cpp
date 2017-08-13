@@ -44,7 +44,7 @@ static const size_t CBaseClient_ConnectionStart_siglen = 0;
 static const char CBaseClient_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
 static const size_t CBaseClient_ConnectionStart_siglen = sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
-static const char CBaseClientState_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
+static const char CBaseClientState_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B\x75\x08\xC7\x04\x24";
 static const size_t CBaseClientState_ConnectionStart_siglen = sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
 #endif
