@@ -62,6 +62,7 @@ LUA_FUNCTION_STATIC( Constructor )
 
 void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
+
 #if defined SOURCENET_SERVER
 
 	INetworkStringTableContainer *container = global::engine_loader.GetInterface<INetworkStringTableContainer>(

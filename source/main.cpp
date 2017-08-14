@@ -178,7 +178,7 @@ GMOD_MODULE_OPEN( )
 	global::is_dedicated = global::engine_server->IsDedicatedServer( );
 	if( !global::is_dedicated )
 	{
-		global::engine_client = global::engine_loader.GetInterface<IVEngineClient>( "VEngineClient015" );
+		global::engine_client = global::engine_loader.GetInterface<IVEngineClient>( VENGINE_CLIENT_INTERFACE_VERSION );
 		if( global::engine_client == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
