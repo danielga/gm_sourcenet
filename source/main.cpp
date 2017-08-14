@@ -75,15 +75,7 @@ const std::string server_lib = Helpers::GetBinaryFileName(
 	"garrysmod/bin/"
 );
 
-#if defined _WIN32
-
-const char *tostring_format = "%s: 0x%p";
-
-#elif defined __linux || defined __APPLE__
-
 const char *tostring_format = "%s: %p";
-
-#endif
 
 GarrysMod::Lua::ILuaBase *lua = nullptr;
 
