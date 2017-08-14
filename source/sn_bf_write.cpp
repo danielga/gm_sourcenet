@@ -29,7 +29,7 @@ bf_write **Push( GarrysMod::Lua::ILuaBase *LUA, bf_write *writer, int32_t bufref
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	return &container->pwriter;
 }
@@ -45,7 +45,7 @@ bf_write *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bufref )
 	Container *container = GetUserData( LUA, index );
 	bf_write *writer = container->pwriter;
 	if( writer == nullptr )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = container->bufref;
@@ -78,7 +78,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	bf_write *buf = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, buf );
+	LUA->PushFormattedString( global::tostring_format, metaname, buf );
 
 	return 1;
 }
@@ -175,7 +175,7 @@ LUA_FUNCTION_STATIC( WriteBitAngle )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 )
-		global::ThrowError( LUA, "invalid number of bits to write (%d is less than 0)", bits );
+		LUA->FormattedError( "invalid number of bits to write (%d is less than 0)", bits );
 
 	buf->WriteBitAngle( LUA->GetNumber( 2 ), bits );
 
@@ -333,8 +333,7 @@ LUA_FUNCTION_STATIC( WriteInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 || bits > 32 )
-		global::ThrowError(
-			LUA,
+		LUA->FormattedError(
 			"invalid number of bits to write (%d is not between 0 and 32)",
 			bits
 		);
@@ -352,8 +351,7 @@ LUA_FUNCTION_STATIC( WriteUInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
 	if( bits < 0 || bits > 32 )
-		global::ThrowError(
-			LUA,
+		LUA->FormattedError(
 			"invalid number of bits to write (%d is not between 0 and 32)",
 			bits
 		);

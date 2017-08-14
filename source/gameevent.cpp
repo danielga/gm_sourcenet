@@ -30,7 +30,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 }
 
 inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -43,7 +43,7 @@ IGameEvent *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, IGameEventManager
 {
 	Container *udata = GetUserData( LUA, index );
 	if( udata == nullptr )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( manager != nullptr )
 		*manager = udata->manager;
@@ -77,7 +77,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	IGameEvent *event = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, event );
+	LUA->PushFormattedString( global::tostring_format, metaname, event );
 
 	return 1;
 }

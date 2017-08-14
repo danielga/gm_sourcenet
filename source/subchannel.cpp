@@ -29,7 +29,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, subchannel_t *subchan, CNetChan *netch
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 }
 
 static subchannel_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -38,7 +38,7 @@ static subchannel_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 	Container *udata = LUA->GetUserType<Container>( index, metatype );
 	subchannel_t *subchan = udata->subchan;
 	if( !IsValid( subchan, udata->netchan ) )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	return subchan;
 }
@@ -68,7 +68,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	subchannel_t *subchan = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, subchan );
+	LUA->PushFormattedString( global::tostring_format, metaname, subchan );
 
 	return 1;
 }

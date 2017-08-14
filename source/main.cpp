@@ -105,7 +105,7 @@ LUA_FUNCTION( index )
 
 	LUA->Pop( 2 );
 
-	lua_getfenv( LUA->GetState( ), 1 );
+	LUA->GetFEnv( 1 );
 	LUA->Push( 2 );
 	LUA->RawGet( -2 );
 	return 1;
@@ -113,7 +113,7 @@ LUA_FUNCTION( index )
 
 LUA_FUNCTION( newindex )
 {
-	lua_getfenv( LUA->GetState( ), 1 );
+	LUA->GetFEnv( 1 );
 	LUA->Push( 2 );
 	LUA->Push( 3 );
 	LUA->RawSet( -3 );
@@ -122,23 +122,14 @@ LUA_FUNCTION( newindex )
 
 LUA_FUNCTION( GetTable )
 {
-	lua_getfenv( LUA->GetState( ), 1 );
+	LUA->GetFEnv( 1 );
 	return 1;
 }
 
 void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype )
 {
 	if( !LUA->IsType( index, type ) )
-		luaL_typerror( LUA->GetState( ), index, nametype );
-}
-
-void ThrowError( GarrysMod::Lua::ILuaBase *LUA, const char *fmt, ... )
-{
-	va_list args;
-	va_start( args, fmt );
-	const char *error = lua_pushvfstring( LUA->GetState( ), fmt, args );
-	va_end( args );
-	LUA->ThrowError( error );
+		LUA->TypeError( index, nametype );
 }
 
 static void Initialize( GarrysMod::Lua::ILuaBase *LUA )

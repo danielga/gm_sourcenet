@@ -34,7 +34,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	IGameEventManager2 *manager = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, manager );
+	LUA->PushFormattedString( global::tostring_format, metaname, manager );
 
 	return 1;
 }
@@ -126,7 +126,7 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	manager_ref.Setup( LUA );
 	manager_ref.Create( );

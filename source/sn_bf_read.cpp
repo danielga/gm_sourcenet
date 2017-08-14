@@ -29,7 +29,7 @@ bf_read **Push( GarrysMod::Lua::ILuaBase *LUA, bf_read *reader, int32_t bufref )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	return &container->preader;
 }
@@ -45,7 +45,7 @@ bf_read *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bufref )
 	Container *container = GetUserData( LUA, index );
 	bf_read *reader = container->preader;
 	if( reader == nullptr )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( bufref != nullptr )
 		*bufref = container->bufref;
@@ -78,7 +78,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	bf_read *buf = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, buf );
+	LUA->PushFormattedString( global::tostring_format, metaname, buf );
 
 	return 1;
 }
@@ -186,7 +186,7 @@ LUA_FUNCTION_STATIC( ReadBitAngle )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 )
-		global::ThrowError( LUA, "invalid number of bits to read (%d is less than 0)", bits );
+		LUA->FormattedError( "invalid number of bits to read (%d is less than 0)", bits );
 
 	LUA->PushNumber( buf->ReadBitAngle( bits ) );
 
@@ -351,8 +351,7 @@ LUA_FUNCTION_STATIC( ReadInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 || bits > 32 )
-		global::ThrowError(
-			LUA,
+		LUA->FormattedError(
 			"invalid number of bits to read (%d is not between 0 and 32)",
 			bits
 		);
@@ -369,8 +368,7 @@ LUA_FUNCTION_STATIC( ReadUInt )
 
 	int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
 	if( bits < 0 || bits > 32 )
-		global::ThrowError(
-			LUA,
+		LUA->FormattedError(
 			"invalid number of bits to read (%d is not between 0 and 32)",
 			bits
 		);

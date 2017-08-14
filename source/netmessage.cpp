@@ -121,7 +121,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, INetMessage *msg, CNetChan *netchan )
 	if( it != netmessages_setup.end( ) )
 		( *it ).second( LUA );
 
-	lua_setfenv( LUA->GetState( ), -3 );
+	LUA->SetFEnv( -3 );
 
 	if( netchan != nullptr )
 	{
@@ -144,7 +144,7 @@ INetMessage *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, CNetChan **netch
 	INetMessage *msg = udata->msg;
 	CNetChan *netchannel = udata->netchan;
 	if( !IsValid( msg, netchannel ) )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( netchannel != nullptr )
 		*netchan = netchannel;
@@ -346,7 +346,7 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 {
 	CNetMessage *msg = new( std::nothrow ) CNetMessage;
 	if( msg == nullptr )
-		global::ThrowError( LUA, "failed to create CNetMessage object for netmessages resolution" );
+		LUA->FormattedError( "failed to create CNetMessage object for netmessages resolution" );
 
 	void **msgvtable = msg->GetVTable( );
 
@@ -433,12 +433,12 @@ template<class NetMessage> void Register( GarrysMod::Lua::ILuaBase *LUA )
 {
 	NetMessage *msg = new( std::nothrow ) NetMessage;
 	if( msg == nullptr )
-		global::ThrowError( LUA, "failed to create object for '%s'", NetMessage::Name );
+		LUA->FormattedError( "failed to create object for '%s'", NetMessage::Name );
 
 	if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
 	{
 		delete msg;
-		global::ThrowError( LUA, "failed to find vtable for '%s'", NetMessage::Name );
+		LUA->FormattedError( "failed to find vtable for '%s'", NetMessage::Name );
 	}
 
 	BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );

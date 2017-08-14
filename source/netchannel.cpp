@@ -49,7 +49,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, CNetChan *netchan )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	LUA->PushUserdata( netchan );
 	LUA->Push( -2 );
@@ -69,7 +69,7 @@ CNetChan *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
 	CNetChan *netchan = GetUserData( LUA, 1 );
 	if( !IsValid( netchan ) )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	return netchan;
 }
@@ -91,7 +91,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, Get( LUA, 1 ) );
+	LUA->PushFormattedString( global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 

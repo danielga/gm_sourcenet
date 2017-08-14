@@ -17,8 +17,7 @@ const char *metaname = "UCHARPTR";
 uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )
 {
 	if( bits <= 0 )
-		global::ThrowError(
-			LUA,
+		LUA->FormattedError(
 			"invalid amount of bits for a buffer (%d is less than or equal to zero)",
 			bits
 		);
@@ -41,7 +40,7 @@ uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	return data;
 }
@@ -57,7 +56,7 @@ uint8_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits, bool 
 	Container *container = GetUserData( LUA, index );
 	uint8_t *ptr = container->data;
 	if( ptr == nullptr )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( bits != nullptr )
 		*bits = container->bits;
@@ -73,7 +72,7 @@ uint8_t *Release( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits )
 	Container *container = GetUserData( LUA, index );
 	uint8_t *ptr = container->data;
 	if( ptr == nullptr )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( bits != nullptr )
 		*bits = container->bits;
@@ -109,7 +108,7 @@ LUA_FUNCTION_STATIC( tostring )
 {
 	uint8_t *ptr = Get( LUA, 1 );
 
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, ptr );
+	LUA->PushFormattedString( global::tostring_format, metaname, ptr );
 
 	return 1;
 }

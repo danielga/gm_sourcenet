@@ -54,6 +54,4 @@ LUA_FUNCTION_DECLARE( GetTable );
 
 void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype );
 
-void ThrowError( GarrysMod::Lua::ILuaBase *LUA, const char *fmt, ... );
-
 }

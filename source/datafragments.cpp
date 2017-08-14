@@ -40,7 +40,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, dataFragments_t *datafrag, CNetChan *n
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 }
 
 inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -54,7 +54,7 @@ dataFragments_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, CNetChan **n
 	Container *udata = GetUserData( LUA, index );
 	dataFragments_t *datafrag = udata->datafrag;
 	if( !IsValid( datafrag, udata->netchan ) )
-		global::ThrowError( LUA, "invalid %s", metaname );
+		LUA->FormattedError( "invalid %s", metaname );
 
 	if( netchan != nullptr )
 		*netchan = udata->netchan;
@@ -82,7 +82,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, Get( LUA, 1 ) );
+	LUA->PushFormattedString( global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
@@ -109,7 +109,7 @@ LUA_FUNCTION_STATIC( SetFileHandle )
 	else if( argt == GarrysMod::Lua::Type::NIL || ( argt == GarrysMod::Lua::Type::NUMBER && LUA->GetNumber( 2 ) == 0 ) )
 		fragments->hfile = nullptr;
 	else
-		luaL_typerror( LUA->GetState( ), 2, FileHandle::metaname );
+		LUA->TypeError( 2, FileHandle::metaname );
 
 	return 0;
 }
@@ -175,7 +175,7 @@ LUA_FUNCTION_STATIC( SetBuffer )
 	}
 	else
 	{
-		luaL_typerror( LUA->GetState( ), 2, UCHARPTR::metaname );
+		LUA->TypeError( 2, UCHARPTR::metaname );
 	}
 		
 	return 0;

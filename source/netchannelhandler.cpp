@@ -27,7 +27,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, INetChannelHandler *handler )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 
 	LUA->PushUserdata( handler );
 	LUA->Push( -2 );
@@ -60,7 +60,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, Get( LUA, 1 ) );
+	LUA->PushFormattedString( global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 

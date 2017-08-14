@@ -20,7 +20,7 @@ void Push( GarrysMod::Lua::ILuaBase *LUA, FileHandle_t file )
 	LUA->SetMetaTable( -2 );
 
 	LUA->CreateTable( );
-	lua_setfenv( LUA->GetState( ), -2 );
+	LUA->SetFEnv( -2 );
 }
 
 FileHandle_t Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
@@ -37,7 +37,7 @@ LUA_FUNCTION_STATIC( eq )
 
 LUA_FUNCTION_STATIC( tostring )
 {
-	lua_pushfstring( LUA->GetState( ), global::tostring_format, metaname, Get( LUA, 1 ) );
+	LUA->PushFormattedString( global::tostring_format, metaname, Get( LUA, 1 ) );
 	return 1;
 }
 
