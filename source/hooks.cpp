@@ -59,9 +59,6 @@ static CNetChan_ProcessMessages_t CNetChan_ProcessMessages_o = nullptr;
 static uintptr_t CNetChan_vtable = 0;
 static uintptr_t INetChannelHandler_vtable = 0;
 
-static size_t INetChannelHandlerConnectionStartOffset = 0;
-static size_t INetChannelHandlerOffset = 0;
-
 #define HOOK_INIT( name ) \
 do \
 { \
@@ -221,7 +218,7 @@ static void VFUNC INetChannelHandler_ConnectionStart_d( INetChannelHandler *hand
 	INetChannelHandler_ConnectionStart_o( handler, netchan );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionStart, 1 + INetChannelHandlerConnectionStartOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionStart, 1 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_ConnectionClosing_o, void, (
 	INetChannelHandler *handler,
@@ -244,7 +241,7 @@ static void VFUNC INetChannelHandler_ConnectionClosing_d(
 	INetChannelHandler_ConnectionClosing_o( handler, reason );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionClosing, 2 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionClosing, 2 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_ConnectionCrashed_o, void, (
 	INetChannelHandler *handler,
@@ -267,7 +264,7 @@ static void VFUNC INetChannelHandler_ConnectionCrashed_d(
 	INetChannelHandler_ConnectionCrashed_o( handler, reason );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionCrashed, 3 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionCrashed, 3 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_PacketStart_o, void, (
 	INetChannelHandler *handler,
@@ -291,7 +288,7 @@ static void VFUNC INetChannelHandler_PacketStart_d(
 	INetChannelHandler_PacketStart_o( handler, incoming_sequence, outgoing_acknowledged );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketStart, 4 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketStart, 4 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_PacketEnd_o, void, ( INetChannelHandler *handler ) );
 
@@ -305,7 +302,7 @@ static void VFUNC INetChannelHandler_PacketEnd_d( INetChannelHandler *handler )
 	INetChannelHandler_PacketEnd_o( handler );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketEnd, 5 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketEnd, 5 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_FileRequested_o, void, (
 	INetChannelHandler *handler,
@@ -329,7 +326,7 @@ static void VFUNC INetChannelHandler_FileRequested_d(
 	INetChannelHandler_FileRequested_o( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileRequested, 6 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileRequested, 6 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_FileReceived_o, void, (
 	INetChannelHandler *handler,
@@ -353,7 +350,7 @@ static void VFUNC INetChannelHandler_FileReceived_d(
 	INetChannelHandler_FileReceived_o( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileReceived, 7 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileReceived, 7 + VTableOffset );
 
 DEFVFUNC_( INetChannelHandler_FileDenied_o, void, (
 	INetChannelHandler *handler,
@@ -377,7 +374,7 @@ static void VFUNC INetChannelHandler_FileDenied_d(
 	INetChannelHandler_FileDenied_o( handler, fileName, transferID );
 }
 
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileDenied, 8 + INetChannelHandlerOffset + VTableOffset );
+SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileDenied, 8 + VTableOffset );
 
 static MologieDetours::Detour<CNetChan_ProcessMessages_t> *
 	CNetChan_ProcessMessages_detour = nullptr;
@@ -482,12 +479,6 @@ void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 		) );
 	if( CNetChan_ProcessMessages_o == nullptr )
 		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
-
-	if( global::engine_client == nullptr )
-	{
-		INetChannelHandlerConnectionStartOffset = 40;
-		INetChannelHandlerOffset = 58;
-	}
 }
 
 void Initialize( GarrysMod::Lua::ILuaBase *LUA )
@@ -548,6 +539,12 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 
 	LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
+
+	LUA->PushCFunction( Attach__INetChannelHandler_FileRequested );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileRequested" );
+
+	LUA->PushCFunction( Detach__INetChannelHandler_FileRequested );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileRequested" );
 
 	LUA->PushCFunction( Attach__INetChannelHandler_FileReceived );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileReceived" );
@@ -640,6 +637,12 @@ void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileRequested" );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileRequested" );
 
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileReceived" );
