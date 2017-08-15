@@ -4,7 +4,7 @@ A module for Garry's Mod that provides interfaces to many systems of VALVe's eng
 
 ## Info
 
-The only supported compilation platform for this project on Windows is Visual Studio 2010.
+The only supported compilation platform for this project on Windows is Visual Studio 2017.
 The only supported compilation platforms (tested) for this project on Linux are GCC/G\+\+ 4.8 or 4.9. However, any version between 4.4 and 4.9 *MIGHT* work.
 The only supported compilation platform (tested) for this project on Mac OSX is Xcode 4.1. However, any Xcode version *MIGHT* work as long as the Mac OSX 10.5 SDK is used.
 These restrictions are not random; they exist because of ABI reasons.
