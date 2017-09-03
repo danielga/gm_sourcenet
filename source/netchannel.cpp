@@ -804,7 +804,7 @@ LUA_FUNCTION_STATIC( SetName )
 	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
 	strncpy( netchan->m_Name, LUA->GetString( 2 ), 32 );
-	netchan->m_Name[sizeof( netchan->m_Name )] = '\0';
+	netchan->m_Name[sizeof( netchan->m_Name ) - 1] = '\0';
 
 	return 0;
 }

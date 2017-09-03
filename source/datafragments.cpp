@@ -125,7 +125,7 @@ LUA_FUNCTION_STATIC( SetFileName )
 	dataFragments_t *fragments = Get( LUA, 1 );
 
 	strncpy( fragments->filename, LUA->CheckString( 2 ), MAX_PATH );
-	fragments->filename[sizeof( fragments->filename )] = '\0';
+	fragments->filename[sizeof( fragments->filename ) - 1] = '\0';
 
 	return 0;
 }
