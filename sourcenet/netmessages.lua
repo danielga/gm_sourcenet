@@ -314,19 +314,31 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(clc_GMod_ClientToServer, NET_MESSAGE_BITS)
 
-				local bits = read:ReadLong()
-				write:WriteLong(bits)
+				local bits = read:ReadUInt(20)
+				write:WriteUInt(bits, 20)
 
-				local unk = read:ReadByte()
-				write:WriteByte(unk)
+				local msgtype = read:ReadByte()
+				write:WriteByte(msgtype)
 
-				local id = read:ReadWord()
-				write:WriteWord(id)
+				if msgtype == 0 then
+					local id = read:ReadWord()
+					write:WriteWord(id)
 
-				local data = read:ReadBits(bits - 8 - 16)
-				write:WriteBits(data)
+					local data = read:ReadBits(bits - 8 - 16)
+					write:WriteBits(data)
 
-				SourceNetMsg(string.format("clc_GMod_ClientToServer length=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id) or "unknown message"))
+					SourceNetMsg(string.format("clc_GMod_ClientToServer netmessage bits=%i,msgtype=%i,id=%i/%s\n", bits - 8 - 16, msgtype, id, util.NetworkIDToString(id) or "unknown message"))
+				elseif msgtype == 2 then
+					local strerr = read:ReadString()
+					write:WriteString(strerr)
+
+					SourceNetMsg(string.format("clc_GMod_ClientToServer client Lua error\n%s", strerr))
+				elseif msgtype == 4 then
+					local data = read:ReadBits(bits - 8)
+					write:WriteBits(data)
+
+					SourceNetMsg(string.format("clc_GMod_ClientToServer GModDataPack::SendFileToClient bits=%i\n", bits - 8))
+				end
 			end		
 		},
 	},
@@ -877,19 +889,36 @@ NET_MESSAGES = {
 			DefaultCopy = function(netchan, read, write)
 				write:WriteUInt(svc_GMod_ServerToClient, NET_MESSAGE_BITS)
 
-				local bits = read:ReadLong()
-				write:WriteLong(bits)
+				local bits = read:ReadUInt(20)
+				write:WriteUInt(bits, 20)
 
-				local unk = read:ReadByte()
-				write:WriteByte(unk)
+				local msgtype = read:ReadByte()
+				write:WriteByte(msgtype)
 
-				local id = read:ReadWord()
-				write:WriteWord(id)
+				if msgtype == 0 then
+					local id = read:ReadWord()
+					write:WriteWord(id)
 
-				local data = read:ReadBits(bits - 8 - 16)
-				write:WriteBits(data)
+					local data = read:ReadBits(bits - 8 - 16)
+					write:WriteBits(data)
 
-				SourceNetMsg(string.format("svc_GMod_ServerToClient length=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id) or "unknown message"))
+					SourceNetMsg(string.format("svc_GMod_ServerToClient netmessage bits=%i,id=%i/%s\n", bits - 8 - 16, id, util.NetworkIDToString(id) or "unknown message"))
+				elseif msgtype == 1 then
+					local data = read:ReadBits(bits - 8)
+					write:WriteBits(data)
+
+					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh bits=%i\n", bits - 8))
+				elseif msgtype == 3 then
+					local data = read:ReadBits(bits - 8)
+					write:WriteBits(data)
+
+					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::RequestFiles bits=%i\n", bits - 8))
+				elseif msgtype == 4 then
+					local data = read:ReadBits(bits - 8)
+					write:WriteBits(data)
+
+					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::UpdateFile bits=%i\n", bits - 8))
+				end
 			end		
 		},
 	}
