@@ -334,10 +334,27 @@ NET_MESSAGES = {
 
 					SourceNetMsg(string.format("clc_GMod_ClientToServer client Lua error\n%s", strerr))
 				elseif msgtype == 4 then
-					local data = read:ReadBits(bits - 8)
-					write:WriteBits(data)
+					local count = (bits - 8) / 16
 
-					SourceNetMsg(string.format("clc_GMod_ClientToServer GModDataPack::SendFileToClient bits=%i\n", bits - 8))
+					if count > 0 then
+						local id = read:ReadUInt(16)
+						write:WriteUInt(id, 16)
+
+						local str = tostring(id)
+
+						for i = 2, count do
+							local id = read:ReadUInt(16)
+							write:WriteUInt(id, 16)
+
+							if id ~= 0 then
+								str = str .. ", " .. id
+							end
+						end
+
+						SourceNetMsg(string.format("clc_GMod_ClientToServer GModDataPack::SendFileToClient bits=%i,counts=%i %s\n", bits - 8, count, str))
+					else
+						SourceNetMsg("clc_GMod_ClientToServer GModDataPack::SendFileToClient\n")
+					end
 				end
 			end		
 		},
@@ -904,20 +921,30 @@ NET_MESSAGES = {
 
 					SourceNetMsg(string.format("svc_GMod_ServerToClient netmessage bits=%i,id=%i/%s\n", bits - 8 - 16, id, util.NetworkIDToString(id) or "unknown message"))
 				elseif msgtype == 1 then
-					local data = read:ReadBits(bits - 8)
-					write:WriteBits(data)
+					local path = read:ReadString()
+					write:WriteString(path)
 
-					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh bits=%i\n", bits - 8))
+					local length = read:ReadUInt(32)
+					write:WriteUInt(length)
+
+					local data = read:ReadBytes(length)
+					write:WriteBytes(data)
+
+					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh length=%i,path=%s\n", length, path))
 				elseif msgtype == 3 then
+					-- probably 0 bits
 					local data = read:ReadBits(bits - 8)
 					write:WriteBits(data)
 
 					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::RequestFiles bits=%i\n", bits - 8))
 				elseif msgtype == 4 then
-					local data = read:ReadBits(bits - 8)
-					write:WriteBits(data)
+					local length = read:ReadUInt(16)
+					write:WriteUInt(length, 16)
 
-					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::UpdateFile bits=%i\n", bits - 8))
+					local data = read:ReadBytes(length)
+					write:WriteBytes(data)
+
+					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::UpdateFile length=%i\n", length))
 				end
 			end		
 		},
