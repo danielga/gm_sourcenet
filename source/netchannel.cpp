@@ -67,7 +67,7 @@ inline CNetChan *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 
 CNetChan *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
-	CNetChan *netchan = GetUserData( LUA, 1 );
+	CNetChan *netchan = GetUserData( LUA, index );
 	if( !IsValid( netchan ) )
 		LUA->FormattedError( "invalid %s", metaname );
 
