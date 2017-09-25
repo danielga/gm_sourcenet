@@ -11,7 +11,7 @@ struct Container
 	bool own;
 };
 
-uint8_t metatype = GarrysMod::Lua::Type::NONE;
+uint8_t metatype = 0;
 const char *metaname = "UCHARPTR";
 
 uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )

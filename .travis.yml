@@ -1,0 +1,49 @@
+language: cpp
+compiler: gcc
+os:
+  - linux
+  - osx
+osx_image: xcode7.3
+cache:
+  directories:
+    - "$TRAVIS_BUILD_DIR/dependencies"
+    - "$TRAVIS_BUILD_DIR/projects"
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - linux-libc-dev:i386
+      - gcc-4.9
+      - gcc-4.9-multilib
+      - g++-4.9
+      - g++-4.9-multilib
+install:
+  - export MODULE_NAME="sourcenet"
+  - export DEPENDENCIES="$TRAVIS_BUILD_DIR/dependencies"
+  - export GARRYSMOD_COMMON="$DEPENDENCIES/garrysmod_common"
+  - export SOURCE_SDK="$DEPENDENCIES/sourcesdk-minimal"
+  - export TARGET_OS=$TRAVIS_OS_NAME
+  - export REPOSITORY_DIR=$TRAVIS_BUILD_DIR
+  - if [ $TRAVIS_OS_NAME = "osx" ]; then
+      export PREMAKE5="$DEPENDENCIES/macosx/premake-core/premake5";
+      export PROJECT_OS=macosx;
+      export CXX=g++;
+      export CC=gcc;
+    elif [ $TRAVIS_OS_NAME = "linux" ]; then
+      export PREMAKE5="$DEPENDENCIES/linux/premake-core/premake5";
+      export PROJECT_OS=linux;
+      export CXX=g++-4.9;
+      export CC=gcc-4.9;
+    fi
+script: "$TRAVIS_BUILD_DIR/ci.sh"
+deploy:
+  provider: releases
+  skip_cleanup: true
+  file:
+    - "gmsv_${MODULE_NAME}_$TARGET_OS.dll"
+    - "gmcl_${MODULE_NAME}_$TARGET_OS.dll"
+  on:
+    tags: true
+  api_key:
+    secure: LMpBzhJGJMqXfsb2Fx89Cez72ZdDuRk7Y/nWJQykP3C5bIr1Xiobwib2zN6naMVoOt3uIhE4cRyhLZRuBCEMEs0/VU85hJ+JV8aYWNL2lxDssNBnoGxEWk5WOhRHK0dYKFCeX/JnVWQTtpKHL3+PAyj6rnqNOedYW0XoS9bH/vUEJGJ2EJBzJka5JT60FYBrMUkqsOMBloDqNU7sv06Am96bsqB6cXNiG1mNG08x2nmHd1ozxJMTKPDyy+L9y665nRCOYZRKoil4kw7Wc9Vqzco6IYIK6uBgy70e5zizixZ1LnNjz0ilj/2JVmsZbgDJwSo0p28iLElPDSa2I2mzr+I5p/1i4MDHF2J/MZrGsVfHyI+TvUx+EcbGYXWs1CtF9PoRKmfVNKu220+rBJNECHSVcA0LIg/RkUkBEwX6p3btURccgEademDOZ/qU4j5Hgxgf/ZXZ+iWg4jocq065fWUSecHETEJ+UFmN5sod+F6RRB3e9lvslQ5yzCLv+RMBvRntnYXC+MchTb3WF9FbPIAfw2rcplg+pjs0bPboqei/mBX5P98hKXHy1HpoAnnXWw5PezLjYQsjWmEcFJkQPKpcD1h6yqeHtXmKSdpl1mJLBshJCBQ6tN7F6P6839CozKyFOowj613OHcC/BdyiTKLo4Ze083GDZw5XWbu0EQ4=

@@ -1,4 +1,4 @@
-#include <vfnhook.h>
+#include <detouring/vfnhook.h>
 #include <netmessage.hpp>
 #include <netmessages.hpp>
 #include <sn_bf_write.hpp>
@@ -6,22 +6,36 @@
 #include <netchannel.hpp>
 #include <net.hpp>
 #include <inetmessage.h>
-#include <symbolfinder.hpp>
-#include <hde.h>
+#include <scanning/symbolfinder.hpp>
+#include <detouring/hde.h>
+#include <Platform.hpp>
+
+#ifdef SYSTEM_MACOSX_BAD
+
+#include <map>
+
+#else
+
 #include <unordered_map>
+
+#endif
 
 namespace NetMessage
 {
 
 using namespace NetMessages;
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
-static const char CBaseClient_ConnectionStart_sig[] = "\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x8B";
-static const size_t CBaseClient_ConnectionStart_siglen = sizeof( CBaseClient_ConnectionStart_sig ) - 1;
+static const char CBaseClient_ConnectionStart_sig[] =
+	"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x8B";
+static const size_t CBaseClient_ConnectionStart_siglen =
+	sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
-static const char CBaseClientState_ConnectionStart_sig[] = "\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x8B";
-static const size_t CBaseClientState_ConnectionStart_siglen = sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
+static const char CBaseClientState_ConnectionStart_sig[] =
+	"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x8B";
+static const size_t CBaseClientState_ConnectionStart_siglen =
+	sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
 static const uintptr_t CLC_CmdKeyValues_offset = 819;
 
@@ -29,23 +43,29 @@ static const uintptr_t SVC_CreateStringTable_offset = 622;
 
 static const uintptr_t SVC_CmdKeyValues_offset = 1751;
 
-#elif defined __linux
+#elif defined SYSTEM_LINUX
 
 #if defined SOURCENET_SERVER
 
-static const char CBaseClientState_ConnectionStart_sig[] = "@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
+static const char CBaseClientState_ConnectionStart_sig[] =
+	"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
 static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 
-static const char CBaseClient_ConnectionStart_sig[] = "@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
+static const char CBaseClient_ConnectionStart_sig[] =
+	"@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
 static const size_t CBaseClient_ConnectionStart_siglen = 0;
 
 #elif defined SOURCENET_CLIENT
 
-static const char CBaseClient_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
-static const size_t CBaseClient_ConnectionStart_siglen = sizeof( CBaseClient_ConnectionStart_sig ) - 1;
+static const char CBaseClient_ConnectionStart_sig[] =
+	"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
+static const size_t CBaseClient_ConnectionStart_siglen =
+	sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
-static const char CBaseClientState_ConnectionStart_sig[] = "\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B\x75\x08\xC7\x04\x24";
-static const size_t CBaseClientState_ConnectionStart_siglen = sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
+static const char CBaseClientState_ConnectionStart_sig[] =
+	"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B\x75\x08\xC7\x04\x24";
+static const size_t CBaseClientState_ConnectionStart_siglen =
+	sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
 #endif
 
@@ -55,12 +75,14 @@ static const uintptr_t SVC_CreateStringTable_offset = 571;
 
 static const uintptr_t SVC_CmdKeyValues_offset = 1691;
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
-static const char CBaseClient_ConnectionStart_sig[] = "@__ZN11CBaseClient15ConnectionStartEP11INetChannel";
+static const char CBaseClient_ConnectionStart_sig[] =
+	"@__ZN11CBaseClient15ConnectionStartEP11INetChannel";
 static const size_t CBaseClient_ConnectionStart_siglen = 0;
 
-static const char CBaseClientState_ConnectionStart_sig[] = "@__ZN16CBaseClientState15ConnectionStartEP11INetChannel";
+static const char CBaseClientState_ConnectionStart_sig[] =
+	"@__ZN16CBaseClientState15ConnectionStartEP11INetChannel";
 static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 
 static const uintptr_t CLC_CmdKeyValues_offset = 1130;
@@ -77,12 +99,21 @@ struct Container
 	CNetChan *netchan;
 };
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "INetMessage";
 static const char *table_name = "sourcenet_INetMessage";
 
-static std::unordered_map<std::string, void ( * )( GarrysMod::Lua::ILuaBase *LUA )> netmessages_setup;
+#ifdef SYSTEM_MACOSX_BAD
+
+static std::map<std::string, void ( * )( GarrysMod::Lua::ILuaBase * )> netmessages_setup;
+static std::map<std::string, void **> netmessages_vtables;
+
+#else
+
+static std::unordered_map<std::string, void ( * )( GarrysMod::Lua::ILuaBase * )> netmessages_setup;
 static std::unordered_map<std::string, void **> netmessages_vtables;
+
+#endif
 
 static bool IsValid( INetMessage *msg, CNetChan *netchan )
 {
@@ -264,19 +295,20 @@ LUA_FUNCTION_STATIC( Process )
 inline void BuildVTable( void **source, void **destination )
 {
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 	static const size_t offset = 0;
 
-#elif defined __linux || defined __APPLE__
+#elif defined SYSTEM_POSIX
 
 	static const size_t offset = 1;
 
 #endif
 
-	uintptr_t *src = reinterpret_cast<uintptr_t *>( source ), *dst = reinterpret_cast<uintptr_t *>( destination );
+	uintptr_t *src = reinterpret_cast<uintptr_t *>( source ),
+		*dst = reinterpret_cast<uintptr_t *>( destination );
 
-	ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), false );
+	Detouring::ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), false );
 
 	dst[3 + offset] = src[3 + offset]; // Process
 
@@ -289,18 +321,18 @@ inline void BuildVTable( void **source, void **destination )
 
 	dst[11 + offset] = src[11 + offset]; // ToString
 
-	ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
+	Detouring::ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 }
 
 inline bool IsEndOfFunction( const hde32s &instruction )
 {
 	return instruction.opcode == 0xC3
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 		|| instruction.opcode == 0xC2
 
-#elif defined __linux
+#elif defined SYSTEM_LINUX
 
 		|| instruction.opcode == 0x5D
 
@@ -312,11 +344,11 @@ inline bool IsEndOfFunction( const hde32s &instruction )
 inline bool IsMoveInstruction( uint8_t opcode )
 {
 
-#if defined _WIN32 || defined __linux
+#if defined SYSTEM_WINDOWS || defined SYSTEM_LINUX
 
 	return opcode == 0xC7;
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
 	return opcode == 0x8B;
 
@@ -327,7 +359,7 @@ inline bool IsMoveInstruction( uint8_t opcode )
 inline bool IsPossibleVTable( const hde32s &instruction )
 {
 
-#if defined __linux
+#if defined SYSTEM_LINUX
 
 	if( instruction.len == 7 &&
 		IsMoveInstruction( instruction.opcode ) &&
@@ -372,29 +404,37 @@ static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, cons
 
 void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	SymbolFinder symfinder;
+	const uint8_t *CBaseClient_ConnectionStart = nullptr,
+		*CBaseClientState_ConnectionStart = nullptr;
+	{
+		SymbolFinder symfinder;
 
-	const uint8_t *CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
-		global::engine_lib.c_str( ),
-		CBaseClient_ConnectionStart_sig,
-		CBaseClient_ConnectionStart_siglen
-	) );
+		CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
+			global::engine_lib.c_str( ),
+			CBaseClient_ConnectionStart_sig,
+			CBaseClient_ConnectionStart_siglen
+		) );
+
+		CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
+			global::engine_lib.c_str( ),
+			CBaseClientState_ConnectionStart_sig,
+			CBaseClientState_ConnectionStart_siglen,
+			// starting point for sigscan
+			// we use an offset because, on Linux, CBaseClient::ConnectionStart and
+			// CBaseClientState::ConnectionStart have the same signature
+			// this code expects CBaseClient::ConnectionStart to appear before
+			// CBaseClientState::ConnectionStart
+			CBaseClient_ConnectionStart + CBaseClient_ConnectionStart_siglen
+		) );
+	}
+
 	if( CBaseClient_ConnectionStart == nullptr )
 		LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
 
-	ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
-
-	const uint8_t *CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
-		global::engine_lib.c_str( ),
-		CBaseClientState_ConnectionStart_sig,
-		CBaseClientState_ConnectionStart_siglen,
-		// starting point for sigscan
-		// we use an offset because on Linux, CBaseClient::ConnectionStart and CBaseClientState::ConnectionStart have the same signature
-		// this code expects CBaseClient::ConnectionStart to appear before CBaseClientState::ConnectionStart
-		CBaseClient_ConnectionStart + CBaseClient_ConnectionStart_siglen
-	) );
 	if( CBaseClientState_ConnectionStart == nullptr )
 		LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
+
+	ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
 
 	ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
 

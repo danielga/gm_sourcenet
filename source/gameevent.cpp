@@ -11,7 +11,7 @@ struct Container
 	IGameEventManager2 *manager;
 };
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "IGameEvent";
 
 void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager )

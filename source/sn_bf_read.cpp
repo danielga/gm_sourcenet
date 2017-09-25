@@ -12,7 +12,7 @@ struct Container
 	int32_t bufref;
 };
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "sn_bf_read";
 
 bf_read **Push( GarrysMod::Lua::ILuaBase *LUA, bf_read *reader, int32_t bufref )

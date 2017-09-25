@@ -9,7 +9,7 @@
 namespace GameEventManager
 {
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "IGameEventManager2";
 
 static GarrysMod::Lua::AutoReference manager_ref;

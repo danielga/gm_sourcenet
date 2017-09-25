@@ -11,7 +11,7 @@ struct Container
 	CNetChan *netchan;
 };
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "subchannel_t";
 
 static bool IsValid( subchannel_t *subchan, CNetChan *netchan )

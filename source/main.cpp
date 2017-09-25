@@ -15,23 +15,23 @@
 #include <gameeventmanager.hpp>
 #include <gameevent.hpp>
 #include <netmessage.hpp>
-#include <symbolfinder.hpp>
-#include <vfnhook.h>
+#include <scanning/symbolfinder.hpp>
 #include <GarrysMod/Interfaces.hpp>
 #include <interface.h>
 #include <eiface.h>
 #include <cdll_int.h>
 #include <iserver.h>
+#include <Platform.hpp>
 
 namespace global
 {
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
 static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
-#elif defined __linux
+#elif defined SYSTEM_LINUX
 
 #if defined SOURCENET_SERVER
 
@@ -45,7 +45,7 @@ static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #endif
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
 static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xF3\x0F\x10\x45";
 static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
@@ -128,11 +128,11 @@ static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->CreateTable( );
 
-	LUA->PushString( "sourcenet 1.0.6" );
+	LUA->PushString( "sourcenet 1.1.0" );
 	LUA->SetField( -2, "Version" );
 
 	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 10006 );
+	LUA->PushNumber( 10100 );
 	LUA->SetField( -2, "VersionNum" );
 
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -166,11 +166,15 @@ GMOD_MODULE_OPEN( )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
 
-	SymbolFinder symfinder;
+	IServer **pserver = nullptr;
+	{
+		SymbolFinder symfinder;
 
-	IServer **pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
-		global::engine_lib.c_str( ), global::IServer_sig, global::IServer_siglen
-	) );
+		pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
+			global::engine_lib.c_str( ), global::IServer_sig, global::IServer_siglen
+		) );
+	}
+
 	if( pserver == nullptr )
 		LUA->ThrowError( "failed to locate IServer pointer" );
 

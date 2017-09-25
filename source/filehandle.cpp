@@ -3,7 +3,7 @@
 namespace FileHandle
 {
 
-uint8_t metatype = GarrysMod::Lua::Type::NONE;
+uint8_t metatype = 0;
 const char *metaname = "FileHandle_t";
 
 void Push( GarrysMod::Lua::ILuaBase *LUA, FileHandle_t file )

@@ -11,8 +11,4 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA );
-
-void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA );
-
 }

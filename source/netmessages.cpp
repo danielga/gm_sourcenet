@@ -3,27 +3,10 @@
 #include <sn_bf_write.hpp>
 #include <sn_bf_read.hpp>
 #include <inetchannelinfo.h>
-
-#undef min
-#undef max
-
 #include <string>
-
-#define LUA_FUNCTION_IMPLEMENT( FUNC ) \
-        static int FUNC##__Imp( GarrysMod::Lua::ILuaBase *LUA ) GMOD_NOEXCEPT
-
-#define LUA_FUNCTION_WRAP( FUNC )                       \
-        static int FUNC( lua_State *L ) GMOD_NOEXCEPT   \
-        {                                               \
-            GarrysMod::Lua::ILuaBase *LUA = L->luabase; \
-            LUA->SetState( L );                         \
-            return FUNC##__Imp( LUA );                  \
-        }
 
 namespace NetMessages
 {
-
-typedef GarrysMod::Lua::ILuaBase LuaBase;
 
 template<class ClassName> ClassName *CheckNetmessageType( GarrysMod::Lua::ILuaBase *LUA )
 {
@@ -34,7 +17,12 @@ template<class ClassName> ClassName *CheckNetmessageType( GarrysMod::Lua::ILuaBa
 	return msg;
 }
 
-inline void SetupAccessors( GarrysMod::Lua::ILuaBase *LUA, const char *name, GarrysMod::Lua::CFunc Get, GarrysMod::Lua::CFunc Set )
+inline void SetupAccessors(
+	GarrysMod::Lua::ILuaBase *LUA,
+	const char *name,
+	GarrysMod::Lua::CFunc Get,
+	GarrysMod::Lua::CFunc Set
+)
 {
 	std::string getter = "Get";
 	getter += name;
@@ -52,8 +40,8 @@ template<
 	typename MemberType,
 	MemberType ClassName::*M,
 	typename FunctionType,
-	void ( LuaBase::*Pusher )( FunctionType ),
-	FunctionType ( LuaBase::*Getter )( int32_t )
+	void ( GarrysMod::Lua::ILuaBase::*Pusher )( FunctionType ),
+	FunctionType ( GarrysMod::Lua::ILuaBase::*Getter )( int32_t )
 >
 struct Member
 {
@@ -237,9 +225,11 @@ struct ArrayMember
 	{
 		ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 
-		size_t len = 0;
+		uint32_t len = 0;
 		const char *data = LUA->GetString( 2, &len );
-		memcpy( reinterpret_cast<void *>( msg->*M ), data, MaximumLength < len ? MaximumLength : len );
+		memcpy(
+			reinterpret_cast<void *>( msg->*M ), data, MaximumLength < len ? MaximumLength : len
+		);
 
 		if( len < MaximumLength )
 			memset( &( msg->*M )[len], 0, sizeof( MemberType ) * ( MaximumLength - len ) );
@@ -431,19 +421,21 @@ void **CNetMessage::GetVTable( )
 	return *reinterpret_cast<void ***>( this );
 }
 
-const char *NET_Tick::Name = "net_Tick";
-const char *NET_Tick::LuaName = "NET_Tick";
+const char NET_Tick::Name[] = "net_Tick";
+const char NET_Tick::LuaName[] = "NET_Tick";
 const int32_t NET_Tick::Type = net_Tick;
 
 void NET_Tick::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	NumberMember<NET_Tick, int32_t, &NET_Tick::Tick>( LUA, "Tick" );
 	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTime>( LUA, "HostFrameTime" );
-	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTimeStdDeviation>( LUA, "HostFrameTimeStdDeviation" );
+	NumberMember<NET_Tick, float, &NET_Tick::HostFrameTimeStdDeviation>(
+		LUA, "HostFrameTimeStdDeviation"
+	);
 }
 
-const char *NET_StringCmd::Name = "net_StringCmd";
-const char *NET_StringCmd::LuaName = "NET_StringCmd";
+const char NET_StringCmd::Name[] = "net_StringCmd";
+const char NET_StringCmd::LuaName[] = "NET_StringCmd";
 const int32_t NET_StringCmd::Type = net_StringCmd;
 
 NET_StringCmd::NET_StringCmd( ) :
@@ -455,11 +447,11 @@ void NET_StringCmd::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	StringMember<NET_StringCmd, &NET_StringCmd::Command>( LUA, "Command" );
 }
 
-const char *NET_SetConVar::Name = "net_SetConVar";
-const char *NET_SetConVar::LuaName = "NET_SetConVar";
+const char NET_SetConVar::Name[] = "net_SetConVar";
+const char NET_SetConVar::LuaName[] = "NET_SetConVar";
 const int32_t NET_SetConVar::Type = net_SetConVar;
 
-LUA_FUNCTION_IMPLEMENT( NET_SetConVar_GetConVars )
+LUA_FUNCTION_STATIC( NET_SetConVar_GetConVars )
 {
 	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( LUA );
 
@@ -476,9 +468,7 @@ LUA_FUNCTION_IMPLEMENT( NET_SetConVar_GetConVars )
 	return 1;
 }
 
-LUA_FUNCTION_WRAP( NET_SetConVar_GetConVars );
-
-LUA_FUNCTION_IMPLEMENT( NET_SetConVar_SetConVars )
+LUA_FUNCTION_STATIC( NET_SetConVar_SetConVars )
 {
 	NET_SetConVar *msg = CheckNetmessageType<NET_SetConVar>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
@@ -486,7 +476,7 @@ LUA_FUNCTION_IMPLEMENT( NET_SetConVar_SetConVars )
 	auto &convars = msg->ConVars;
 	convars.RemoveAll( );
 
-	NET_SetConVar::cvar_t cvar = { 0 };
+	NET_SetConVar::cvar_t cvar;
 
 	LUA->PushNil( );
 	while( LUA->Next( -2 ) != 0 )
@@ -503,15 +493,13 @@ LUA_FUNCTION_IMPLEMENT( NET_SetConVar_SetConVars )
 	return 0;
 }
 
-LUA_FUNCTION_WRAP( NET_SetConVar_SetConVars );
-
 void NET_SetConVar::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	SetupAccessors( LUA, "ConVars", NET_SetConVar_GetConVars, NET_SetConVar_SetConVars );
 }
 
-const char *NET_SignonState::Name = "net_SignonState";
-const char *NET_SignonState::LuaName = "NET_SignonState";
+const char NET_SignonState::Name[] = "net_SignonState";
+const char NET_SignonState::LuaName[] = "NET_SignonState";
 const int32_t NET_SignonState::Type = net_SignonState;
 
 void NET_SignonState::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -520,8 +508,8 @@ void NET_SignonState::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<NET_SignonState, int32_t, &NET_SignonState::SpawnCount>( LUA, "SpawnCount" );
 }
 
-const char *SVC_Print::Name = "svc_Print";
-const char *SVC_Print::LuaName = "SVC_Print";
+const char SVC_Print::Name[] = "svc_Print";
+const char SVC_Print::LuaName[] = "SVC_Print";
 const int32_t SVC_Print::Type = svc_Print;
 
 SVC_Print::SVC_Print( ) :
@@ -533,8 +521,8 @@ void SVC_Print::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	StringMember<SVC_Print, &SVC_Print::Text>( LUA, "Text" );
 }
 
-const char *SVC_ServerInfo::Name = "svc_ServerInfo";
-const char *SVC_ServerInfo::LuaName = "SVC_ServerInfo";
+const char SVC_ServerInfo::Name[] = "svc_ServerInfo";
+const char SVC_ServerInfo::LuaName[] = "SVC_ServerInfo";
 const int32_t SVC_ServerInfo::Type = svc_ServerInfo;
 
 SVC_ServerInfo::SVC_ServerInfo( ) :
@@ -563,8 +551,8 @@ void SVC_ServerInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	StringMember<SVC_ServerInfo, &SVC_ServerInfo::Gamemode>( LUA, "Gamemode" );
 }
 
-const char *SVC_SendTable::Name = "svc_SendTable";
-const char *SVC_SendTable::LuaName = "SVC_SendTable";
+const char SVC_SendTable::Name[] = "svc_SendTable";
+const char SVC_SendTable::LuaName[] = "SVC_SendTable";
 const int32_t SVC_SendTable::Type = svc_SendTable;
 
 void SVC_SendTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -575,11 +563,11 @@ void SVC_SendTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_SendTable, &SVC_SendTable::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_ClassInfo::Name = "svc_ClassInfo";
-const char *SVC_ClassInfo::LuaName = "SVC_ClassInfo";
+const char SVC_ClassInfo::Name[] = "svc_ClassInfo";
+const char SVC_ClassInfo::LuaName[] = "SVC_ClassInfo";
 const int32_t SVC_ClassInfo::Type = svc_ClassInfo;
 
-LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_GetClasses )
+LUA_FUNCTION_STATIC( SVC_ClassInfo_GetClasses )
 {
 	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( LUA );
 
@@ -605,9 +593,7 @@ LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_GetClasses )
 	return 1;
 }
 
-LUA_FUNCTION_WRAP( SVC_ClassInfo_GetClasses );
-
-LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_SetClasses )
+LUA_FUNCTION_STATIC( SVC_ClassInfo_SetClasses )
 {
 	SVC_ClassInfo *msg = CheckNetmessageType<SVC_ClassInfo>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
@@ -615,7 +601,7 @@ LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_SetClasses )
 	auto &classes = msg->Classes;
 	classes.RemoveAll( );
 
-	SVC_ClassInfo::class_t cl = { 0 };
+	SVC_ClassInfo::class_t cl;
 
 	LUA->PushNil( );
 	while( LUA->Next( -2 ) != 0 )
@@ -637,17 +623,17 @@ LUA_FUNCTION_IMPLEMENT( SVC_ClassInfo_SetClasses )
 	return 0;
 }
 
-LUA_FUNCTION_WRAP( SVC_ClassInfo_SetClasses );
-
 void SVC_ClassInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	BoolMember<SVC_ClassInfo, &SVC_ClassInfo::CreateOnClient>( LUA, "CreateOnClient" );
 	SetupAccessors( LUA, "Classes", SVC_ClassInfo_GetClasses, SVC_ClassInfo_SetClasses );
-	NumberMember<SVC_ClassInfo, int32_t, &SVC_ClassInfo::NumServerClasses>( LUA, "NumServerClasses" );
+	NumberMember<SVC_ClassInfo, int32_t, &SVC_ClassInfo::NumServerClasses>(
+		LUA, "NumServerClasses"
+	);
 }
 
-const char *SVC_SetPause::Name = "svc_SetPause";
-const char *SVC_SetPause::LuaName = "SVC_SetPause";
+const char SVC_SetPause::Name[] = "svc_SetPause";
+const char SVC_SetPause::LuaName[] = "SVC_SetPause";
 const int32_t SVC_SetPause::Type = svc_SetPause;
 
 void SVC_SetPause::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -655,8 +641,8 @@ void SVC_SetPause::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	BoolMember<SVC_SetPause, &SVC_SetPause::Paused>( LUA, "Paused" );
 }
 
-const char *SVC_CreateStringTable::Name = "svc_CreateStringTable";
-const char *SVC_CreateStringTable::LuaName = "SVC_CreateStringTable";
+const char SVC_CreateStringTable::Name[] = "svc_CreateStringTable";
+const char SVC_CreateStringTable::LuaName[] = "SVC_CreateStringTable";
 const int32_t SVC_CreateStringTable::Type = svc_CreateStringTable;
 
 SVC_CreateStringTable::SVC_CreateStringTable( ) :
@@ -666,32 +652,46 @@ SVC_CreateStringTable::SVC_CreateStringTable( ) :
 void SVC_CreateStringTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	StringMember<SVC_CreateStringTable, &SVC_CreateStringTable::TableName>( LUA, "TableName" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::MaxEntries>( LUA, "MaxEntries" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::NumEntries>( LUA, "NumEntries" );
-	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::UserDataFixedSize>( LUA, "UserDataFixedSize" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSize>( LUA, "UserDataSize" );
-	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSizeBits>( LUA, "UserDataSizeBits" );
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::MaxEntries>(
+		LUA, "MaxEntries"
+	);
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::NumEntries>(
+		LUA, "NumEntries"
+	);
+	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::UserDataFixedSize>(
+		LUA, "UserDataFixedSize"
+	);
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSize>(
+		LUA, "UserDataSize"
+	);
+	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::UserDataSizeBits>(
+		LUA, "UserDataSizeBits"
+	);
 	BoolMember<SVC_CreateStringTable, &SVC_CreateStringTable::IsFilenames>( LUA, "IsFilenames" );
 	NumberMember<SVC_CreateStringTable, int32_t, &SVC_CreateStringTable::Length>( LUA, "Length" );
 	ReaderMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataIn>( LUA, "DataIn" );
 	WriterMember<SVC_CreateStringTable, &SVC_CreateStringTable::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_UpdateStringTable::Name = "svc_UpdateStringTable";
-const char *SVC_UpdateStringTable::LuaName = "SVC_UpdateStringTable";
+const char SVC_UpdateStringTable::Name[] = "svc_UpdateStringTable";
+const char SVC_UpdateStringTable::LuaName[] = "SVC_UpdateStringTable";
 const int32_t SVC_UpdateStringTable::Type = svc_UpdateStringTable;
 
 void SVC_UpdateStringTable::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::TableID>( LUA, "TableID" );
-	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::ChangedEntries>( LUA, "ChangedEntries" );
+	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::TableID>(
+		LUA, "TableID"
+	);
+	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::ChangedEntries>(
+		LUA, "ChangedEntries"
+	);
 	NumberMember<SVC_UpdateStringTable, int32_t, &SVC_UpdateStringTable::Length>( LUA, "Length" );
 	ReaderMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataIn>( LUA, "DataIn" );
 	WriterMember<SVC_UpdateStringTable, &SVC_UpdateStringTable::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_VoiceInit::Name = "svc_VoiceInit";
-const char *SVC_VoiceInit::LuaName = "SVC_VoiceInit";
+const char SVC_VoiceInit::Name[] = "svc_VoiceInit";
+const char SVC_VoiceInit::LuaName[] = "SVC_VoiceInit";
 const int32_t SVC_VoiceInit::Type = svc_VoiceInit;
 
 SVC_VoiceInit::SVC_VoiceInit( ) :
@@ -704,15 +704,15 @@ void SVC_VoiceInit::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<SVC_VoiceInit, int32_t, &SVC_VoiceInit::Quality>( LUA, "Quality" );
 }
 
-const char *SVC_VoiceData::Name = "svc_VoiceData";
-const char *SVC_VoiceData::LuaName = "SVC_VoiceData";
+const char SVC_VoiceData::Name[] = "svc_VoiceData";
+const char SVC_VoiceData::LuaName[] = "SVC_VoiceData";
 const int32_t SVC_VoiceData::Type = svc_VoiceData;
 
 SVC_VoiceData::SVC_VoiceData( ) :
 	DataOut( nullptr )
 { }
 
-LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_GetDataOut )
+LUA_FUNCTION_STATIC( SVC_VoiceData_GetDataOut )
 {
 	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( LUA );
 
@@ -723,9 +723,7 @@ LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_GetDataOut )
 	return 1;
 }
 
-LUA_FUNCTION_WRAP( SVC_VoiceData_GetDataOut );
-
-LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_SetDataOut )
+LUA_FUNCTION_STATIC( SVC_VoiceData_SetDataOut )
 {
 	SVC_VoiceData *msg = CheckNetmessageType<SVC_VoiceData>( LUA );
 	bf_write *writer = sn_bf_write::Get( LUA, 2 );
@@ -735,8 +733,6 @@ LUA_FUNCTION_IMPLEMENT( SVC_VoiceData_SetDataOut )
 
 	return 0;
 }
-
-LUA_FUNCTION_WRAP( SVC_VoiceData_SetDataOut );
 
 void SVC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
@@ -748,8 +744,8 @@ void SVC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	SetupAccessors( LUA, "DataOut", SVC_VoiceData_GetDataOut, SVC_VoiceData_SetDataOut );
 }
 
-const char *SVC_Sounds::Name = "svc_Sounds";
-const char *SVC_Sounds::LuaName = "SVC_Sounds";
+const char SVC_Sounds::Name[] = "svc_Sounds";
+const char SVC_Sounds::LuaName[] = "SVC_Sounds";
 const int32_t SVC_Sounds::Type = svc_Sounds;
 
 void SVC_Sounds::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -761,8 +757,8 @@ void SVC_Sounds::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_Sounds, &SVC_Sounds::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_SetView::Name = "svc_SetView";
-const char *SVC_SetView::LuaName = "SVC_SetView";
+const char SVC_SetView::Name[] = "svc_SetView";
+const char SVC_SetView::LuaName[] = "SVC_SetView";
 const int32_t SVC_SetView::Type = svc_SetView;
 
 void SVC_SetView::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -770,8 +766,8 @@ void SVC_SetView::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<SVC_SetView, int32_t, &SVC_SetView::EntityIndex>( LUA, "EntityIndex" );
 }
 
-const char *SVC_FixAngle::Name = "svc_FixAngle";
-const char *SVC_FixAngle::LuaName = "SVC_FixAngle";
+const char SVC_FixAngle::Name[] = "svc_FixAngle";
+const char SVC_FixAngle::LuaName[] = "SVC_FixAngle";
 const int32_t SVC_FixAngle::Type = svc_FixAngle;
 
 void SVC_FixAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -780,8 +776,8 @@ void SVC_FixAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	AngleMember<SVC_FixAngle, &SVC_FixAngle::Angle>( LUA, "Angle" );
 }
 
-const char *SVC_CrosshairAngle::Name = "svc_CrosshairAngle";
-const char *SVC_CrosshairAngle::LuaName = "SVC_CrosshairAngle";
+const char SVC_CrosshairAngle::Name[] = "svc_CrosshairAngle";
+const char SVC_CrosshairAngle::LuaName[] = "SVC_CrosshairAngle";
 const int32_t SVC_CrosshairAngle::Type = svc_CrosshairAngle;
 
 void SVC_CrosshairAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -789,21 +785,23 @@ void SVC_CrosshairAngle::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	AngleMember<SVC_CrosshairAngle, &SVC_CrosshairAngle::Angle>( LUA, "Angle" );
 }
 
-const char *SVC_BSPDecal::Name = "svc_BSPDecal";
-const char *SVC_BSPDecal::LuaName = "SVC_BSPDecal";
+const char SVC_BSPDecal::Name[] = "svc_BSPDecal";
+const char SVC_BSPDecal::LuaName[] = "SVC_BSPDecal";
 const int32_t SVC_BSPDecal::Type = svc_BSPDecal;
 
 void SVC_BSPDecal::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	VectorMember<SVC_BSPDecal, &SVC_BSPDecal::Pos>( LUA, "Pos" );
-	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::DecalTextureIndex>( LUA, "DecalTextureIndex" );
+	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::DecalTextureIndex>(
+		LUA, "DecalTextureIndex"
+	);
 	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::EntityIndex>( LUA, "EntityIndex" );
 	NumberMember<SVC_BSPDecal, int32_t, &SVC_BSPDecal::ModelIndex>( LUA, "ModelIndex" );
 	BoolMember<SVC_BSPDecal, &SVC_BSPDecal::LowPriority>( LUA, "LowPriority" );
 }
 
-const char *SVC_UserMessage::Name = "svc_UserMessage";
-const char *SVC_UserMessage::LuaName = "SVC_UserMessage";
+const char SVC_UserMessage::Name[] = "svc_UserMessage";
+const char SVC_UserMessage::LuaName[] = "SVC_UserMessage";
 const int32_t SVC_UserMessage::Type = svc_UserMessage;
 
 void SVC_UserMessage::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -814,21 +812,23 @@ void SVC_UserMessage::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_UserMessage, &SVC_UserMessage::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_EntityMessage::Name = "svc_EntityMessage";
-const char *SVC_EntityMessage::LuaName = "SVC_EntityMessage";
+const char SVC_EntityMessage::Name[] = "svc_EntityMessage";
+const char SVC_EntityMessage::LuaName[] = "SVC_EntityMessage";
 const int32_t SVC_EntityMessage::Type = svc_EntityMessage;
 
 void SVC_EntityMessage::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::EntityIndex>( LUA, "EntityIndex" );
+	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::EntityIndex>(
+		LUA, "EntityIndex"
+	);
 	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::ClassID>( LUA, "ClassID" );
 	NumberMember<SVC_EntityMessage, int32_t, &SVC_EntityMessage::Length>( LUA, "Length" );
 	ReaderMember<SVC_EntityMessage, &SVC_EntityMessage::DataIn>( LUA, "DataIn" );
 	WriterMember<SVC_EntityMessage, &SVC_EntityMessage::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_GameEvent::Name = "svc_GameEvent";
-const char *SVC_GameEvent::LuaName = "SVC_GameEvent";
+const char SVC_GameEvent::Name[] = "svc_GameEvent";
+const char SVC_GameEvent::LuaName[] = "SVC_GameEvent";
 const int32_t SVC_GameEvent::Type = svc_GameEvent;
 
 void SVC_GameEvent::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -838,14 +838,18 @@ void SVC_GameEvent::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_GameEvent, &SVC_GameEvent::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_PacketEntities::Name = "svc_PacketEntities";
-const char *SVC_PacketEntities::LuaName = "SVC_PacketEntities";
+const char SVC_PacketEntities::Name[] = "svc_PacketEntities";
+const char SVC_PacketEntities::LuaName[] = "SVC_PacketEntities";
 const int32_t SVC_PacketEntities::Type = svc_PacketEntities;
 
 void SVC_PacketEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::MaxEntries>( LUA, "MaxEntries" );
-	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::UpdatedEntries>( LUA, "UpdatedEntries" );
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::MaxEntries>(
+		LUA, "MaxEntries"
+	);
+	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::UpdatedEntries>(
+		LUA, "UpdatedEntries"
+	);
 	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::Delta>( LUA, "Delta" );
 	BoolMember<SVC_PacketEntities, &SVC_PacketEntities::UpdateBaseline>( LUA, "UpdateBaseline" );
 	NumberMember<SVC_PacketEntities, int32_t, &SVC_PacketEntities::Baseline>( LUA, "Baseline" );
@@ -855,8 +859,8 @@ void SVC_PacketEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_PacketEntities, &SVC_PacketEntities::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_TempEntities::Name = "svc_TempEntities";
-const char *SVC_TempEntities::LuaName = "SVC_TempEntities";
+const char SVC_TempEntities::Name[] = "svc_TempEntities";
+const char SVC_TempEntities::LuaName[] = "SVC_TempEntities";
 const int32_t SVC_TempEntities::Type = svc_TempEntities;
 
 void SVC_TempEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -867,8 +871,8 @@ void SVC_TempEntities::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_TempEntities, &SVC_TempEntities::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_Prefetch::Name = "svc_Prefetch";
-const char *SVC_Prefetch::LuaName = "SVC_Prefetch";
+const char SVC_Prefetch::Name[] = "svc_Prefetch";
+const char SVC_Prefetch::LuaName[] = "SVC_Prefetch";
 const int32_t SVC_Prefetch::Type = svc_Prefetch;
 
 void SVC_Prefetch::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -877,8 +881,8 @@ void SVC_Prefetch::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundIndex>( LUA, "SoundIndex" );
 }
 
-const char *SVC_Menu::Name = "svc_Menu";
-const char *SVC_Menu::LuaName = "SVC_Menu";
+const char SVC_Menu::Name[] = "svc_Menu";
+const char SVC_Menu::LuaName[] = "SVC_Menu";
 const int32_t SVC_Menu::Type = svc_Menu;
 
 SVC_Menu::SVC_Menu( ) :
@@ -891,16 +895,14 @@ SVC_Menu::~SVC_Menu( )
 		MenuKeyValues->deleteThis( );
 }
 
-// KeyValues *MenuKeyValues;
-
 void SVC_Menu::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	EnumMember<SVC_Menu, DIALOG_TYPE, &SVC_Menu::DialogType>( LUA, "DialogType" );
 	NumberMember<SVC_Menu, int32_t, &SVC_Menu::Length>( LUA, "Length" );
 }
 
-const char *SVC_GameEventList::Name = "svc_GameEventList";
-const char *SVC_GameEventList::LuaName = "SVC_GameEventList";
+const char SVC_GameEventList::Name[] = "svc_GameEventList";
+const char SVC_GameEventList::LuaName[] = "SVC_GameEventList";
 const int32_t SVC_GameEventList::Type = svc_GameEventList;
 
 void SVC_GameEventList::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -911,8 +913,8 @@ void SVC_GameEventList::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<SVC_GameEventList, &SVC_GameEventList::DataOut>( LUA, "DataOut" );
 }
 
-const char *SVC_GetCvarValue::Name = "svc_GetCvarValue";
-const char *SVC_GetCvarValue::LuaName = "SVC_GetCvarValue";
+const char SVC_GetCvarValue::Name[] = "svc_GetCvarValue";
+const char SVC_GetCvarValue::LuaName[] = "SVC_GetCvarValue";
 const int32_t SVC_GetCvarValue::Type = svc_GetCvarValue;
 
 SVC_GetCvarValue::SVC_GetCvarValue( ) :
@@ -925,8 +927,8 @@ void SVC_GetCvarValue::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	StringMember<SVC_GetCvarValue, &SVC_GetCvarValue::CvarName>( LUA, "CvarName" );
 }
 
-const char *SVC_CmdKeyValues::Name = "svc_CmdKeyValues";
-const char *SVC_CmdKeyValues::LuaName = "SVC_CmdKeyValues";
+const char SVC_CmdKeyValues::Name[] = "svc_CmdKeyValues";
+const char SVC_CmdKeyValues::LuaName[] = "SVC_CmdKeyValues";
 const int32_t SVC_CmdKeyValues::Type = svc_CmdKeyValues;
 
 SVC_CmdKeyValues::SVC_CmdKeyValues( ) :
@@ -939,15 +941,13 @@ SVC_CmdKeyValues::~SVC_CmdKeyValues( )
 		CmdKeyValues->deleteThis( );
 }
 
-// KeyValues *CmdKeyValues;
-
 void SVC_CmdKeyValues::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 
 }
 
-const char *SVC_GMod_ServerToClient::Name = "svc_GMod_ServerToClient";
-const char *SVC_GMod_ServerToClient::LuaName = "SVC_GMod_ServerToClient";
+const char SVC_GMod_ServerToClient::Name[] = "svc_GMod_ServerToClient";
+const char SVC_GMod_ServerToClient::LuaName[] = "SVC_GMod_ServerToClient";
 const int32_t SVC_GMod_ServerToClient::Type = svc_GMod_ServerToClient;
 
 void SVC_GMod_ServerToClient::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -955,11 +955,11 @@ void SVC_GMod_ServerToClient::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	ReaderMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::Data>( LUA, "Data" );
 }
 
-const char *CLC_ClientInfo::Name = "clc_ClientInfo";
-const char *CLC_ClientInfo::LuaName = "CLC_ClientInfo";
+const char CLC_ClientInfo::Name[] = "clc_ClientInfo";
+const char CLC_ClientInfo::LuaName[] = "CLC_ClientInfo";
 const int32_t CLC_ClientInfo::Type = clc_ClientInfo;
 
-LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_GetCustomFiles )
+LUA_FUNCTION_STATIC( CLC_ClientInfo_GetCustomFiles )
 {
 	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( LUA );
 
@@ -975,9 +975,7 @@ LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_GetCustomFiles )
 	return 1;
 }
 
-LUA_FUNCTION_WRAP( CLC_ClientInfo_GetCustomFiles );
-
-LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_SetCustomFiles )
+LUA_FUNCTION_STATIC( CLC_ClientInfo_SetCustomFiles )
 {
 	CLC_ClientInfo *msg = CheckNetmessageType<CLC_ClientInfo>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
@@ -995,8 +993,6 @@ LUA_FUNCTION_IMPLEMENT( CLC_ClientInfo_SetCustomFiles )
 	return 0;
 }
 
-LUA_FUNCTION_WRAP( CLC_ClientInfo_SetCustomFiles );
-
 void CLC_ClientInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	NumberMember<CLC_ClientInfo, CRC32_t, &CLC_ClientInfo::SendTableCRC>( LUA, "SendTableCRC" );
@@ -1004,11 +1000,13 @@ void CLC_ClientInfo::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	BoolMember<CLC_ClientInfo, &CLC_ClientInfo::HLTV>( LUA, "HLTV" );
 	NumberMember<CLC_ClientInfo, uint32_t, &CLC_ClientInfo::FriendsID>( LUA, "FriendsID" );
 	StringArrayMember<CLC_ClientInfo, 32, &CLC_ClientInfo::FriendsName>( LUA, "FriendsName" );
-	SetupAccessors( LUA, "CustomFiles", CLC_ClientInfo_GetCustomFiles, CLC_ClientInfo_SetCustomFiles );
+	SetupAccessors(
+		LUA, "CustomFiles", CLC_ClientInfo_GetCustomFiles, CLC_ClientInfo_SetCustomFiles
+	);
 }
 
-const char *CLC_Move::Name = "clc_Move";
-const char *CLC_Move::LuaName = "CLC_Move";
+const char CLC_Move::Name[] = "clc_Move";
+const char CLC_Move::LuaName[] = "CLC_Move";
 const int32_t CLC_Move::Type = clc_Move;
 
 void CLC_Move::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -1020,8 +1018,8 @@ void CLC_Move::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	WriterMember<CLC_Move, &CLC_Move::DataOut>( LUA, "DataOut" );
 }
 
-const char *CLC_VoiceData::Name = "clc_VoiceData";
-const char *CLC_VoiceData::LuaName = "CLC_VoiceData";
+const char CLC_VoiceData::Name[] = "clc_VoiceData";
+const char CLC_VoiceData::LuaName[] = "CLC_VoiceData";
 const int32_t CLC_VoiceData::Type = clc_VoiceData;
 
 void CLC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -1032,8 +1030,8 @@ void CLC_VoiceData::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<CLC_VoiceData, uint64_t, &CLC_VoiceData::XUID>( LUA, "XUID" );
 }
 
-const char *CLC_BaselineAck::Name = "clc_BaselineAck";
-const char *CLC_BaselineAck::LuaName = "CLC_BaselineAck";
+const char CLC_BaselineAck::Name[] = "clc_BaselineAck";
+const char CLC_BaselineAck::LuaName[] = "CLC_BaselineAck";
 const int32_t CLC_BaselineAck::Type = clc_BaselineAck;
 
 void CLC_BaselineAck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -1042,11 +1040,11 @@ void CLC_BaselineAck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<CLC_BaselineAck, int32_t, &CLC_BaselineAck::BaselineNr>( LUA, "BaselineNr" );
 }
 
-const char *CLC_ListenEvents::Name = "clc_ListenEvents";
-const char *CLC_ListenEvents::LuaName = "CLC_ListenEvents";
+const char CLC_ListenEvents::Name[] = "clc_ListenEvents";
+const char CLC_ListenEvents::LuaName[] = "CLC_ListenEvents";
 const int32_t CLC_ListenEvents::Type = clc_ListenEvents;
 
-LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_GetEventArray )
+LUA_FUNCTION_STATIC( CLC_ListenEvents_GetEventArray )
 {
 	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( LUA );
 
@@ -1064,9 +1062,7 @@ LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_GetEventArray )
 	return 1;
 }
 
-LUA_FUNCTION_WRAP( CLC_ListenEvents_GetEventArray );
-
-LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_SetEventArray )
+LUA_FUNCTION_STATIC( CLC_ListenEvents_SetEventArray )
 {
 	CLC_ListenEvents *msg = CheckNetmessageType<CLC_ListenEvents>( LUA );
 	LUA->CheckType( 2, GarrysMod::Lua::Type::TABLE );
@@ -1087,15 +1083,13 @@ LUA_FUNCTION_IMPLEMENT( CLC_ListenEvents_SetEventArray )
 	return 0;
 }
 
-LUA_FUNCTION_WRAP( CLC_ListenEvents_SetEventArray );
-
 void CLC_ListenEvents::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 	SetupAccessors( LUA, "EventArray", CLC_ListenEvents_GetEventArray, CLC_ListenEvents_SetEventArray );
 }
 
-const char *CLC_RespondCvarValue::Name = "clc_RespondCvarValue";
-const char *CLC_RespondCvarValue::LuaName = "CLC_RespondCvarValue";
+const char CLC_RespondCvarValue::Name[] = "clc_RespondCvarValue";
+const char CLC_RespondCvarValue::LuaName[] = "CLC_RespondCvarValue";
 const int32_t CLC_RespondCvarValue::Type = clc_RespondCvarValue;
 
 CLC_RespondCvarValue::CLC_RespondCvarValue( ) :
@@ -1110,8 +1104,8 @@ void CLC_RespondCvarValue::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	EnumMember<CLC_RespondCvarValue, EQueryCvarValueStatus, &CLC_RespondCvarValue::StatusCode>( LUA, "StatusCode" );
 }
 
-const char *CLC_FileCRCCheck::Name = "clc_FileCRCCheck";
-const char *CLC_FileCRCCheck::LuaName = "CLC_FileCRCCheck";
+const char CLC_FileCRCCheck::Name[] = "clc_FileCRCCheck";
+const char CLC_FileCRCCheck::LuaName[] = "CLC_FileCRCCheck";
 const int32_t CLC_FileCRCCheck::Type = clc_FileCRCCheck;
 
 void CLC_FileCRCCheck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -1121,8 +1115,8 @@ void CLC_FileCRCCheck::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	NumberMember<CLC_FileCRCCheck, CRC32_t, &CLC_FileCRCCheck::CRC>( LUA, "CRC" );
 }
 
-const char *CLC_CmdKeyValues::Name = "clc_CmdKeyValues";
-const char *CLC_CmdKeyValues::LuaName = "CLC_CmdKeyValues";
+const char CLC_CmdKeyValues::Name[] = "clc_CmdKeyValues";
+const char CLC_CmdKeyValues::LuaName[] = "CLC_CmdKeyValues";
 const int32_t CLC_CmdKeyValues::Type = clc_CmdKeyValues;
 
 CLC_CmdKeyValues::CLC_CmdKeyValues( ) :
@@ -1135,15 +1129,13 @@ CLC_CmdKeyValues::~CLC_CmdKeyValues( )
 		CmdKeyValues->deleteThis( );
 }
 
-// KeyValues *CmdKeyValues;
-
 void CLC_CmdKeyValues::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 {
 
 }
 
-const char *CLC_FileMD5Check::Name = "clc_FileMD5Check";
-const char *CLC_FileMD5Check::LuaName = "CLC_FileMD5Check";
+const char CLC_FileMD5Check::Name[] = "clc_FileMD5Check";
+const char CLC_FileMD5Check::LuaName[] = "CLC_FileMD5Check";
 const int32_t CLC_FileMD5Check::Type = clc_FileMD5Check;
 
 void CLC_FileMD5Check::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
@@ -1153,8 +1145,8 @@ void CLC_FileMD5Check::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	ArrayMember<CLC_FileMD5Check, uint8_t, 16, &CLC_FileMD5Check::MD5>( LUA, "MD5" );
 }
 
-const char *CLC_GMod_ClientToServer::Name = "clc_GMod_ClientToServer";
-const char *CLC_GMod_ClientToServer::LuaName = "CLC_GMod_ClientToServer";
+const char CLC_GMod_ClientToServer::Name[] = "clc_GMod_ClientToServer";
+const char CLC_GMod_ClientToServer::LuaName[] = "CLC_GMod_ClientToServer";
 const int32_t CLC_GMod_ClientToServer::Type = clc_GMod_ClientToServer;
 
 void CLC_GMod_ClientToServer::SetupLua( GarrysMod::Lua::ILuaBase *LUA )

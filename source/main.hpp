@@ -2,16 +2,10 @@
 
 #include <GarrysMod/Lua/Interface.h>
 #include <lua.hpp>
-#include <cstdint>
+#include <stdint.h>
 #include <string>
 #include <GarrysMod/Interfaces.hpp>
-
-#if defined __linux || defined __APPLE__
-
-#undef min
-#undef max
-
-#endif
+#include <Platform.hpp>
 
 class IVEngineServer;
 class IVEngineClient;

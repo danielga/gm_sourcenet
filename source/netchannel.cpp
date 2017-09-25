@@ -15,7 +15,7 @@
 namespace NetChannel
 {
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "CNetChan";
 static const char *table_name = "sourcenet_CNetChan";
 

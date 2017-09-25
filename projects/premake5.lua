@@ -19,6 +19,8 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 		IncludeSDKTier1()
 		IncludeScanning()
 		IncludeDetouring()
+		files({"../source/server/*.cpp", "../source/server/*.hpp"})
+		links("LZMA")
 
 	CreateProject({serverside = false})
 		IncludeLuaShared()
@@ -27,3 +29,20 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 		IncludeSDKTier1()
 		IncludeScanning()
 		IncludeDetouring()
+
+	project("LZMA")
+		language("C")
+		kind("StaticLib")
+		defines("_7ZIP_ST")
+		files({
+			"../source/lzma/*.h",
+			"../source/lzma/*.c"
+		})
+		vpaths({
+			["Header files"] = "../source/lzma/*.h",
+			["Source files"] = "../source/lzma/*.c"
+		})
+
+		filter("system:macosx")
+			buildoptions("-mmacosx-version-min=10.5")
+			linkoptions("-mmacosx-version-min=10.5")

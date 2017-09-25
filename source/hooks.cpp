@@ -1,5 +1,3 @@
-#include <detours.h>
-#include <vfnhook.h>
 #include <hooks.hpp>
 #include <netchannel.hpp>
 #include <netchannelhandler.hpp>
@@ -9,55 +7,13 @@
 #include <net.hpp>
 #include <inetmsghandler.h>
 #include <cdll_int.h>
-#include <symbolfinder.hpp>
+#include <scanning/symbolfinder.hpp>
 #include <GarrysMod/LuaHelpers.hpp>
+#include <detouring/classproxy.hpp>
+#include <Platform.hpp>
 
 namespace Hooks
 {
-
-#if defined _WIN32
-
-typedef bool ( __thiscall *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-static const char CNetChan_ProcessMessages_sig[] = "\x55\x8B\xEC\x83\xEC\x2C\xF7\x05";
-static const size_t CNetChan_ProcessMessages_siglen = sizeof( CNetChan_ProcessMessages_sig ) - 1;
-
-static const size_t VTableOffset = 0;
-
-#elif defined __linux
-
-typedef bool ( *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-#if defined SOURCENET_SERVER
-
-static const char CNetChan_ProcessMessages_sig[] = "@_ZN8CNetChan15ProcessMessagesER7bf_read";
-static const size_t CNetChan_ProcessMessages_siglen = 0;
-
-#elif defined SOURCENET_CLIENT
-
-static const char CNetChan_ProcessMessages_sig[] =
-	"\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x3D\x2A\x2A\x2A\x2A\x8B";
-static const size_t CNetChan_ProcessMessages_siglen = sizeof( CNetChan_ProcessMessages_sig ) - 1;
-
-#endif
-
-static const size_t VTableOffset = 1;
-
-#elif defined __APPLE__
-
-typedef bool ( *CNetChan_ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-static const char CNetChan_ProcessMessages_sig[] = "@__ZN8CNetChan15ProcessMessagesER7bf_read";
-static const size_t CNetChan_ProcessMessages_siglen = 0;
-
-static const size_t VTableOffset = 1;
-
-#endif
-
-static CNetChan_ProcessMessages_t CNetChan_ProcessMessages_o = nullptr;
-
-static uintptr_t CNetChan_vtable = 0;
-static uintptr_t INetChannelHandler_vtable = 0;
 
 #define HOOK_INIT( name ) \
 do \
@@ -78,46 +34,48 @@ do \
 } \
 while( false )
 
-#define MONITOR_HOOK( name ) \
-	static bool attach_status__##name = false
-
-#define IS_ATTACHED( name ) \
-	attach_status__##name
-
-#define REGISTER_ATTACH( name ) \
-	attach_status__##name = true
-
-#define REGISTER_DETACH( name ) \
-	attach_status__##name = false
-
-#define SIMPLE_VHOOK_BINDING( meta, namespc, name, offset ) \
-	MONITOR_HOOK( name ); \
-	LUA_FUNCTION_STATIC( Attach__##name ) \
+#define VIRTUAL_FUNCTION_SETUP( ret, name, ... ) \
+	LUA_FUNCTION_IMPLEMENT( Attach##name ) \
 	{ \
-		if( !IS_ATTACHED( name ) ) \
-		{ \
-			meta *temp = namespc::Get( LUA, 1 ); \
-			meta##_vtable = VTBL( temp ); \
-			HOOKVFUNC( temp, offset, name##_o, name##_d ); \
-			REGISTER_ATTACH( name ); \
-		} \
-		return 0; \
+		TargetClass *temp = LuaGet( LUA, 1 ); \
+		Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ); \
+		LUA->PushBool( Hook( &TargetClass::name, &SubstituteClass::name ) ); \
+		return 1; \
 	} \
-	LUA_FUNCTION_STATIC( Detach__##name ) \
+	LUA_FUNCTION_WRAP( Attach##name ); \
+	LUA_FUNCTION_IMPLEMENT( Detach##name ) \
 	{ \
-		if( IS_ATTACHED( name ) ) \
-		{ \
-			UNHOOKVFUNC( &meta##_vtable, offset, name##_o ); \
-			REGISTER_DETACH( name ); \
-		} \
-		return 0; \
+		LUA->PushBool( UnHook( &TargetClass::name ) ); \
+		return 1; \
+	} \
+	LUA_FUNCTION_WRAP( Detach##name ); \
+	virtual ret name( __VA_ARGS__ )
+
+class CNetChanProxy : Detouring::ClassProxy<CNetChan, CNetChanProxy>
+{
+public:
+	static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		{
+			SymbolFinder symfinder;
+
+			ProcessMessages_original =
+				reinterpret_cast<ProcessMessages_t>( symfinder.ResolveOnBinary(
+					global::engine_lib.c_str( ),
+					ProcessMessages_sig,
+					ProcessMessages_siglen
+				) );
+		}
+
+		if( ProcessMessages_original == nullptr )
+			LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 	}
 
-DEFVFUNC_( CNetChan_SendDatagram_o, int32_t, ( CNetChan *netchan, bf_write *data ) );
+	VIRTUAL_FUNCTION_SETUP( int32_t, SendDatagram, bf_write *data )
+	{
+		CNetChan *netchan = This( );
 
-static int32_t VFUNC CNetChan_SendDatagram_d( CNetChan *netchan, bf_write *data )
-{
-	HOOK_INIT( "PreSendDatagram" );
+		HOOK_INIT( "PreSendDatagram" );
 		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 
 		if( !global::is_dedicated )
@@ -142,264 +100,93 @@ static int32_t VFUNC CNetChan_SendDatagram_d( CNetChan *netchan, bf_write *data 
 		*writer2 = nullptr;
 		*writer3 = nullptr;
 		*writer4 = nullptr;
-	HOOK_END( );
+		HOOK_END( );
 
-	int32_t r = CNetChan_SendDatagram_o( netchan, data );
+		int32_t r = Call( &CNetChan::SendDatagram, data );
 
-	HOOK_INIT( "PostSendDatagram" );
+		HOOK_INIT( "PostSendDatagram" );
 		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 		HOOK_CALL( 0 );
-	HOOK_END( );
+		HOOK_END( );
 
-	return r;
-}
+		return r;
+	}
 
-SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_SendDatagram, 46 + VTableOffset );
-
-DEFVFUNC_( CNetChan_ProcessPacket_o, void, (
-	CNetChan *netchan,
-	netpacket_t *packet,
-	bool bHasHeader
-) );
-
-static void VFUNC CNetChan_ProcessPacket_d( CNetChan *netchan, netpacket_t *packet, bool bHasHeader )
-{
-	HOOK_INIT( "PreProcessPacket" );
-		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	CNetChan_ProcessPacket_o( netchan, packet, bHasHeader );
-
-	HOOK_INIT( "PostProcessPacket" );
-		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-}
-
-SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_ProcessPacket, 39 + VTableOffset );
-
-DEFVFUNC_( CNetChan_Shutdown_o, void, ( CNetChan *netchan, const char *reason ) );
-
-static void VFUNC CNetChan_Shutdown_d( CNetChan *netchan, const char *reason )
-{
-	HOOK_INIT( "PreNetChannelShutdown" );
-		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-		HOOK_PUSH( LUA->PushString( reason ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	NetMessage::Destroy( global::lua, netchan );
-
-	NetChannel::Destroy( global::lua, netchan );
-
-	CNetChan_Shutdown_o( netchan, reason );
-
-	HOOK_INIT( "PostNetChannelShutdown" );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-}
-
-SIMPLE_VHOOK_BINDING( CNetChan, NetChannel, CNetChan_Shutdown, 36 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_ConnectionStart_o, void, (
-	INetChannelHandler *handler,
-	CNetChan *netchan
-) );
-
-static void VFUNC INetChannelHandler_ConnectionStart_d( INetChannelHandler *handler, CNetChan *netchan )
-{
-	HOOK_INIT( "INetChannelHandler::ConnectionStart" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_ConnectionStart_o( handler, netchan );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionStart, 1 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_ConnectionClosing_o, void, (
-	INetChannelHandler *handler,
-	const char *reason
-) );
-
-static void VFUNC INetChannelHandler_ConnectionClosing_d(
-	INetChannelHandler *handler,
-	const char *reason
-)
-{
-	HOOK_INIT( "INetChannelHandler::ConnectionClosing" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushString( reason ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	NetChannelHandler::Destroy( global::lua, handler );
-
-	INetChannelHandler_ConnectionClosing_o( handler, reason );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionClosing, 2 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_ConnectionCrashed_o, void, (
-	INetChannelHandler *handler,
-	const char *reason
-) );
-
-static void VFUNC INetChannelHandler_ConnectionCrashed_d(
-	INetChannelHandler *handler,
-	const char *reason
-)
-{
-	HOOK_INIT( "INetChannelHandler::ConnectionCrashed" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushString( reason ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	NetChannelHandler::Destroy( global::lua, handler );
-
-	INetChannelHandler_ConnectionCrashed_o( handler, reason );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_ConnectionCrashed, 3 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_PacketStart_o, void, (
-	INetChannelHandler *handler,
-	int32_t incoming_sequence,
-	int32_t outgoing_acknowledged
-) );
-
-static void VFUNC INetChannelHandler_PacketStart_d(
-	INetChannelHandler *handler,
-	int32_t incoming_sequence,
-	int32_t outgoing_acknowledged
-)
-{
-	HOOK_INIT( "INetChannelHandler::PacketStart" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
-		HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_PacketStart_o( handler, incoming_sequence, outgoing_acknowledged );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketStart, 4 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_PacketEnd_o, void, ( INetChannelHandler *handler ) );
-
-static void VFUNC INetChannelHandler_PacketEnd_d( INetChannelHandler *handler )
-{
-	HOOK_INIT( "INetChannelHandler::PacketEnd" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_PacketEnd_o( handler );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_PacketEnd, 5 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_FileRequested_o, void, (
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-) );
-
-static void VFUNC INetChannelHandler_FileRequested_d(
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-)
-{
-	HOOK_INIT( "INetChannelHandler::FileRequested" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushString( fileName ) );
-		HOOK_PUSH( LUA->PushNumber( transferID ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_FileRequested_o( handler, fileName, transferID );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileRequested, 6 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_FileReceived_o, void, (
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-) );
-
-static void VFUNC INetChannelHandler_FileReceived_d(
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-)
-{
-	HOOK_INIT( "INetChannelHandler::FileReceived" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushString( fileName ) );
-		HOOK_PUSH( LUA->PushNumber( transferID ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_FileReceived_o( handler, fileName, transferID );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileReceived, 7 + VTableOffset );
-
-DEFVFUNC_( INetChannelHandler_FileDenied_o, void, (
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-) );
-
-static void VFUNC INetChannelHandler_FileDenied_d(
-	INetChannelHandler *handler,
-	const char *fileName,
-	uint32_t transferID
-)
-{
-	HOOK_INIT( "INetChannelHandler::FileDenied" );
-		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-		HOOK_PUSH( LUA->PushString( fileName ) );
-		HOOK_PUSH( LUA->PushNumber( transferID ) );
-		HOOK_CALL( 0 );
-	HOOK_END( );
-
-	INetChannelHandler_FileDenied_o( handler, fileName, transferID );
-}
-
-SIMPLE_VHOOK_BINDING( INetChannelHandler, NetChannelHandler, INetChannelHandler_FileDenied, 8 + VTableOffset );
-
-static MologieDetours::Detour<CNetChan_ProcessMessages_t> *
-	CNetChan_ProcessMessages_detour = nullptr;
-
-#if defined _WIN32
-
-static bool __fastcall CNetChan_ProcessMessages_d( CNetChan *netchan, void *, bf_read &buf )
-
-#elif defined __linux || defined __APPLE__
-
-static bool CNetChan_ProcessMessages_d( CNetChan *netchan, bf_read &buf )
-
-#endif
-
-{
-	static uint8_t data[100000] = { 0 };
-	if( !buf.IsOverflowed( ) )
+	VIRTUAL_FUNCTION_SETUP( void, ProcessPacket, netpacket_t *packet, bool bHasHeader )
 	{
-		memcpy( data, buf.m_pData, buf.GetNumBytesRead( ) );
+		CNetChan *netchan = This( );
 
-		int32_t bitsread = buf.GetNumBitsRead( );
-		bf_write write( data, sizeof( data ) );
-		write.SeekToBit( bitsread );
+		HOOK_INIT( "PreProcessPacket" );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
 
-		HOOK_INIT( "PreProcessMessages" );
+		Call( &CNetChan::ProcessPacket, packet, bHasHeader );
+
+		HOOK_INIT( "PostProcessPacket" );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, Shutdown, const char *reason )
+	{
+		CNetChan *netchan = This( );
+
+		HOOK_INIT( "PreNetChannelShutdown" );
+		HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
+		HOOK_PUSH( LUA->PushString( reason ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		NetMessage::Destroy( global::lua, netchan );
+
+		NetChannel::Destroy( global::lua, netchan );
+
+		Call( &CNetChan::Shutdown, reason );
+
+		HOOK_INIT( "PostNetChannelShutdown" );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+	}
+
+	LUA_FUNCTION_IMPLEMENT( AttachProcessMessages )
+	{
+		if( !IsHooked( ProcessMessages_original ) )
+			if( Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
+				LUA->ThrowError( "failed to detour CNetChan::ProcessMessages" );
+
+		return 0;
+	}
+
+	LUA_FUNCTION_WRAP( AttachProcessMessages );
+
+	LUA_FUNCTION_IMPLEMENT( DetachProcessMessages )
+	{
+		(void)LUA;
+		
+		if( IsHooked( ProcessMessages_original ) )
+			UnHook( ProcessMessages_original );
+
+		return 0;
+	}
+
+	LUA_FUNCTION_WRAP( DetachProcessMessages );
+
+	bool ProcessMessages( bf_read &buf )
+	{
+		CNetChan *netchan = This( );
+
+		static uint8_t data[100000] = { 0 };
+		if( !buf.IsOverflowed( ) )
+		{
+			memcpy( data, buf.m_pData, buf.GetNumBytesRead( ) );
+
+			int32_t bitsread = buf.GetNumBitsRead( );
+			bf_write write( data, sizeof( data ) );
+			write.SeekToBit( bitsread );
+
+			HOOK_INIT( "PreProcessMessages" );
 			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 			HOOK_PUSH( bf_read **reader = sn_bf_read::Push( LUA, &buf ) );
 			HOOK_PUSH( bf_write **writer = sn_bf_write::Push( LUA, &write ) );
@@ -416,51 +203,228 @@ static bool CNetChan_ProcessMessages_d( CNetChan *netchan, bf_read &buf )
 
 			*reader = nullptr;
 			*writer = nullptr;
+			HOOK_END( );
+
+			buf.StartReading(
+				write.GetBasePointer( ),
+				write.GetNumBytesWritten( ),
+				bitsread,
+				write.GetNumBitsWritten( )
+			);
+		}
+
+		return Call<bool, bf_read &>( ProcessMessages_original, buf );
+	}
+
+	static bool HookShutdown( )
+	{
+		return Hook( &CNetChan::Shutdown, &CNetChanProxy::Shutdown );
+	}
+
+	static CNetChanProxy Singleton;
+
+private:
+
+#if defined SYSTEM_WINDOWS
+
+	typedef bool ( __thiscall *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
+
+#else
+
+	typedef bool ( *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
+
+#endif
+
+	typedef CNetChan TargetClass;
+	typedef CNetChanProxy SubstituteClass;
+
+	static CNetChan *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
+	{
+		return NetChannel::Get( LUA, index );
+	}
+
+	static const char ProcessMessages_sig[];
+	static const size_t ProcessMessages_siglen;
+
+	static ProcessMessages_t ProcessMessages_original;
+};
+
+CNetChanProxy CNetChanProxy::Singleton;
+
+#if defined SYSTEM_WINDOWS
+
+const char CNetChanProxy::ProcessMessages_sig[] = "\x55\x8B\xEC\x83\xEC\x2C\xF7\x05";
+const size_t CNetChanProxy::ProcessMessages_siglen =
+	sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
+
+#elif defined SYSTEM_LINUX
+
+#if defined SOURCENET_SERVER
+
+const char CNetChanProxy::ProcessMessages_sig[] =
+	"@_ZN8CNetChan15ProcessMessagesER7bf_read";
+const size_t CNetChanProxy::ProcessMessages_siglen = 0;
+
+#elif defined SOURCENET_CLIENT
+
+const char CNetChanProxy::ProcessMessages_sig[] =
+	"\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x3D\x2A\x2A\x2A\x2A\x8B";
+const size_t CNetChanProxy::ProcessMessages_siglen =
+	sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
+
+#endif
+
+#elif defined SYSTEM_MACOSX
+
+const char CNetChanProxy::ProcessMessages_sig[] =
+	"@__ZN8CNetChan15ProcessMessagesER7bf_read";
+const size_t CNetChanProxy::ProcessMessages_siglen = 0;
+
+#endif
+
+CNetChanProxy::ProcessMessages_t CNetChanProxy::ProcessMessages_original = nullptr;
+
+class INetChannelHandlerProxy : Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>
+{
+public:
+	VIRTUAL_FUNCTION_SETUP( void, ConnectionStart, INetChannel *netchannel )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::ConnectionStart" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( NetChannel::Push( LUA, static_cast<CNetChan *>( netchannel ) ) );
+		HOOK_CALL( 0 );
 		HOOK_END( );
 
-		buf.StartReading(
-			write.GetBasePointer( ),
-			write.GetNumBytesWritten( ),
-			bitsread,
-			write.GetNumBitsWritten( )
+		Call( &INetChannelHandler::ConnectionStart, netchannel );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, ConnectionClosing, const char *reason )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::ConnectionClosing" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushString( reason ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		NetChannelHandler::Destroy( global::lua, handler );
+
+		Call( &INetChannelHandler::ConnectionClosing, reason );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, ConnectionCrashed, const char *reason )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::ConnectionCrashed" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushString( reason ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		NetChannelHandler::Destroy( global::lua, handler );
+
+		Call( &INetChannelHandler::ConnectionCrashed, reason );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, PacketStart, int32_t incoming_sequence, int32_t outgoing_acknowledged )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::PacketStart" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
+		HOOK_PUSH( LUA->PushNumber( outgoing_acknowledged ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		Call( &INetChannelHandler::PacketStart, incoming_sequence, outgoing_acknowledged );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, PacketEnd )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::PacketEnd" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		Call( &INetChannelHandler::PacketEnd );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, FileRequested, const char *fileName, uint32_t transferID )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::FileRequested" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushString( fileName ) );
+		HOOK_PUSH( LUA->PushNumber( transferID ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		Call( &INetChannelHandler::FileRequested, fileName, transferID );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, FileReceived, const char *fileName, uint32_t transferID )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::FileReceived" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushString( fileName ) );
+		HOOK_PUSH( LUA->PushNumber( transferID ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		Call( &INetChannelHandler::FileReceived, fileName, transferID );
+	}
+
+	VIRTUAL_FUNCTION_SETUP( void, FileDenied, const char *fileName, uint32_t transferID )
+	{
+		INetChannelHandler *handler = This( );
+
+		HOOK_INIT( "INetChannelHandler::FileDenied" );
+		HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
+		HOOK_PUSH( LUA->PushString( fileName ) );
+		HOOK_PUSH( LUA->PushNumber( transferID ) );
+		HOOK_CALL( 0 );
+		HOOK_END( );
+
+		Call( &INetChannelHandler::FileDenied, fileName, transferID );
+	}
+
+	static bool HookConnectionClosing( )
+	{
+		return Hook(
+			&INetChannelHandler::ConnectionClosing, &INetChannelHandlerProxy::ConnectionClosing
 		);
 	}
 
-	return CNetChan_ProcessMessages_detour->GetOriginalFunction( )( netchan, buf );
-}
-
-MONITOR_HOOK( CNetChan_ProcessMessages );
-
-LUA_FUNCTION_STATIC( Attach__CNetChan_ProcessMessages )
-{
-	if( !IS_ATTACHED( CNetChan_ProcessMessages ) )
+	static bool HookConnectionCrashed( )
 	{
-		CNetChan_ProcessMessages_detour =
-			new( std::nothrow ) MologieDetours::Detour<CNetChan_ProcessMessages_t>(
-				CNetChan_ProcessMessages_o,
-				reinterpret_cast<CNetChan_ProcessMessages_t>( CNetChan_ProcessMessages_d )
-			);
-		if( CNetChan_ProcessMessages_detour == nullptr )
-			LUA->ThrowError( "failed to detour CNetChan::ProcessMessages" );
-
-		REGISTER_ATTACH( CNetChan_ProcessMessages );
+		return Hook(
+			&INetChannelHandler::ConnectionCrashed, &INetChannelHandlerProxy::ConnectionCrashed
+		);
 	}
 
-	return 0;
-}
+	static INetChannelHandlerProxy Singleton;
 
-LUA_FUNCTION_STATIC( Detach__CNetChan_ProcessMessages )
-{
-	if( IS_ATTACHED( CNetChan_ProcessMessages ) )
+private:
+	typedef INetChannelHandler TargetClass;
+	typedef INetChannelHandlerProxy SubstituteClass;
+
+	static INetChannelHandler *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 	{
-		delete CNetChan_ProcessMessages_detour;
-		CNetChan_ProcessMessages_detour = nullptr;
-
-		REGISTER_DETACH( CNetChan_ProcessMessages );
+		return NetChannelHandler::Get( LUA, index );
 	}
+};
 
-	return 0;
-}
+INetChannelHandlerProxy INetChannelHandlerProxy::Singleton;
 
 LUA_FUNCTION_STATIC( Empty )
 {
@@ -469,118 +433,105 @@ LUA_FUNCTION_STATIC( Empty )
 
 void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	SymbolFinder symfinder;
-
-	CNetChan_ProcessMessages_o =
-		reinterpret_cast<CNetChan_ProcessMessages_t>( symfinder.ResolveOnBinary(
-			global::engine_lib.c_str( ),
-			CNetChan_ProcessMessages_sig,
-			CNetChan_ProcessMessages_siglen
-		) );
-	if( CNetChan_ProcessMessages_o == nullptr )
-		LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
+	CNetChanProxy::Initialize( LUA );
 }
 
 void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
+	LUA->PushCFunction( CNetChanProxy::AttachProcessPacket );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
 
-	LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
+	LUA->PushCFunction( CNetChanProxy::DetachProcessPacket );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
 
-	LUA->PushCFunction( Attach__CNetChan_SendDatagram );
+	LUA->PushCFunction( CNetChanProxy::AttachSendDatagram );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_SendDatagram" );
 
-	LUA->PushCFunction( Detach__CNetChan_SendDatagram );
+	LUA->PushCFunction( CNetChanProxy::DetachSendDatagram );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_SendDatagram" );
 
-	LUA->PushCFunction( Attach__CNetChan_Shutdown );
+	LUA->PushCFunction( CNetChanProxy::AttachProcessPacket );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
+
+	LUA->PushCFunction( CNetChanProxy::DetachProcessPacket );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
+
+	LUA->PushCFunction( CNetChanProxy::AttachShutdown );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_Shutdown" );
 
-	//LUA->PushCFunction( Detach__CNetChan_Shutdown );
 	LUA->PushCFunction( Empty );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_Shutdown" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionStart );
+	LUA->PushCFunction( CNetChanProxy::AttachProcessMessages );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessMessages" );
+
+	LUA->PushCFunction( CNetChanProxy::DetachProcessMessages );
+	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
+
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionStart );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionStart" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_ConnectionStart );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachConnectionStart );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionStart" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionClosing );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionClosing" );
 
-	//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionClosing );
 	LUA->PushCFunction( Empty );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionClosing" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionCrashed );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionCrashed" );
 
-	//LUA->PushCFunction( Detach__INetChannelHandler_ConnectionCrashed );
 	LUA->PushCFunction( Empty );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionCrashed" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_PacketStart );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachPacketStart );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_PacketStart" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_PacketStart );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachPacketStart );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_PacketStart" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_PacketEnd );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachPacketEnd );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_PacketEnd" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_PacketEnd );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachPacketEnd );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_PacketEnd" );
 
-	LUA->PushCFunction( Attach__CNetChan_ProcessPacket );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
-
-	LUA->PushCFunction( Detach__CNetChan_ProcessPacket );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
-
-	LUA->PushCFunction( Attach__INetChannelHandler_FileRequested );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachFileRequested );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileRequested" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_FileRequested );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachFileRequested );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileRequested" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_FileReceived );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachFileReceived );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileReceived" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_FileReceived );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachFileReceived );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileReceived" );
 
-	LUA->PushCFunction( Attach__INetChannelHandler_FileDenied );
+	LUA->PushCFunction( INetChannelHandlerProxy::AttachFileDenied );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileDenied" );
 
-	LUA->PushCFunction( Detach__INetChannelHandler_FileDenied );
+	LUA->PushCFunction( INetChannelHandlerProxy::DetachFileDenied );
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileDenied" );
-
-	LUA->PushCFunction( Attach__CNetChan_ProcessMessages );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessMessages" );
-
-	LUA->PushCFunction( Detach__CNetChan_ProcessMessages );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
 }
 
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
-	Detach__CNetChan_SendDatagram( LUA->GetState( ) );
-	Detach__CNetChan_ProcessPacket( LUA->GetState( ) );
-	Detach__CNetChan_Shutdown( LUA->GetState( ) );
+	CNetChanProxy::DetachSendDatagram( LUA->GetState( ) );
+	CNetChanProxy::DetachProcessPacket( LUA->GetState( ) );
+	CNetChanProxy::DetachShutdown( LUA->GetState( ) );
+	CNetChanProxy::DetachProcessMessages( LUA->GetState( ) );
 
-	Detach__INetChannelHandler_ConnectionStart( LUA->GetState( ) );
-	Detach__INetChannelHandler_ConnectionClosing( LUA->GetState( ) );
-	Detach__INetChannelHandler_ConnectionCrashed( LUA->GetState( ) );
-	Detach__INetChannelHandler_PacketStart( LUA->GetState( ) );
-	Detach__INetChannelHandler_PacketEnd( LUA->GetState( ) );
-	Detach__INetChannelHandler_FileRequested( LUA->GetState( ) );
-	Detach__INetChannelHandler_FileReceived( LUA->GetState( ) );
-	Detach__INetChannelHandler_FileDenied( LUA->GetState( ) );
-
-	Detach__CNetChan_ProcessMessages( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachConnectionStart( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachConnectionClosing( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachConnectionCrashed( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachPacketStart( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachPacketEnd( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachFileRequested( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachFileReceived( LUA->GetState( ) );
+	INetChannelHandlerProxy::DetachFileDenied( LUA->GetState( ) );
 
 
 
@@ -665,29 +616,13 @@ void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 
 void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA )
 {
-	if( !IS_ATTACHED( CNetChan_Shutdown ) )
-	{
-		LUA->PushCFunction( Attach__CNetChan_Shutdown );
-		LUA->Push( -2 );
-		LUA->Call( 1, 0 );
-	}
+	CNetChanProxy::HookShutdown( );
 }
 
 void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA )
 {
-	if( !IS_ATTACHED( INetChannelHandler_ConnectionClosing ) )
-	{
-		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionClosing );
-		LUA->Push( -2 );
-		LUA->Call( 1, 0 );
-	}
-
-	if( !IS_ATTACHED( INetChannelHandler_ConnectionCrashed ) )
-	{
-		LUA->PushCFunction( Attach__INetChannelHandler_ConnectionCrashed );
-		LUA->Push( -2 );
-		LUA->Call( 1, 0 );
-	}
+	INetChannelHandlerProxy::HookConnectionClosing( );
+	INetChannelHandlerProxy::HookConnectionCrashed( );
 }
 
 }

@@ -4,7 +4,7 @@
 namespace netadr
 {
 
-static uint8_t metatype = GarrysMod::Lua::Type::NONE;
+static uint8_t metatype = 0;
 static const char *metaname = "netadr_t";
 
 void Push( GarrysMod::Lua::ILuaBase *LUA, const netadr_t &netadr )
