@@ -28,125 +28,125 @@ namespace global
 
 #if defined SYSTEM_WINDOWS
 
-static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
-static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
+	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
+	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #elif defined SYSTEM_LINUX
 
 #if defined SOURCENET_SERVER
 
-static const char IServer_sig[] = "@sv";
-static const size_t IServer_siglen = 0;
+	static const char IServer_sig[] = "@sv";
+	static const size_t IServer_siglen = 0;
 
 #elif defined SOURCENET_CLIENT
 
-static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xC7\x85\x68\xFF\xFF\xFF\x68";
-static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
+	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xC7\x85\x68\xFF\xFF\xFF\x68";
+	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #endif
 
 #elif defined SYSTEM_MACOSX
 
-static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xF3\x0F\x10\x45";
-static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
+	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xF3\x0F\x10\x45";
+	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
 
 #endif
 
-static bool loaded = false;
+	static bool loaded = false;
 
-const std::string engine_lib = Helpers::GetBinaryFileName(
-	"engine",
-	false,
-	IS_SERVERSIDE,
-	"bin/"
-);
+	const std::string engine_lib = Helpers::GetBinaryFileName(
+		"engine",
+		false,
+		IS_SERVERSIDE,
+		"bin/"
+	);
 
-const std::string client_lib = Helpers::GetBinaryFileName(
-	"client",
-	false,
-	IS_SERVERSIDE,
-	"garrysmod/bin/"
-);
+	const std::string client_lib = Helpers::GetBinaryFileName(
+		"client",
+		false,
+		IS_SERVERSIDE,
+		"garrysmod/bin/"
+	);
 
-const std::string server_lib = Helpers::GetBinaryFileName(
-	"server",
-	false,
-	IS_SERVERSIDE,
-	"garrysmod/bin/"
-);
+	const std::string server_lib = Helpers::GetBinaryFileName(
+		"server",
+		false,
+		IS_SERVERSIDE,
+		"garrysmod/bin/"
+	);
 
-const char *tostring_format = "%s: %p";
+	const char *tostring_format = "%s: %p";
 
-GarrysMod::Lua::ILuaBase *lua = nullptr;
+	GarrysMod::Lua::ILuaBase *lua = nullptr;
 
-SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
+	SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
 
-IVEngineServer *engine_server = nullptr;
-IVEngineClient *engine_client = nullptr;
-IServer *server = nullptr;
+	IVEngineServer *engine_server = nullptr;
+	IVEngineClient *engine_client = nullptr;
+	IServer *server = nullptr;
 
-bool is_dedicated = true;
+	bool is_dedicated = true;
 
-LUA_FUNCTION( index )
-{
-	LUA->GetMetaTable( 1 );
-	LUA->Push( 2 );
-	LUA->RawGet( -2 );
-	if( !LUA->IsType( -1, GarrysMod::Lua::Type::NIL ) )
+	LUA_FUNCTION( index )
+	{
+		LUA->GetMetaTable( 1 );
+		LUA->Push( 2 );
+		LUA->RawGet( -2 );
+		if( !LUA->IsType( -1, GarrysMod::Lua::Type::NIL ) )
+			return 1;
+
+		LUA->Pop( 2 );
+
+		LUA->GetFEnv( 1 );
+		LUA->Push( 2 );
+		LUA->RawGet( -2 );
 		return 1;
+	}
 
-	LUA->Pop( 2 );
+	LUA_FUNCTION( newindex )
+	{
+		LUA->GetFEnv( 1 );
+		LUA->Push( 2 );
+		LUA->Push( 3 );
+		LUA->RawSet( -3 );
+		return 0;
+	}
 
-	LUA->GetFEnv( 1 );
-	LUA->Push( 2 );
-	LUA->RawGet( -2 );
-	return 1;
-}
+	LUA_FUNCTION( GetTable )
+	{
+		LUA->GetFEnv( 1 );
+		return 1;
+	}
 
-LUA_FUNCTION( newindex )
-{
-	LUA->GetFEnv( 1 );
-	LUA->Push( 2 );
-	LUA->Push( 3 );
-	LUA->RawSet( -3 );
-	return 0;
-}
+	void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype )
+	{
+		if( !LUA->IsType( index, type ) )
+			LUA->TypeError( index, nametype );
+	}
 
-LUA_FUNCTION( GetTable )
-{
-	LUA->GetFEnv( 1 );
-	return 1;
-}
+	static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		LUA->CreateTable( );
 
-void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype )
-{
-	if( !LUA->IsType( index, type ) )
-		LUA->TypeError( index, nametype );
-}
+		LUA->PushString( "sourcenet 1.1.0" );
+		LUA->SetField( -2, "Version" );
 
-static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
-{
-	LUA->CreateTable( );
+		// version num follows LuaJIT style, xxyyzz
+		LUA->PushNumber( 10100 );
+		LUA->SetField( -2, "VersionNum" );
 
-	LUA->PushString( "sourcenet 1.1.0" );
-	LUA->SetField( -2, "Version" );
+		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
 
-	// version num follows LuaJIT style, xxyyzz
-	LUA->PushNumber( 10100 );
-	LUA->SetField( -2, "VersionNum" );
+		loaded = true;
+	}
 
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
+	static void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		LUA->PushNil( );
+		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
 
-	loaded = true;
-}
-
-static void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
-{
-	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
-
-	loaded = false;
-}
+		loaded = false;
+	}
 
 }
 

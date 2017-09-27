@@ -7,11 +7,9 @@ class CNetChan;
 
 namespace subchannel
 {
+	void Push( GarrysMod::Lua::ILuaBase *LUA, subchannel_t *subchan, CNetChan *netchan );
 
-void Push( GarrysMod::Lua::ILuaBase *LUA, subchannel_t *subchan, CNetChan *netchan );
+	void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Initialize( GarrysMod::Lua::ILuaBase *LUA );
-
-void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
-
+	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 }

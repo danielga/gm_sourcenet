@@ -21,31 +21,29 @@ namespace GarrysMod
 
 namespace global
 {
+	extern const std::string engine_lib;
 
-extern const std::string engine_lib;
+	extern const std::string client_lib;
 
-extern const std::string client_lib;
+	extern const std::string server_lib;
 
-extern const std::string server_lib;
+	extern const char *tostring_format;
 
-extern const char *tostring_format;
+	extern GarrysMod::Lua::ILuaBase *lua;
 
-extern GarrysMod::Lua::ILuaBase *lua;
+	extern SourceSDK::FactoryLoader engine_loader;
 
-extern SourceSDK::FactoryLoader engine_loader;
+	extern IVEngineServer *engine_server;
 
-extern IVEngineServer *engine_server;
+	extern IVEngineClient *engine_client;
 
-extern IVEngineClient *engine_client;
+	extern IServer *server;
 
-extern IServer *server;
+	extern bool is_dedicated;
 
-extern bool is_dedicated;
+	LUA_FUNCTION_DECLARE( index );
+	LUA_FUNCTION_DECLARE( newindex );
+	LUA_FUNCTION_DECLARE( GetTable );
 
-LUA_FUNCTION_DECLARE( index );
-LUA_FUNCTION_DECLARE( newindex );
-LUA_FUNCTION_DECLARE( GetTable );
-
-void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype );
-
+	void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t type, const char *nametype );
 }

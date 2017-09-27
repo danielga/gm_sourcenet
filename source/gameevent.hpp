@@ -7,17 +7,15 @@ class IGameEvent;
 
 namespace GameEvent
 {
+	void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager );
 
-void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager );
+	IGameEvent *Get(
+		GarrysMod::Lua::ILuaBase *LUA,
+		int32_t index,
+		IGameEventManager2 **manager = nullptr
+	);
 
-IGameEvent *Get(
-	GarrysMod::Lua::ILuaBase *LUA,
-	int32_t index,
-	IGameEventManager2 **manager = nullptr
-);
+	void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 
-void Initialize( GarrysMod::Lua::ILuaBase *LUA );
-
-void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
-
+	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 }

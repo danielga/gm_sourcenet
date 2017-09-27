@@ -4,207 +4,206 @@
 
 namespace GameEvent
 {
-
-struct Container
-{
-	IGameEvent *event;
-	IGameEventManager2 *manager;
-};
-
-static uint8_t metatype = 0;
-static const char *metaname = "IGameEvent";
-
-void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager )
-{
-	if( event == nullptr )
+	struct Container
 	{
-		LUA->PushNil( );
-		return;
+		IGameEvent *event;
+		IGameEventManager2 *manager;
+	};
+
+	static int32_t metatype = 0;
+	static const char *metaname = "IGameEvent";
+
+	void Push( GarrysMod::Lua::ILuaBase *LUA, IGameEvent *event, IGameEventManager2 *manager )
+	{
+		if( event == nullptr )
+		{
+			LUA->PushNil( );
+			return;
+		}
+
+		Container *udata = LUA->NewUserType<Container>( metatype );
+		udata->event = event;
+		udata->manager = manager;
+
+		LUA->PushMetaTable( metatype );
+		LUA->SetMetaTable( -2 );
+
+		LUA->CreateTable( );
+		LUA->SetFEnv( -2 );
 	}
 
-	Container *udata = LUA->NewUserType<Container>( metatype );
-	udata->event = event;
-	udata->manager = manager;
+	inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
+	{
+		global::CheckType( LUA, index, metatype, metaname );
+		return LUA->GetUserType<Container>( index, metatype );
+	}
 
-	LUA->PushMetaTable( metatype );
-	LUA->SetMetaTable( -2 );
+	IGameEvent *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, IGameEventManager2 **manager )
+	{
+		Container *udata = GetUserData( LUA, index );
+		if( udata == nullptr )
+			LUA->FormattedError( "invalid %s", metaname );
 
-	LUA->CreateTable( );
-	LUA->SetFEnv( -2 );
-}
+		if( manager != nullptr )
+			*manager = udata->manager;
 
-inline Container *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
-{
-	global::CheckType( LUA, index, metatype, metaname );
-	return LUA->GetUserType<Container>( index, metatype );
-}
+		return udata->event;
+	}
 
-IGameEvent *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, IGameEventManager2 **manager )
-{
-	Container *udata = GetUserData( LUA, index );
-	if( udata == nullptr )
-		LUA->FormattedError( "invalid %s", metaname );
+	LUA_FUNCTION_STATIC( gc )
+	{
+		Container *udata = GetUserData( LUA, 1 );
 
-	if( manager != nullptr )
-		*manager = udata->manager;
+		if( udata->manager != nullptr )
+			udata->manager->FreeEvent( udata->event );
 
-	return udata->event;
-}
+		LUA->SetUserType( 1, nullptr );
 
-LUA_FUNCTION_STATIC( gc )
-{
-	Container *udata = GetUserData( LUA, 1 );
+		return 0;
+	}
 
-	if( udata->manager != nullptr )
-		udata->manager->FreeEvent( udata->event );
+	LUA_FUNCTION_STATIC( eq )
+	{
+		IGameEvent *event1 = Get( LUA, 1 );
+		IGameEvent *event2 = Get( LUA, 2 );
 
-	LUA->SetUserType( 1, nullptr );
+		LUA->PushBool( event1 == event2 );
 
-	return 0;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( eq )
-{
-	IGameEvent *event1 = Get( LUA, 1 );
-	IGameEvent *event2 = Get( LUA, 2 );
+	LUA_FUNCTION_STATIC( tostring )
+	{
+		IGameEvent *event = Get( LUA, 1 );
 
-	LUA->PushBool( event1 == event2 );
+		LUA->PushFormattedString( global::tostring_format, metaname, event );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( tostring )
-{
-	IGameEvent *event = Get( LUA, 1 );
+	LUA_FUNCTION_STATIC( GetName )
+	{
+		IGameEvent *event = Get( LUA, 1 );
 
-	LUA->PushFormattedString( global::tostring_format, metaname, event );
+		LUA->PushString( event->GetName( ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( GetName )
-{
-	IGameEvent *event = Get( LUA, 1 );
+	LUA_FUNCTION_STATIC( IsReliable )
+	{
+		IGameEvent *event = Get( LUA, 1 );
 
-	LUA->PushString( event->GetName( ) );
+		LUA->PushBool( event->IsReliable( ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( IsReliable )
-{
-	IGameEvent *event = Get( LUA, 1 );
+	LUA_FUNCTION_STATIC( IsLocal )
+	{
+		IGameEvent *event = Get( LUA, 1 );
 
-	LUA->PushBool( event->IsReliable( ) );
+		LUA->PushBool( event->IsLocal( ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( IsLocal )
-{
-	IGameEvent *event = Get( LUA, 1 );
+	LUA_FUNCTION_STATIC( IsEmpty )
+	{
+		IGameEvent *event = Get( LUA, 1 );
 
-	LUA->PushBool( event->IsLocal( ) );
+		LUA->PushBool( event->IsEmpty( LUA->GetString( 2 ) ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( IsEmpty )
-{
-	IGameEvent *event = Get( LUA, 1 );
+	LUA_FUNCTION_STATIC( GetBool )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	LUA->PushBool( event->IsEmpty( LUA->GetString( 2 ) ) );
+		LUA->PushBool( event->GetBool( LUA->GetString( 2 ) ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( GetBool )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+	LUA_FUNCTION_STATIC( GetInt )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	LUA->PushBool( event->GetBool( LUA->GetString( 2 ) ) );
+		LUA->PushNumber( event->GetInt( LUA->GetString( 2 ) ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( GetInt )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+	LUA_FUNCTION_STATIC( GetFloat )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	LUA->PushNumber( event->GetInt( LUA->GetString( 2 ) ) );
+		LUA->PushNumber( event->GetFloat( LUA->GetString( 2 ) ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( GetFloat )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+	LUA_FUNCTION_STATIC( GetString )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
 
-	LUA->PushNumber( event->GetFloat( LUA->GetString( 2 ) ) );
+		LUA->PushString( event->GetString( LUA->GetString( 2 ) ) );
 
-	return 1;
-}
+		return 1;
+	}
 
-LUA_FUNCTION_STATIC( GetString )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+	LUA_FUNCTION_STATIC( SetBool )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+		LUA->CheckType( 3, GarrysMod::Lua::Type::BOOL );
 
-	LUA->PushString( event->GetString( LUA->GetString( 2 ) ) );
+		event->SetBool( LUA->GetString( 2 ), LUA->GetBool( 3 ) );
 
-	return 1;
-}
+		return 0;
+	}
 
-LUA_FUNCTION_STATIC( SetBool )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-	LUA->CheckType( 3, GarrysMod::Lua::Type::BOOL );
+	LUA_FUNCTION_STATIC( SetInt )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+		LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	event->SetBool( LUA->GetString( 2 ), LUA->GetBool( 3 ) );
+		event->SetInt( LUA->GetString( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
 
-	return 0;
-}
+		return 0;
+	}
 
-LUA_FUNCTION_STATIC( SetInt )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
+	LUA_FUNCTION_STATIC( SetFloat )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+		LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
 
-	event->SetInt( LUA->GetString( 2 ), static_cast<int32_t>( LUA->GetNumber( 3 ) ) );
+		event->SetFloat( LUA->GetString( 2 ), static_cast<float>( LUA->GetNumber( 3 ) ) );
 
-	return 0;
-}
+		return 0;
+	}
 
-LUA_FUNCTION_STATIC( SetFloat )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-	LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
+	LUA_FUNCTION_STATIC( SetString )
+	{
+		IGameEvent *event = Get( LUA, 1 );
+		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
+		LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
-	event->SetFloat( LUA->GetString( 2 ), LUA->GetNumber( 3 ) );
+		event->SetString( LUA->GetString( 2 ), LUA->GetString( 3 ) );
 
-	return 0;
-}
+		return 0;
+	}
 
-LUA_FUNCTION_STATIC( SetString )
-{
-	IGameEvent *event = Get( LUA, 1 );
-	LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-	LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
-
-	event->SetString( LUA->GetString( 2 ), LUA->GetString( 3 ) );
-
-	return 0;
-}
-
-void Initialize( GarrysMod::Lua::ILuaBase *LUA )
-{
-	metatype = LUA->CreateMetaTable( metaname );
+	void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		metatype = LUA->CreateMetaTable( metaname );
 
 		LUA->PushCFunction( gc );
 		LUA->SetField( -2, "__gc" );
@@ -260,13 +259,12 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 		LUA->PushCFunction( SetString );
 		LUA->SetField( -2, "SetString" );
 
-	LUA->Pop( 1 );
-}
+		LUA->Pop( 1 );
+	}
 
-void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
-{
-	LUA->PushNil( );
-	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
-}
-
+	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		LUA->PushNil( );
+		LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
+	}
 }
