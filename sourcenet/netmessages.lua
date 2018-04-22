@@ -940,10 +940,6 @@ NET_MESSAGES = {
 
 					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh length=%i,path=%s\n", length, path))
 				elseif msgtype == 3 then
-					-- probably 0 bits
-					local data = read:ReadBits(bits - 8)
-					write:WriteBits(data)
-
 					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::RequestFiles bits=%i\n", bits - 8))
 				elseif msgtype == 4 then
 					local length = read:ReadUInt(16)
@@ -984,13 +980,21 @@ NET_MESSAGES = {
 			local transferid = read:ReadUInt(32)
 			write:WriteUInt(transferid, 32)
 
-			local filename = read:ReadString()
-			write:WriteString(filename)
-
 			local requested = read:ReadBit()
 			write:WriteBit(requested)
 
-			SourceNetMsg(string.format("net_File %i,%s,%i\n", transferid, filename, requested))
+			if requested == 0 then
+				SourceNetMsg(string.format("net_File %i,false\n", transferid))
+				return
+			end
+
+			local requesttype = read:ReadUInt(1)
+			write:WriteUInt(requesttype, 1)
+
+			local fileid = read:ReadUInt(32)
+			write:WriteUInt(fileid, 32)
+
+			SourceNetMsg(string.format("net_File %i,true,%i,%i\n", transferid, requesttype, fileid))
 		end
 	},
 
