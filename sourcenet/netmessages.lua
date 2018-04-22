@@ -804,8 +804,8 @@ NET_MESSAGES = {
 				local changed = read:ReadUInt(MAX_EDICT_BITS)
 				write:WriteUInt(changed, MAX_EDICT_BITS)
 
-				local bits = read:ReadUInt(20)
-				write:WriteUInt(bits, 20)
+				local bits = read:ReadUInt(24)
+				write:WriteUInt(bits, 24)
 
 				local updatebaseline = read:ReadBit()
 				write:WriteBit(updatebaseline)

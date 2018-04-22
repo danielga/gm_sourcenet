@@ -176,7 +176,7 @@ namespace NetMessage
 		if( !IsValid( msg, netchannel ) )
 			LUA->FormattedError( "invalid %s", metaname );
 
-		if( netchannel != nullptr )
+		if( netchan != nullptr )
 			*netchan = netchannel;
 
 		return msg;

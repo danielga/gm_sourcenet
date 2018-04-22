@@ -152,9 +152,9 @@ namespace Hooks
 
 		LUA_FUNCTION_IMPLEMENT( AttachProcessMessages )
 		{
-			if( !IsHooked( ProcessMessages_original ) )
-				if( Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
-					LUA->ThrowError( "failed to detour CNetChan::ProcessMessages" );
+			if( !IsHooked( ProcessMessages_original ) &&
+				!Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
+					LUA->ThrowError( "failed to hook CNetChan::ProcessMessages" );
 
 			return 0;
 		}
@@ -165,8 +165,8 @@ namespace Hooks
 		{
 			(void)LUA;
 
-			if( IsHooked( ProcessMessages_original ) )
-				UnHook( ProcessMessages_original );
+			if( IsHooked( ProcessMessages_original ) && !UnHook( ProcessMessages_original ) )
+				LUA->ThrowError( "failed to unhook CNetChan::ProcessMessages" );
 
 			return 0;
 		}
