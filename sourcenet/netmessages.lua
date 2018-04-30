@@ -332,10 +332,13 @@ NET_MESSAGES = {
 					local id = read:ReadWord()
 					write:WriteWord(id)
 
-					local data = read:ReadBits(bits - 8 - 16)
-					write:WriteBits(data)
+					bits = bits - 8 - 16
+					if bits > 0 then
+						local data = read:ReadBits(bits - 8 - 16)
+						write:WriteBits(data)
+					end
 
-					SourceNetMsg(string.format("clc_GMod_ClientToServer netmessage bits=%i,msgtype=%i,id=%i/%s\n", bits - 8 - 16, msgtype, id, util.NetworkIDToString(id) or "unknown message"))
+					SourceNetMsg(string.format("clc_GMod_ClientToServer netmessage bits=%i,msgtype=%i,id=%i/%s\n", bits, msgtype, id, util.NetworkIDToString(id) or "unknown message"))
 				elseif msgtype == 2 then
 					local strerr = read:ReadString()
 					write:WriteString(strerr)
@@ -924,10 +927,13 @@ NET_MESSAGES = {
 					local id = read:ReadWord()
 					write:WriteWord(id)
 
-					local data = read:ReadBits(bits - 8 - 16)
-					write:WriteBits(data)
+					bits = bits - 8 - 16
+					if bits > 0 then
+						local data = read:ReadBits()
+						write:WriteBits(data)
+					end
 
-					SourceNetMsg(string.format("svc_GMod_ServerToClient netmessage bits=%i,id=%i/%s\n", bits - 8 - 16, id, util.NetworkIDToString(id) or "unknown message"))
+					SourceNetMsg(string.format("svc_GMod_ServerToClient netmessage bits=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id) or "unknown message"))
 				elseif msgtype == 1 then
 					local path = read:ReadString()
 					write:WriteString(path)
