@@ -9,14 +9,39 @@
 #include <scanning/symbolfinder.hpp>
 #include <detouring/hde.h>
 #include <Platform.hpp>
+#include <unordered_map>
 
-#ifdef SYSTEM_MACOSX_BAD
+#if defined( ARCHITECTURE_X86 )
 
-#include <map>
+typedef hde32s hdes;
+
+inline uint32_t hde_disasm( const void *code, hde32s &hs )
+{
+	return hde32_disasm( code, &hs );
+}
+
+inline uint32_t hde_getimm( const hde32s &hs )
+{
+	return hs.imm.imm32;
+}
+
+#elif defined( ARCHITECTURE_X86_64 )
+
+typedef hde64s hdes;
+
+inline uint32_t hde_disasm( const void *code, hde64s &hs )
+{
+	return hde64_disasm( code, &hs );
+}
+
+inline uint64_t hde_getimm( const hde64s &hs )
+{
+	return hs.imm.imm64;
+}
 
 #else
 
-#include <unordered_map>
+#error Unknown architecture!
 
 #endif
 
@@ -323,7 +348,7 @@ namespace NetMessage
 		Detouring::ProtectMemory( dst, ( 12 + offset ) * sizeof( uintptr_t ), true );
 	}
 
-	inline bool IsEndOfFunction( const hde32s &instruction )
+	inline bool IsEndOfFunction( const hdes &instruction )
 	{
 		return instruction.opcode == 0xC3
 
@@ -355,7 +380,7 @@ namespace NetMessage
 
 	}
 
-	inline bool IsPossibleVTable( const hde32s &instruction )
+	inline bool IsPossibleVTable( const hdes &instruction )
 	{
 
 #if defined SYSTEM_LINUX
@@ -381,15 +406,15 @@ namespace NetMessage
 
 		void **msgvtable = msg->GetVTable( );
 
-		hde32s hs;
+		hdes hs;
 		for(
-			uint32_t len = hde32_disasm( funcCode, &hs );
+			uint32_t len = hde_disasm( funcCode, hs );
 			!IsEndOfFunction( hs );
-			funcCode += len, len = hde32_disasm( funcCode, &hs )
+			funcCode += len, len = hde_disasm( funcCode, hs )
 			)
 			if( IsPossibleVTable( hs ) )
 			{
-				void **vtable = reinterpret_cast<void **>( hs.imm.imm32 );
+				void **vtable = reinterpret_cast<void **>( hde_getimm( hs ) );
 				msg->InstallVTable( vtable );
 
 				const char *name = msg->GetName( );

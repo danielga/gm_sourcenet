@@ -224,7 +224,7 @@ namespace NetMessages
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 
-			uint32_t len = 0;
+			size_t len = 0;
 			const char *data = LUA->GetString( 2, &len );
 			memcpy(
 				reinterpret_cast<void *>( msg->*M ), data, MaximumLength < len ? MaximumLength : len
