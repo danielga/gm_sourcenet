@@ -8,7 +8,7 @@
 #include <inetmsghandler.h>
 #include <cdll_int.h>
 #include <scanning/symbolfinder.hpp>
-#include <GarrysMod/LuaHelpers.hpp>
+#include <GarrysMod/Lua/Helpers.hpp>
 #include <detouring/classproxy.hpp>
 #include <Platform.hpp>
 
@@ -180,7 +180,7 @@ namespace Hooks
 			static uint8_t data[100000] = { 0 };
 			if( !buf.IsOverflowed( ) )
 			{
-				memcpy( data, buf.m_pData, buf.GetNumBytesRead( ) );
+				memcpy( data, buf.GetBasePointer( ), buf.GetNumBytesRead( ) );
 
 				int32_t bitsread = buf.GetNumBitsRead( );
 				bf_write write( data, sizeof( data ) );
@@ -257,28 +257,18 @@ namespace Hooks
 	const size_t CNetChanProxy::ProcessMessages_siglen =
 		sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
 
-#elif defined SYSTEM_LINUX
-
-#if defined SOURCENET_SERVER
+#elif ( defined SYSTEM_LINUX && defined SOURCENET_SERVER ) || defined SYSTEM_MACOSX
 
 	const char CNetChanProxy::ProcessMessages_sig[] =
 		"@_ZN8CNetChan15ProcessMessagesER7bf_read";
 	const size_t CNetChanProxy::ProcessMessages_siglen = 0;
 
-#elif defined SOURCENET_CLIENT
+#elif defined SYSTEM_LINUX && defined SOURCENET_CLIENT
 
 	const char CNetChanProxy::ProcessMessages_sig[] =
 		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x3D\x2A\x2A\x2A\x2A\x8B";
 	const size_t CNetChanProxy::ProcessMessages_siglen =
 		sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
-
-#endif
-
-#elif defined SYSTEM_MACOSX
-
-	const char CNetChanProxy::ProcessMessages_sig[] =
-		"@__ZN8CNetChan15ProcessMessagesER7bf_read";
-	const size_t CNetChanProxy::ProcessMessages_siglen = 0;
 
 #endif
 

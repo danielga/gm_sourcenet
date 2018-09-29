@@ -1,5 +1,5 @@
 #include <server/datapack.hpp>
-#include <GarrysMod/LuaHelpers.hpp>
+#include <GarrysMod/Lua/Helpers.hpp>
 #include <scanning/symbolfinder.hpp>
 #include <detouring/classproxy.hpp>
 #include <networkstringtabledefs.h>
@@ -235,7 +235,7 @@ namespace DataPack
 		uint32_t crc32 = CrcCalc( &substitute[0], substitute.size( ) + 1 );
 		memcpy( &data[offset], &crc32, 4 );
 
-		global::engine_server->GMOD_SendToClient( client, &data[0], 8 * data.size( ) );
+		global::engine_server->GMOD_SendToClient( client, &data[0], static_cast<int>( 8 * data.size( ) ) );
 	}
 
 	LUA_FUNCTION_STATIC( SendLuaFile )

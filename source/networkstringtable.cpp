@@ -118,12 +118,12 @@ namespace NetworkStringTable
 		LUA->CheckType( 2, GarrysMod::Lua::Type::BOOL );
 		LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
 
-		uint32_t len = 0;
+		size_t len = 0;
 		const char *UserData = nullptr;
 		if( LUA->IsType( 4, GarrysMod::Lua::Type::STRING ) )
 			UserData = LUA->GetString( 4, &len );
 
-		LUA->PushNumber( table->AddString( LUA->GetBool( 1 ), LUA->GetString( 2 ), len == 0 ? -1 : len, UserData ) );
+		LUA->PushNumber( table->AddString( LUA->GetBool( 1 ), LUA->GetString( 2 ), len == 0 ? -1 : static_cast<int>( len ), UserData ) );
 
 		return 1;
 	}
