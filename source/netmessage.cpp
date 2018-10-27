@@ -52,42 +52,42 @@ namespace NetMessage
 #if defined SYSTEM_WINDOWS
 
 	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x8B";
+		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF1";
 	static const size_t CBaseClient_ConnectionStart_siglen =
 		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
 	static const char CBaseClientState_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x8B";
+		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF9";
 	static const size_t CBaseClientState_ConnectionStart_siglen =
 		sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 819;
+	static const uintptr_t CLC_CmdKeyValues_offset = 784;
 
-	static const uintptr_t SVC_CreateStringTable_offset = 622;
+	static const uintptr_t SVC_CreateStringTable_offset = 608;
 
-	static const uintptr_t SVC_CmdKeyValues_offset = 1751;
+	static const uintptr_t SVC_CmdKeyValues_offset = 1688;
 
 #elif defined SYSTEM_LINUX
 
 #if defined SOURCENET_SERVER
 
-	static const char CBaseClientState_ConnectionStart_sig[] =
-		"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
-	static const size_t CBaseClientState_ConnectionStart_siglen = 0;
-
 	static const char CBaseClient_ConnectionStart_sig[] =
 		"@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
 	static const size_t CBaseClient_ConnectionStart_siglen = 0;
 
+	static const char CBaseClientState_ConnectionStart_sig[] =
+		"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
+	static const size_t CBaseClientState_ConnectionStart_siglen = 0;
+
 #elif defined SOURCENET_CLIENT
 
 	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\xC7\x04\x24";
+		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B";
 	static const size_t CBaseClient_ConnectionStart_siglen =
 		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
 	static const char CBaseClientState_ConnectionStart_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B\x75\x08\xC7\x04\x24";
+		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B";
 	static const size_t CBaseClientState_ConnectionStart_siglen =
 		sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
@@ -102,18 +102,18 @@ namespace NetMessage
 #elif defined SYSTEM_MACOSX
 
 	static const char CBaseClient_ConnectionStart_sig[] =
-		"@__ZN11CBaseClient15ConnectionStartEP11INetChannel";
+		"@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
 	static const size_t CBaseClient_ConnectionStart_siglen = 0;
 
 	static const char CBaseClientState_ConnectionStart_sig[] =
-		"@__ZN16CBaseClientState15ConnectionStartEP11INetChannel";
+		"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
 	static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 1130;
+	static const uintptr_t CLC_CmdKeyValues_offset = 1002;
 
-	static const uintptr_t SVC_CreateStringTable_offset = 776;
+	static const uintptr_t SVC_CreateStringTable_offset = 675;
 
-	static const uintptr_t SVC_CmdKeyValues_offset = 2782;
+	static const uintptr_t SVC_CmdKeyValues_offset = 2112;
 
 #endif
 
