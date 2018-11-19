@@ -133,21 +133,12 @@ namespace GameTags
 	const size_t CBaseServerProxy::SteamGameServerAPIContext_siglen =
 		sizeof( CBaseServerProxy::SteamGameServerAPIContext_sig ) - 1;
 
-#elif defined SYSTEM_LINUX
+#elif defined SYSTEM_POSIX
 
 	const char CBaseServerProxy::RecalculateTags_sig[] = "@_ZN11CBaseServer15RecalculateTagsEv";
 	const size_t CBaseServerProxy::RecalculateTags_siglen = 0;
 
 	const char CBaseServerProxy::SteamGameServerAPIContext_sig[] = "@_ZL27s_SteamGameServerAPIContext";
-	const size_t CBaseServerProxy::SteamGameServerAPIContext_siglen = 0;
-
-#elif defined SYSTEM_MACOSX
-
-	const char CBaseServerProxy::RecalculateTags_sig[] = "@__ZN11CBaseServer15RecalculateTagsE";
-	const size_t CBaseServerProxy::RecalculateTags_siglen = 0;
-
-	const char CBaseServerProxy::SteamGameServerAPIContext_sig[] =
-		"@__ZL27s_SteamGameServerAPIContext";
 	const size_t CBaseServerProxy::SteamGameServerAPIContext_siglen = 0;
 
 #endif
