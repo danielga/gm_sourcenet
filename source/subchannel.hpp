@@ -1,6 +1,6 @@
 #pragma once
 
-#include <main.hpp>
+#include "main.hpp"
 
 typedef struct subchannel_s subchannel_t;
 class CNetChan;

@@ -1,9 +1,10 @@
-#include <main.hpp>
-#include <gameeventmanager.hpp>
+#include "main.hpp"
+#include "gameeventmanager.hpp"
+#include "gameevent.hpp"
+#include "sn_bf_read.hpp"
+#include "sn_bf_write.hpp"
+
 #include <GarrysMod/Lua/AutoReference.h>
-#include <gameevent.hpp>
-#include <sn_bf_read.hpp>
-#include <sn_bf_write.hpp>
 #include <igameevents.h>
 
 namespace GameEventManager

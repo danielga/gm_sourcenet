@@ -1,4 +1,5 @@
-#include <server/gametags.hpp>
+#include "gametags.hpp"
+
 #include <strtools.h>
 #include <networkstringtabledefs.h>
 #include <steam/steam_gameserver.h>
