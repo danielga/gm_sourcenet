@@ -15,6 +15,14 @@
 #include "gameeventmanager.hpp"
 #include "gameevent.hpp"
 #include "netmessage.hpp"
+
+#if defined SOURCENET_SERVER
+
+#include "server/datapack.hpp"
+#include "server/gametags.hpp"
+
+#endif
+
 #include <scanning/symbolfinder.hpp>
 #include <GarrysMod/Interfaces.hpp>
 #include <interface.h>
@@ -182,6 +190,13 @@ GMOD_MODULE_OPEN( )
 	if( global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
+#if defined SOURCENET_SERVER
+
+	DataPack::PreInitialize( LUA );
+	GameTags::PreInitialize( LUA );
+
+#endif
+
 	NetMessage::PreInitialize( LUA );
 	Hooks::PreInitialize( LUA );
 
@@ -198,6 +213,14 @@ GMOD_MODULE_OPEN( )
 	NetworkStringTable::Initialize( LUA );
 	GameEventManager::Initialize( LUA );
 	GameEvent::Initialize( LUA );
+
+#if defined SOURCENET_SERVER
+
+	DataPack::Initialize( LUA );
+	GameTags::Initialize( LUA );
+
+#endif
+
 	NetMessage::Initialize( LUA );
 	Hooks::Initialize( LUA );
 	global::Initialize( LUA );
@@ -223,6 +246,14 @@ GMOD_MODULE_CLOSE( )
 	NetworkStringTable::Deinitialize( LUA );
 	GameEventManager::Deinitialize( LUA );
 	GameEvent::Deinitialize( LUA );
+
+#if defined SOURCENET_SERVER
+
+	DataPack::Deinitialize( LUA );
+	GameTags::Deinitialize( LUA );
+
+#endif
+
 	NetMessage::Deinitialize( LUA );
 	Hooks::Deinitialize( LUA );
 	global::Deinitialize( LUA );
