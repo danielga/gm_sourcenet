@@ -1,8 +1,8 @@
 #pragma once
 
-#include <main.hpp>
+#include "main.hpp"
 
-namespace Hooks
+namespace GameTags
 {
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA );
 

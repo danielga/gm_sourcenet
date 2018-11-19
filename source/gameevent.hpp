@@ -1,6 +1,6 @@
 #pragma once
 
-#include <main.hpp>
+#include "main.hpp"
 
 class IGameEventManager2;
 class IGameEvent;

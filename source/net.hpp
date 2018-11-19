@@ -4,7 +4,7 @@
 #include <netadr.h>
 #include <utlvector.h>
 #include <inetchannel.h>
-#include <stdint.h>
+#include <cstdint>
 
 // 0 == regular, 1 == file stream
 #define MAX_STREAMS 2

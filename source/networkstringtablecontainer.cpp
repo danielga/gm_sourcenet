@@ -1,7 +1,8 @@
-#include <networkstringtablecontainer.hpp>
+#include "networkstringtablecontainer.hpp"
+#include "networkstringtable.hpp"
+#include "protocol.hpp"
+
 #include <GarrysMod/Lua/AutoReference.h>
-#include <networkstringtable.hpp>
-#include <protocol.hpp>
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTableContainer

@@ -1,4 +1,5 @@
-#include <server/datapack.hpp>
+#include "datapack.hpp"
+
 #include <GarrysMod/Lua/Helpers.hpp>
 #include <scanning/symbolfinder.hpp>
 #include <detouring/classproxy.hpp>

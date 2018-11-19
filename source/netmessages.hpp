@@ -1,11 +1,12 @@
 #pragma once
 
-#include <main.hpp>
+#include "main.hpp"
+#include "protocol.hpp"
+
 #include <inetmessage.h>
 #include <utlvector.h>
 #include <engine/iserverplugin.h>
 #include <checksum_crc.h>
-#include <protocol.hpp>
 
 class INetChannel;
 class INetMessageHandler;

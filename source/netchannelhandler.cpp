@@ -1,5 +1,5 @@
-#include <netchannelhandler.hpp>
-#include <hooks.hpp>
+#include "netchannelhandler.hpp"
+#include "hooks.hpp"
 
 #include <platform.h>
 

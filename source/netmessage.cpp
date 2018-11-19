@@ -1,10 +1,11 @@
+#include "netmessage.hpp"
+#include "netmessages.hpp"
+#include "sn_bf_write.hpp"
+#include "sn_bf_read.hpp"
+#include "netchannel.hpp"
+#include "net.hpp"
+
 #include <detouring/vfnhook.h>
-#include <netmessage.hpp>
-#include <netmessages.hpp>
-#include <sn_bf_write.hpp>
-#include <sn_bf_read.hpp>
-#include <netchannel.hpp>
-#include <net.hpp>
 #include <inetmessage.h>
 #include <scanning/symbolfinder.hpp>
 #include <detouring/hde.h>

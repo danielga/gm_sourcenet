@@ -1,7 +1,7 @@
 #pragma once
 
-#include <main.hpp>
-#include <net.hpp>
+#include "main.hpp"
+#include "net.hpp"
 
 typedef CNetChan::dataFragments_t dataFragments_t;
 

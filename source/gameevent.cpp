@@ -1,6 +1,7 @@
-#include <gameevent.hpp>
+#include "gameevent.hpp"
+#include "gameeventmanager.hpp"
+
 #include <igameevents.h>
-#include <gameeventmanager.hpp>
 
 namespace GameEvent
 {

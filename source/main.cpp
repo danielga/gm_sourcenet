@@ -1,20 +1,28 @@
-#include <main.hpp>
-#include <net.hpp>
-#include <hooks.hpp>
-#include <sn_bf_write.hpp>
-#include <sn_bf_read.hpp>
-#include <netchannel.hpp>
-#include <netchannelhandler.hpp>
-#include <subchannel.hpp>
-#include <datafragments.hpp>
-#include <filehandle.hpp>
-#include <ucharptr.hpp>
-#include <netadr.hpp>
-#include <networkstringtablecontainer.hpp>
-#include <networkstringtable.hpp>
-#include <gameeventmanager.hpp>
-#include <gameevent.hpp>
-#include <netmessage.hpp>
+#include "main.hpp"
+#include "net.hpp"
+#include "hooks.hpp"
+#include "sn_bf_write.hpp"
+#include "sn_bf_read.hpp"
+#include "netchannel.hpp"
+#include "netchannelhandler.hpp"
+#include "subchannel.hpp"
+#include "datafragments.hpp"
+#include "filehandle.hpp"
+#include "ucharptr.hpp"
+#include "netadr.hpp"
+#include "networkstringtablecontainer.hpp"
+#include "networkstringtable.hpp"
+#include "gameeventmanager.hpp"
+#include "gameevent.hpp"
+#include "netmessage.hpp"
+
+#if defined SOURCENET_SERVER
+
+#include "server/datapack.hpp"
+#include "server/gametags.hpp"
+
+#endif
+
 #include <scanning/symbolfinder.hpp>
 #include <GarrysMod/Interfaces.hpp>
 #include <interface.h>
@@ -128,11 +136,11 @@ namespace global
 	{
 		LUA->CreateTable( );
 
-		LUA->PushString( "sourcenet 1.1.4" );
+		LUA->PushString( "sourcenet 1.1.5" );
 		LUA->SetField( -2, "Version" );
 
 		// version num follows LuaJIT style, xxyyzz
-		LUA->PushNumber( 10104 );
+		LUA->PushNumber( 10105 );
 		LUA->SetField( -2, "VersionNum" );
 
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -182,6 +190,13 @@ GMOD_MODULE_OPEN( )
 	if( global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 
+#if defined SOURCENET_SERVER
+
+	DataPack::PreInitialize( LUA );
+	GameTags::PreInitialize( LUA );
+
+#endif
+
 	NetMessage::PreInitialize( LUA );
 	Hooks::PreInitialize( LUA );
 
@@ -198,6 +213,14 @@ GMOD_MODULE_OPEN( )
 	NetworkStringTable::Initialize( LUA );
 	GameEventManager::Initialize( LUA );
 	GameEvent::Initialize( LUA );
+
+#if defined SOURCENET_SERVER
+
+	DataPack::Initialize( LUA );
+	GameTags::Initialize( LUA );
+
+#endif
+
 	NetMessage::Initialize( LUA );
 	Hooks::Initialize( LUA );
 	global::Initialize( LUA );
@@ -223,6 +246,14 @@ GMOD_MODULE_CLOSE( )
 	NetworkStringTable::Deinitialize( LUA );
 	GameEventManager::Deinitialize( LUA );
 	GameEvent::Deinitialize( LUA );
+
+#if defined SOURCENET_SERVER
+
+	DataPack::Deinitialize( LUA );
+	GameTags::Deinitialize( LUA );
+
+#endif
+
 	NetMessage::Deinitialize( LUA );
 	Hooks::Deinitialize( LUA );
 	global::Deinitialize( LUA );

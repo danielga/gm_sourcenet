@@ -1,6 +1,6 @@
 #pragma once
 
-#include <main.hpp>
+#include "main.hpp"
 
 class INetMessage;
 class CNetChan;

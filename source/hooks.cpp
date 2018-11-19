@@ -1,10 +1,11 @@
-#include <hooks.hpp>
-#include <netchannel.hpp>
-#include <netchannelhandler.hpp>
-#include <netmessage.hpp>
-#include <sn_bf_read.hpp>
-#include <sn_bf_write.hpp>
-#include <net.hpp>
+#include "hooks.hpp"
+#include "netchannel.hpp"
+#include "netchannelhandler.hpp"
+#include "netmessage.hpp"
+#include "sn_bf_read.hpp"
+#include "sn_bf_write.hpp"
+#include "net.hpp"
+
 #include <inetmsghandler.h>
 #include <cdll_int.h>
 #include <scanning/symbolfinder.hpp>

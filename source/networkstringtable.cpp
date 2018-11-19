@@ -1,4 +1,5 @@
-#include <networkstringtable.hpp>
+#include "networkstringtable.hpp"
+
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTable
