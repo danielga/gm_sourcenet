@@ -125,14 +125,9 @@ namespace DataPack
 	const size_t GModDataPackProxy::SendFileToClient_siglen =
 		sizeof( GModDataPackProxy::SendFileToClient_sig ) - 1;
 
-#elif defined SYSTEM_LINUX
+#elif defined SYSTEM_POSIX
 
 	const char GModDataPackProxy::SendFileToClient_sig[] = "@_ZN12GModDataPack16SendFileToClientEii";
-	const size_t GModDataPackProxy::SendFileToClient_siglen = 0;
-
-#elif defined SYSTEM_MACOSX
-
-	const char GModDataPackProxy::SendFileToClient_sig[] = "@__ZN12GModDataPack16SendFileToClientEii";
 	const size_t GModDataPackProxy::SendFileToClient_siglen = 0;
 
 #endif
