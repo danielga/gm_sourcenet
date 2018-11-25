@@ -36,24 +36,57 @@ namespace Hooks
 	while( false )
 
 #define VIRTUAL_FUNCTION_SETUP( ret, name, ... ) \
-	LUA_FUNCTION_IMPLEMENT( Attach##name ) \
+	static bool Attach##name( TargetClass *temp ) \
+	{ \
+		Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ); \
+		return Hook( &TargetClass::name, &SubstituteClass::name ); \
+	} \
+	LUA_FUNCTION_IMPLEMENT( LuaAttach##name ) \
 	{ \
 		TargetClass *temp = LuaGet( LUA, 1 ); \
-		Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ); \
-		LUA->PushBool( Hook( &TargetClass::name, &SubstituteClass::name ) ); \
+		LUA->PushBool( Attach##name( temp ) ); \
 		return 1; \
 	} \
-	LUA_FUNCTION_WRAP( Attach##name ); \
-	LUA_FUNCTION_IMPLEMENT( Detach##name ) \
+	LUA_FUNCTION_WRAP( LuaAttach##name ); \
+	static bool Detach##name( ) \
 	{ \
-		LUA->PushBool( UnHook( &TargetClass::name ) ); \
+		return UnHook( &TargetClass::name ); \
+	} \
+	LUA_FUNCTION_IMPLEMENT( LuaDetach##name ) \
+	{ \
+		LUA->PushBool( Detach##name( ) ); \
 		return 1; \
 	} \
-	LUA_FUNCTION_WRAP( Detach##name ); \
+	LUA_FUNCTION_WRAP( LuaDetach##name ); \
 	virtual ret name( __VA_ARGS__ )
 
 	class CNetChanProxy : Detouring::ClassProxy<CNetChan, CNetChanProxy>
 	{
+	private:
+
+#if defined SYSTEM_WINDOWS
+
+		typedef bool( __thiscall *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
+
+#else
+
+		typedef bool( *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
+
+#endif
+
+		typedef CNetChan TargetClass;
+		typedef CNetChanProxy SubstituteClass;
+
+		static CNetChan *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
+		{
+			return NetChannel::Get( LUA, index );
+		}
+
+		static const char ProcessMessages_sig[];
+		static const size_t ProcessMessages_siglen;
+
+		static ProcessMessages_t ProcessMessages_original;
+
 	public:
 		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 		{
@@ -151,28 +184,32 @@ namespace Hooks
 			HOOK_END( );
 		}
 
-		LUA_FUNCTION_IMPLEMENT( AttachProcessMessages )
+		LUA_FUNCTION_IMPLEMENT( LuaAttachProcessMessages )
 		{
-			if( !IsHooked( ProcessMessages_original ) &&
-				!Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
+			if( !Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
 					LUA->ThrowError( "failed to hook CNetChan::ProcessMessages" );
 
 			return 0;
 		}
 
-		LUA_FUNCTION_WRAP( AttachProcessMessages );
+		LUA_FUNCTION_WRAP( LuaAttachProcessMessages );
 
-		LUA_FUNCTION_IMPLEMENT( DetachProcessMessages )
+		static bool DetachProcessMessages( )
+		{
+			return UnHook( ProcessMessages_original );
+		}
+
+		LUA_FUNCTION_IMPLEMENT( LuaDetachProcessMessages )
 		{
 			(void)LUA;
 
-			if( IsHooked( ProcessMessages_original ) && !UnHook( ProcessMessages_original ) )
+			if( !DetachProcessMessages( ) )
 				LUA->ThrowError( "failed to unhook CNetChan::ProcessMessages" );
 
 			return 0;
 		}
 
-		LUA_FUNCTION_WRAP( DetachProcessMessages );
+		LUA_FUNCTION_WRAP( LuaDetachProcessMessages );
 
 		bool ProcessMessages( bf_read &buf )
 		{
@@ -223,31 +260,6 @@ namespace Hooks
 		}
 
 		static CNetChanProxy Singleton;
-
-	private:
-
-#if defined SYSTEM_WINDOWS
-
-		typedef bool( __thiscall *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-#else
-
-		typedef bool( *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-#endif
-
-		typedef CNetChan TargetClass;
-		typedef CNetChanProxy SubstituteClass;
-
-		static CNetChan *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
-		{
-			return NetChannel::Get( LUA, index );
-		}
-
-		static const char ProcessMessages_sig[];
-		static const size_t ProcessMessages_siglen;
-
-		static ProcessMessages_t ProcessMessages_original;
 	};
 
 	CNetChanProxy CNetChanProxy::Singleton;
@@ -277,6 +289,15 @@ namespace Hooks
 
 	class INetChannelHandlerProxy : Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>
 	{
+	private:
+		typedef INetChannelHandler TargetClass;
+		typedef INetChannelHandlerProxy SubstituteClass;
+
+		static INetChannelHandler *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
+		{
+			return NetChannelHandler::Get( LUA, index );
+		}
+
 	public:
 		VIRTUAL_FUNCTION_SETUP( void, ConnectionStart, INetChannel *netchannel )
 		{
@@ -404,15 +425,6 @@ namespace Hooks
 		}
 
 		static INetChannelHandlerProxy Singleton;
-
-	private:
-		typedef INetChannelHandler TargetClass;
-		typedef INetChannelHandlerProxy SubstituteClass;
-
-		static INetChannelHandler *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
-		{
-			return NetChannelHandler::Get( LUA, index );
-		}
 	};
 
 	INetChannelHandlerProxy INetChannelHandlerProxy::Singleton;
@@ -429,100 +441,100 @@ namespace Hooks
 
 	void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		LUA->PushCFunction( CNetChanProxy::AttachProcessPacket );
+		LUA->PushCFunction( CNetChanProxy::LuaAttachProcessPacket );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( CNetChanProxy::DetachProcessPacket );
+		LUA->PushCFunction( CNetChanProxy::LuaDetachProcessPacket );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( CNetChanProxy::AttachSendDatagram );
+		LUA->PushCFunction( CNetChanProxy::LuaAttachSendDatagram );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_SendDatagram" );
 
-		LUA->PushCFunction( CNetChanProxy::DetachSendDatagram );
+		LUA->PushCFunction( CNetChanProxy::LuaDetachSendDatagram );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_SendDatagram" );
 
-		LUA->PushCFunction( CNetChanProxy::AttachProcessPacket );
+		LUA->PushCFunction( CNetChanProxy::LuaAttachProcessPacket );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( CNetChanProxy::DetachProcessPacket );
+		LUA->PushCFunction( CNetChanProxy::LuaDetachProcessPacket );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessPacket" );
 
-		LUA->PushCFunction( CNetChanProxy::AttachShutdown );
+		LUA->PushCFunction( CNetChanProxy::LuaAttachShutdown );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_Shutdown" );
 
 		LUA->PushCFunction( Empty );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_Shutdown" );
 
-		LUA->PushCFunction( CNetChanProxy::AttachProcessMessages );
+		LUA->PushCFunction( CNetChanProxy::LuaAttachProcessMessages );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__CNetChan_ProcessMessages" );
 
-		LUA->PushCFunction( CNetChanProxy::DetachProcessMessages );
+		LUA->PushCFunction( CNetChanProxy::LuaDetachProcessMessages );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionStart );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachConnectionStart );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachConnectionStart );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachConnectionStart );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionStart" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionClosing );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachConnectionClosing );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionClosing" );
 
 		LUA->PushCFunction( Empty );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionClosing" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachConnectionCrashed );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachConnectionCrashed );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_ConnectionCrashed" );
 
 		LUA->PushCFunction( Empty );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_ConnectionCrashed" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachPacketStart );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachPacketStart );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_PacketStart" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachPacketStart );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachPacketStart );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_PacketStart" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachPacketEnd );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachPacketEnd );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachPacketEnd );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachPacketEnd );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_PacketEnd" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachFileRequested );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachFileRequested );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileRequested" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachFileRequested );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachFileRequested );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileRequested" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachFileReceived );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachFileReceived );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileReceived" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachFileReceived );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachFileReceived );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileReceived" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::AttachFileDenied );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaAttachFileDenied );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Attach__INetChannelHandler_FileDenied" );
 
-		LUA->PushCFunction( INetChannelHandlerProxy::DetachFileDenied );
+		LUA->PushCFunction( INetChannelHandlerProxy::LuaDetachFileDenied );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__INetChannelHandler_FileDenied" );
 	}
 
 	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		CNetChanProxy::DetachSendDatagram( LUA->GetState( ) );
-		CNetChanProxy::DetachProcessPacket( LUA->GetState( ) );
-		CNetChanProxy::DetachShutdown( LUA->GetState( ) );
-		CNetChanProxy::DetachProcessMessages( LUA->GetState( ) );
+		CNetChanProxy::DetachSendDatagram( );
+		CNetChanProxy::DetachProcessPacket( );
+		CNetChanProxy::DetachShutdown( );
+		CNetChanProxy::DetachProcessMessages( );
 
-		INetChannelHandlerProxy::DetachConnectionStart( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachConnectionClosing( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachConnectionCrashed( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachPacketStart( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachPacketEnd( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachFileRequested( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachFileReceived( LUA->GetState( ) );
-		INetChannelHandlerProxy::DetachFileDenied( LUA->GetState( ) );
+		INetChannelHandlerProxy::DetachConnectionStart( );
+		INetChannelHandlerProxy::DetachConnectionClosing( );
+		INetChannelHandlerProxy::DetachConnectionCrashed( );
+		INetChannelHandlerProxy::DetachPacketStart( );
+		INetChannelHandlerProxy::DetachPacketEnd( );
+		INetChannelHandlerProxy::DetachFileRequested( );
+		INetChannelHandlerProxy::DetachFileReceived( );
+		INetChannelHandlerProxy::DetachFileDenied( );
 
 
 
