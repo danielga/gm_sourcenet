@@ -121,7 +121,7 @@ namespace DataPack
 #if defined SYSTEM_WINDOWS
 
 	const char GModDataPackProxy::SendFileToClient_sig[] =
-		"\x55\x8B\xEC\x83\xEC\x30\x56\x57\x8B\x7D\x0C\x8B\xF1\x85\xFF\x0F\x88";
+		"\x55\x8B\xEC\x83\xEC\x40\x53\x57\x8B\x7D\x0C";
 	const size_t GModDataPackProxy::SendFileToClient_siglen =
 		sizeof( GModDataPackProxy::SendFileToClient_sig ) - 1;
 
