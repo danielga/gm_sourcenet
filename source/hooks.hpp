@@ -2,6 +2,9 @@
 
 #include "main.hpp"
 
+class CNetChan;
+class INetChannelHandler;
+
 namespace Hooks
 {
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA );
@@ -10,7 +13,7 @@ namespace Hooks
 
 	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA );
 
-	void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA );
+	void HookCNetChan( CNetChan *netchan );
 
-	void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA );
+	void HookINetChannelHandler( INetChannelHandler *handler );
 }

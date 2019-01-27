@@ -56,7 +56,7 @@ namespace NetChannel
 		LUA->SetTable( -4 );
 		LUA->Remove( -2 );
 
-		Hooks::HookCNetChan( LUA );
+		Hooks::HookCNetChan( netchan );
 	}
 
 	inline CNetChan *GetUserData( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
