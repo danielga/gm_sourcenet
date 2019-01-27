@@ -254,8 +254,9 @@ namespace Hooks
 			return Call<bool, bf_read &>( ProcessMessages_original, buf );
 		}
 
-		static bool HookShutdown( )
+		bool HookShutdown( CNetChan *netchan )
 		{
+			Detouring::ClassProxy<CNetChan, CNetChanProxy>::Initialize( netchan );
 			return Hook( &CNetChan::Shutdown, &CNetChanProxy::Shutdown );
 		}
 
@@ -410,15 +411,17 @@ namespace Hooks
 			Call( &INetChannelHandler::FileDenied, fileName, transferID );
 		}
 
-		static bool HookConnectionClosing( )
+		bool HookConnectionClosing( INetChannelHandler *handler )
 		{
+			Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler );
 			return Hook(
 				&INetChannelHandler::ConnectionClosing, &INetChannelHandlerProxy::ConnectionClosing
 			);
 		}
 
-		static bool HookConnectionCrashed( )
+		bool HookConnectionCrashed( INetChannelHandler *handler )
 		{
+			Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler );
 			return Hook(
 				&INetChannelHandler::ConnectionCrashed, &INetChannelHandlerProxy::ConnectionCrashed
 			);
@@ -617,14 +620,14 @@ namespace Hooks
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "Detach__CNetChan_ProcessMessages" );
 	}
 
-	void HookCNetChan( GarrysMod::Lua::ILuaBase *LUA )
+	void HookCNetChan( CNetChan *netchan )
 	{
-		CNetChanProxy::HookShutdown( );
+		CNetChanProxy::Singleton.HookShutdown( netchan );
 	}
 
-	void HookINetChannelHandler( GarrysMod::Lua::ILuaBase *LUA )
+	void HookINetChannelHandler( INetChannelHandler *handler )
 	{
-		INetChannelHandlerProxy::HookConnectionClosing( );
-		INetChannelHandlerProxy::HookConnectionCrashed( );
+		INetChannelHandlerProxy::Singleton.HookConnectionClosing( handler );
+		INetChannelHandlerProxy::Singleton.HookConnectionCrashed( handler );
 	}
 }

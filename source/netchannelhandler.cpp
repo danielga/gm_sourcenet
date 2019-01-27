@@ -35,7 +35,7 @@ namespace NetChannelHandler
 		LUA->SetTable( -4 );
 		LUA->Remove( -2 );
 
-		Hooks::HookINetChannelHandler( LUA );
+		Hooks::HookINetChannelHandler( handler );
 	}
 
 	INetChannelHandler *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
