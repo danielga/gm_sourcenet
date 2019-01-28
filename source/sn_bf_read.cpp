@@ -2,6 +2,7 @@
 #include "ucharptr.hpp"
 
 #include <bitbuf.h>
+#include <algorithm>
 
 namespace sn_bf_read
 {
@@ -427,6 +428,8 @@ namespace sn_bf_read
 	{
 		int32_t bits = 0;
 		uint8_t *ptr = UCHARPTR::Get( LUA, 1, &bits );
+		if( LUA->Top( ) >= 2 )
+			bits = std::min( static_cast<int32_t>( LUA->CheckNumber( 2 ) ), bits );
 
 		LUA->Push( 1 );
 		bf_read *reader = *Push( LUA, nullptr, LUA->ReferenceCreate( ) );
