@@ -24,7 +24,7 @@ hook.Add("PreSendDatagram", "OutFilter", function(netchan, localchan, ...)
 			continue
 		end
 
-		local read = sn_bf_read(write:GetBasePointer())
+		local read = sn_bf_read(write:GetBasePointer(), totalbits)
 
 		write:Seek(0)
 

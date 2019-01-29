@@ -550,8 +550,10 @@ NET_MESSAGES = {
 				local compressed = read:ReadBit()
 				write:WriteBit(compressed)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_CreateStringTable %s\n", tablename))
 			end
