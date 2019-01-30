@@ -132,6 +132,6 @@ hook.Add("PlayerConnect", "CreateNetChannel", function(name, address)
 
 		table.insert(NET_CHANNEL_INDICES, index)
 
-		hook.Call("PostNetChannelInit", nil, netchan)			
+		hook.Call("PostNetChannelInit", nil, netchan)
 	end
 end)
