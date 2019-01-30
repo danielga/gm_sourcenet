@@ -250,10 +250,9 @@ namespace NetChannel
 	LUA_FUNCTION_STATIC( RequestFile )
 	{
 		CNetChan *netchan = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-		LUA->PushNumber( netchan->RequestFile( LUA->GetString( 2 ) ) );
-
+		LUA->PushNumber( netchan->RequestFile(
+			static_cast<RequestFile_t>( LUA->CheckNumber( 2 ) ),
+			static_cast<uint32_t>( LUA->CheckNumber( 3 ) ) ) );
 		return 1;
 	}
 

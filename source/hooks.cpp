@@ -38,7 +38,8 @@ namespace Hooks
 #define VIRTUAL_FUNCTION_SETUP( ret, name, ... ) \
 	static bool Attach##name( TargetClass *temp ) \
 	{ \
-		Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ); \
+		if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) ) \
+			return false; \
 		return Hook( &TargetClass::name, &SubstituteClass::name ); \
 	} \
 	LUA_FUNCTION_IMPLEMENT( LuaAttach##name ) \
@@ -60,7 +61,7 @@ namespace Hooks
 	LUA_FUNCTION_WRAP( LuaDetach##name ); \
 	virtual ret name( __VA_ARGS__ )
 
-	class CNetChanProxy : Detouring::ClassProxy<CNetChan, CNetChanProxy>
+	class CNetChanProxy : public Detouring::ClassProxy<CNetChan, CNetChanProxy>
 	{
 	private:
 
@@ -186,10 +187,8 @@ namespace Hooks
 
 		LUA_FUNCTION_IMPLEMENT( LuaAttachProcessMessages )
 		{
-			if( !Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) )
-					LUA->ThrowError( "failed to hook CNetChan::ProcessMessages" );
-
-			return 0;
+			LUA->PushBool( Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) );
+			return 1;
 		}
 
 		LUA_FUNCTION_WRAP( LuaAttachProcessMessages );
@@ -201,12 +200,8 @@ namespace Hooks
 
 		LUA_FUNCTION_IMPLEMENT( LuaDetachProcessMessages )
 		{
-			(void)LUA;
-
-			if( !DetachProcessMessages( ) )
-				LUA->ThrowError( "failed to unhook CNetChan::ProcessMessages" );
-
-			return 0;
+			LUA->PushBool( DetachProcessMessages( ) );
+			return 1;
 		}
 
 		LUA_FUNCTION_WRAP( LuaDetachProcessMessages );
@@ -256,7 +251,9 @@ namespace Hooks
 
 		bool HookShutdown( CNetChan *netchan )
 		{
-			Detouring::ClassProxy<CNetChan, CNetChanProxy>::Initialize( netchan );
+			if( !Detouring::ClassProxy<CNetChan, CNetChanProxy>::Initialize( netchan ) )
+				return false;
+
 			return Hook( &CNetChan::Shutdown, &CNetChanProxy::Shutdown );
 		}
 
@@ -288,7 +285,7 @@ namespace Hooks
 
 	CNetChanProxy::ProcessMessages_t CNetChanProxy::ProcessMessages_original = nullptr;
 
-	class INetChannelHandlerProxy : Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>
+	class INetChannelHandlerProxy : public Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>
 	{
 	private:
 		typedef INetChannelHandler TargetClass;
@@ -413,7 +410,9 @@ namespace Hooks
 
 		bool HookConnectionClosing( INetChannelHandler *handler )
 		{
-			Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler );
+			if( !Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler ) )
+				return false;
+
 			return Hook(
 				&INetChannelHandler::ConnectionClosing, &INetChannelHandlerProxy::ConnectionClosing
 			);
@@ -421,7 +420,9 @@ namespace Hooks
 
 		bool HookConnectionCrashed( INetChannelHandler *handler )
 		{
-			Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler );
+			if( !Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler ) )
+				return false;
+
 			return Hook(
 				&INetChannelHandler::ConnectionCrashed, &INetChannelHandlerProxy::ConnectionCrashed
 			);
