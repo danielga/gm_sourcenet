@@ -4,12 +4,8 @@ newoption({
 	value = "path to garrysmod_common directory"
 })
 
-local gmcommon = _OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON")
-if gmcommon == nil then
-	error("you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory")
-end
-
-include(gmcommon)
+include(assert(_OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON"),
+	"you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory"))
 
 CreateWorkspace({name = "sourcenet", abi_compatible = true})
 	CreateProject({serverside = true})
@@ -42,7 +38,3 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 			["Header files"] = "../source/lzma/*.h",
 			["Source files"] = "../source/lzma/*.c"
 		})
-
-		filter("system:macosx")
-			buildoptions("-mmacosx-version-min=10.5")
-			linkoptions("-mmacosx-version-min=10.5")
