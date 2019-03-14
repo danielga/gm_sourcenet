@@ -9,11 +9,11 @@ env:
       DEPENDENCIES="$TRAVIS_BUILD_DIR/dependencies"
       GARRYSMOD_COMMON="$TRAVIS_BUILD_DIR/dependencies/garrysmod_common"
       SOURCE_SDK="$TRAVIS_BUILD_DIR/dependencies/sourcesdk-minimal"
+      BUILD_SCRIPT="$TRAVIS_BUILD_DIR/dependencies/garrysmod_common/build/build.sh"
+      GARRYSMOD_COMMON_REPOSITORY="https://github.com/danielga/garrysmod_common.git"
+      BOOTSTRAP_URL="https://raw.githubusercontent.com/danielga/garrysmod_common/master/build/bootstrap.sh"
       TARGET_OS="$TRAVIS_OS_NAME"
       COMPILER_PLATFORM=gmake
-      BUILD_SCRIPT="$TRAVIS_BUILD_DIR/dependencies/garrysmod_common/build/ci.sh"
-      GARRYSMOD_COMMON_REPOSITORY="https://github.com/danielga/garrysmod_common.git"
-      PREMAKE5_EXECUTABLE=premake5
 matrix:
   include:
     - os: linux
@@ -29,6 +29,7 @@ matrix:
       env:
         - PREMAKE5="$TRAVIS_BUILD_DIR/dependencies/linux/premake-core/premake5"
           PROJECT_OS=linux
+          PREMAKE5_URL="https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz"
       before_install:
         - export CC=gcc-8
           export CXX=g++-8
@@ -37,20 +38,11 @@ matrix:
       env:
         - PREMAKE5="$TRAVIS_BUILD_DIR/dependencies/macosx/premake-core/premake5"
           PROJECT_OS=macosx
+          PREMAKE5_URL="https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz"
 cache:
   directories:
     - "$TRAVIS_BUILD_DIR/dependencies"
-    - "$TRAVIS_BUILD_DIR/projects"
-install:
-  - mkdir -p "$DEPENDENCIES"
-  - if [ ! -f "$GARRYSMOD_COMMON/premake5.lua" ]; then
-      echo "garrysmod_common directory is empty, doing git clone of the remote repo";
-      git clone --recursive "$GARRYSMOD_COMMON_REPOSITORY" "$GARRYSMOD_COMMON";
-    else
-      echo "garrysmod_common directory is good, pulling any latest changes";
-      git -C "$GARRYSMOD_COMMON" pull;
-      git -C "$GARRYSMOD_COMMON" submodule update --init --recursive;
-    fi
+install: "curl -s -L \"$BOOTSTRAP_URL\" | bash"
 script: "$BUILD_SCRIPT"
 deploy:
   provider: releases
