@@ -95,8 +95,8 @@ namespace Hooks
 				SymbolFinder symfinder;
 
 				ProcessMessages_original =
-					reinterpret_cast<ProcessMessages_t>( symfinder.ResolveOnBinary(
-						global::engine_lib.c_str( ),
+					reinterpret_cast<ProcessMessages_t>( symfinder.Resolve(
+						global::engine_loader.GetModuleLoader( ).GetModule( ),
 						ProcessMessages_sig,
 						ProcessMessages_siglen
 					) );

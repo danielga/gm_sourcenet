@@ -25,8 +25,8 @@ namespace DataPack
 				SymbolFinder symfinder;
 
 				SendFileToClient_original =
-					reinterpret_cast<SendFileToClient_t>( symfinder.ResolveOnBinary(
-						global::server_lib.c_str( ),
+					reinterpret_cast<SendFileToClient_t>( symfinder.Resolve(
+						global::server_loader.GetModule( ),
 						SendFileToClient_sig,
 						SendFileToClient_siglen
 					) );

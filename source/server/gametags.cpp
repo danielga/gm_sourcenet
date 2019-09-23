@@ -33,8 +33,8 @@ namespace GameTags
 				SymbolFinder symfinder;
 
 				RecalculateTags_original =
-					reinterpret_cast<RecalculateTags_t>( symfinder.ResolveOnBinary(
-						global::engine_lib.c_str( ),
+					reinterpret_cast<RecalculateTags_t>( symfinder.Resolve(
+						global::engine_loader.GetModuleLoader( ).GetModule( ),
 						RecalculateTags_sig,
 						RecalculateTags_siglen
 					) );
@@ -42,8 +42,8 @@ namespace GameTags
 #if defined SYSTEM_WINDOWS
 
 				CSteamGameServerAPIContext **gameserver_context_pointer =
-					reinterpret_cast<CSteamGameServerAPIContext **>( symfinder.ResolveOnBinary(
-						global::server_lib.c_str( ),
+					reinterpret_cast<CSteamGameServerAPIContext **>( symfinder.Resolve(
+						global::server_loader.GetModule( ),
 						SteamGameServerAPIContext_sig,
 						SteamGameServerAPIContext_siglen
 					) );

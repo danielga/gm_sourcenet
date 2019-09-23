@@ -4,7 +4,7 @@
 #include <lua.hpp>
 #include <stdint.h>
 #include <string>
-#include <GarrysMod/Interfaces.hpp>
+#include <GarrysMod/FactoryLoader.hpp>
 #include <Platform.hpp>
 
 class IVEngineServer;
@@ -21,17 +21,13 @@ namespace GarrysMod
 
 namespace global
 {
-	extern const std::string engine_lib;
-
-	extern const std::string client_lib;
-
-	extern const std::string server_lib;
-
 	extern const char *tostring_format;
 
 	extern GarrysMod::Lua::ILuaBase *lua;
 
-	extern SourceSDK::FactoryLoader engine_loader;
+	extern const SourceSDK::FactoryLoader engine_loader;
+	extern const SourceSDK::ModuleLoader client_loader;
+	extern const SourceSDK::ModuleLoader server_loader;
 
 	extern IVEngineServer *engine_server;
 

@@ -434,14 +434,14 @@ namespace NetMessage
 		{
 			SymbolFinder symfinder;
 
-			CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
-				global::engine_lib.c_str( ),
+			CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.Resolve(
+				global::engine_loader.GetModuleLoader( ).GetModule( ),
 				CBaseClient_ConnectionStart_sig,
 				CBaseClient_ConnectionStart_siglen
 			) );
 
-			CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.ResolveOnBinary(
-				global::engine_lib.c_str( ),
+			CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.Resolve(
+				global::engine_loader.GetModuleLoader( ).GetModule( ),
 				CBaseClientState_ConnectionStart_sig,
 				CBaseClientState_ConnectionStart_siglen,
 				// starting point for sigscan

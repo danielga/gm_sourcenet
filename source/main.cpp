@@ -24,7 +24,6 @@
 #endif
 
 #include <scanning/symbolfinder.hpp>
-#include <GarrysMod/Interfaces.hpp>
 #include <interface.h>
 #include <eiface.h>
 #include <cdll_int.h>
@@ -62,32 +61,13 @@ namespace global
 
 	static bool loaded = false;
 
-	const std::string engine_lib = Helpers::GetBinaryFileName(
-		"engine",
-		false,
-		IS_SERVERSIDE,
-		"bin/"
-	);
-
-	const std::string client_lib = Helpers::GetBinaryFileName(
-		"client",
-		false,
-		IS_SERVERSIDE,
-		"garrysmod/bin/"
-	);
-
-	const std::string server_lib = Helpers::GetBinaryFileName(
-		"server",
-		false,
-		IS_SERVERSIDE,
-		"garrysmod/bin/"
-	);
-
 	const char *tostring_format = "%s: %p";
 
 	GarrysMod::Lua::ILuaBase *lua = nullptr;
 
-	SourceSDK::FactoryLoader engine_loader( engine_lib, false, false );
+	const SourceSDK::FactoryLoader engine_loader( "engine" );
+	const SourceSDK::ModuleLoader client_loader( "client" );
+	const SourceSDK::ModuleLoader server_loader( "server" );
 
 	IVEngineServer *engine_server = nullptr;
 	IVEngineClient *engine_client = nullptr;
@@ -178,8 +158,10 @@ GMOD_MODULE_OPEN( )
 	{
 		SymbolFinder symfinder;
 
-		pserver = reinterpret_cast<IServer **>( symfinder.ResolveOnBinary(
-			global::engine_lib.c_str( ), global::IServer_sig, global::IServer_siglen
+		pserver = reinterpret_cast<IServer **>( symfinder.Resolve(
+			global::engine_loader.GetModuleLoader( ).GetModule( ),
+			global::IServer_sig,
+			global::IServer_siglen
 		) );
 	}
 
