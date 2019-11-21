@@ -53,20 +53,20 @@ namespace NetMessage
 #if defined SYSTEM_WINDOWS
 
 	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF1";
+		"\x55\x8B\xEC\x51\x53\x56\x57\x8B\xD9\x6A";
 	static const size_t CBaseClient_ConnectionStart_siglen =
 		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
 	static const char CBaseClientState_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x53\x56\x57\x6A\x1C\x8B\xF9";
+		"\x55\x8B\xEC\x83\xEC\x08\x53\x56\x57\x6A";
 	static const size_t CBaseClientState_ConnectionStart_siglen =
 		sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 784;
+	static const uintptr_t CLC_CmdKeyValues_offset = 916;
 
-	static const uintptr_t SVC_CreateStringTable_offset = 608;
+	static const uintptr_t SVC_CreateStringTable_offset = 691;
 
-	static const uintptr_t SVC_CmdKeyValues_offset = 1688;
+	static const uintptr_t SVC_CmdKeyValues_offset = 1935;
 
 #elif defined SYSTEM_LINUX
 
@@ -83,7 +83,7 @@ namespace NetMessage
 #elif defined SOURCENET_CLIENT
 
 	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B";
+		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B";
 	static const size_t CBaseClient_ConnectionStart_siglen =
 		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
 
@@ -465,25 +465,25 @@ namespace NetMessage
 
 		uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
 			CBaseClientState_ConnectionStart
-			) + SVC_CreateStringTable_offset;
+		) + SVC_CreateStringTable_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 			SVC_CreateStringTable + sizeof( uintptr_t ) +
 			*reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
-			) );
+		) );
 
 		uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 			CBaseClientState_ConnectionStart
-			) + SVC_CmdKeyValues_offset;
+		) + SVC_CmdKeyValues_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 			SVC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
-			) );
+		) );
 
 		uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 			CBaseClient_ConnectionStart
-			) + CLC_CmdKeyValues_offset;
+		) + CLC_CmdKeyValues_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 			CLC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
-			) );
+		) );
 	}
 
 	template<class NetMessage> int Constructor( lua_State *L )
