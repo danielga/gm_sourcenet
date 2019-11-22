@@ -1,5 +1,6 @@
 # gm\_sourcenet
 
+[![Build Status](https://metamann.visualstudio.com/GitHub%20danielga/_apis/build/status/danielga.gm_sourcenet?branchName=master)](https://metamann.visualstudio.com/GitHub%20danielga/_build/latest?definitionId=8&branchName=master)  
 A module for Garry's Mod that provides interfaces to many systems of VALVe's engine, based on [gm\_sourcenet3][1], created by Chrisaster.  
 
 ## Compiling
