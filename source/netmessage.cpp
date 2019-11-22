@@ -128,17 +128,8 @@ namespace NetMessage
 	static const char *metaname = "INetMessage";
 	static const char *table_name = "sourcenet_INetMessage";
 
-#ifdef SYSTEM_MACOSX_BAD
-
-	static std::map<std::string, void( *)( GarrysMod::Lua::ILuaBase * )> netmessages_setup;
-	static std::map<std::string, void **> netmessages_vtables;
-
-#else
-
 	static std::unordered_map<std::string, void( *)( GarrysMod::Lua::ILuaBase * )> netmessages_setup;
 	static std::unordered_map<std::string, void **> netmessages_vtables;
-
-#endif
 
 	static bool IsValid( INetMessage *msg, CNetChan *netchan )
 	{
