@@ -57,7 +57,7 @@ namespace GameTags
 #else
 
 				gameserver_context =
-					reinterpret_cast<CSteamGameServerAPIContext *>( symfinder.ResolveOnBinary(
+					reinterpret_cast<CSteamGameServerAPIContext *>( symfinder.Resolve(
 						global::server_loader.GetModule( ),
 						SteamGameServerAPIContext_sig,
 						SteamGameServerAPIContext_siglen
