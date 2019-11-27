@@ -7,8 +7,8 @@
 #include <iserver.h>
 #include <iclient.h>
 #include <eiface.h>
-#include <lzma/LzmaLib.h>
-#include <lzma/7zCrc.h>
+#include <LzmaLib.h>
+#include <7zCrc.h>
 
 class GModDataPack;
 
@@ -303,7 +303,5 @@ namespace DataPack
 
 		LUA->PushNil( );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "SendLuaFile" );
-
-
 	}
 }

@@ -14,10 +14,10 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 		IncludeSDKCommon()
 		IncludeSDKTier0()
 		IncludeSDKTier1()
+		IncludeSDKLZMA()
 		IncludeScanning()
 		IncludeDetouring()
 		files({"source/server/*.cpp", "source/server/*.hpp"})
-		links("LZMA")
 
 	CreateProject({serverside = false})
 		IncludeLuaShared()
@@ -27,15 +27,3 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 		IncludeScanning()
 		IncludeDetouring()
 
-	project("LZMA")
-		language("C")
-		kind("StaticLib")
-		defines("_7ZIP_ST")
-		files({
-			"source/lzma/*.h",
-			"source/lzma/*.c"
-		})
-		vpaths({
-			["Header files"] = "source/lzma/*.h",
-			["Source files"] = "source/lzma/*.c"
-		})
