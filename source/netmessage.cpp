@@ -481,7 +481,12 @@ namespace NetMessage
 	{
 		GarrysMod::Lua::ILuaBase *LUA = L->luabase;
 		LUA->SetState( L );
-		Push( LUA, new( std::nothrow ) NetMessage );
+		CNetChan *netchan = NetChannel::Get( LUA, 1 );
+		NetMessage *msg = new( std::nothrow ) NetMessage;
+		if( msg != nullptr )
+			msg->SetNetChannel( netchan );
+
+		Push( LUA, new( std::nothrow ) NetMessage, netchan );
 		return 1;
 	}
 

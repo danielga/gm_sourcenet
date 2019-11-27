@@ -57,37 +57,27 @@ namespace sn_bf_write
 	LUA_FUNCTION_STATIC( gc )
 	{
 		Container *container = GetUserData( LUA, 1 );
-
 		LUA->ReferenceFree( container->bufref );
-
 		LUA->SetUserType( 1, nullptr );
-
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( eq )
 	{
-		bf_write *buf1 = Get( LUA, 1 );
-		bf_write *buf2 = Get( LUA, 2 );
-
-		LUA->PushBool( buf1 == buf2 );
-
+		LUA->PushBool( Get( LUA, 1 ) == Get( LUA, 2 ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( tostring )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushFormattedString( global::tostring_format, metaname, buf );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( IsValid )
 	{
 		LUA->PushBool( GetUserData( LUA, 1 )->pwriter != nullptr );
-
 		return 1;
 	}
 
@@ -107,79 +97,58 @@ namespace sn_bf_write
 	LUA_FUNCTION_STATIC( GetMaxNumBits )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetMaxNumBits( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBitsWritten )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBitsWritten( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBytesWritten )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBytesWritten( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBitsLeft )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBitsLeft( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBytesLeft )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBytesLeft( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( IsOverflowed )
 	{
 		bf_write *buf = Get( LUA, 1 );
-
 		LUA->PushBool( buf->IsOverflowed( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( Seek )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->SeekToBit( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->SeekToBit( global::GetNumber<int32_t>( LUA, 2, 0 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteBitAngle )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-		LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
-		if( bits < 0 )
-			LUA->FormattedError( "invalid number of bits to write (%d is less than 0)", bits );
-
-		buf->WriteBitAngle( static_cast<float>( LUA->GetNumber( 2 ) ), bits );
-
+		const float num = static_cast<float>( LUA->CheckNumber( 2 ) );
+		int32_t bits = global::GetNumber<int32_t>( LUA, 3, 1, 32 );
+		buf->WriteBitAngle( num, bits );
 		return 0;
 	}
 
@@ -187,9 +156,7 @@ namespace sn_bf_write
 	{
 		bf_write *buf = Get( LUA, 1 );
 		LUA->CheckType( 2, GarrysMod::Lua::Type::ANGLE );
-
 		buf->WriteBitAngles( LUA->GetAngle( 2 ) );
-
 		return 0;
 	}
 
@@ -198,9 +165,7 @@ namespace sn_bf_write
 		bf_write *buf = Get( LUA, 1 );
 		int32_t bits = 0;
 		uint8_t *ptr = UCHARPTR::Get( LUA, 2, &bits );
-
 		LUA->PushBool( buf->WriteBits( ptr, bits ) );
-
 		return 1;
 	}
 
@@ -208,9 +173,7 @@ namespace sn_bf_write
 	{
 		bf_write *buf = Get( LUA, 1 );
 		LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
-
 		buf->WriteBitVec3Coord( LUA->GetVector( 2 ) );
-
 		return 0;
 	}
 
@@ -218,19 +181,14 @@ namespace sn_bf_write
 	{
 		bf_write *buf = Get( LUA, 1 );
 		LUA->CheckType( 2, GarrysMod::Lua::Type::VECTOR );
-
 		buf->WriteBitVec3Normal( LUA->GetVector( 2 ) );
-
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteByte )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteByte( static_cast<uint8_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteByte( global::GetNumber<uint8_t>( LUA, 2 ) );
 		return 0;
 	}
 
@@ -239,176 +197,117 @@ namespace sn_bf_write
 		bf_write *buf = Get( LUA, 1 );
 		int32_t bits = 0;
 		uint8_t *ptr = UCHARPTR::Get( LUA, 2, &bits );
-
 		LUA->PushBool( buf->WriteBytes( ptr, BitByte( bits ) ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( WriteChar )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteChar( static_cast<int8_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteChar( global::GetNumber<int8_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteFloat )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteFloat( static_cast<float>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteFloat( static_cast<float>( LUA->CheckNumber( 2 ) ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteDouble )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		const double num = LUA->GetNumber( 2 );
+		const double num = LUA->CheckNumber( 2 );
 		LUA->PushBool( buf->WriteBits( &num, sizeof( double ) * 8 ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( WriteLong )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteLong( static_cast<long>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteLong( global::GetNumber<int32_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteLongLong )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteLongLong( static_cast<int64_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteLongLong( global::GetNumber<int64_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteBit )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteOneBit( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteOneBit( global::GetNumber<int32_t>( LUA, 2, 0, 1 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteShort )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteShort( static_cast<int16_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteShort( global::GetNumber<int16_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteString )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::STRING );
-
-		LUA->PushBool( buf->WriteString( LUA->GetString( 2 ) ) );
-
+		LUA->PushBool( buf->WriteString( LUA->CheckString( 2 ) ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( WriteInt )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-		LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
-		if( bits < 0 || bits > 32 )
-			LUA->FormattedError(
-				"invalid number of bits to write (%d is not between 0 and 32)",
-				bits
-			);
-
-		buf->WriteSBitLong( static_cast<int32_t>( LUA->GetNumber( 2 ) ), bits );
-
+		const auto num = global::GetNumber<int32_t>( LUA, 2 );
+		int32_t bits = global::GetNumber<int32_t>( LUA, 3, 1, 32 );
+		buf->WriteSBitLong( num, bits );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteUInt )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-		LUA->CheckType( 3, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 3 ) );
-		if( bits < 0 || bits > 32 )
-			LUA->FormattedError(
-				"invalid number of bits to write (%d is not between 0 and 32)",
-				bits
-			);
-
-		buf->WriteUBitLong( static_cast<uint32_t>( LUA->GetNumber( 2 ) ), bits );
-
+		const auto num = global::GetNumber<uint32_t>( LUA, 2 );
+		int32_t bits = global::GetNumber<int32_t>( LUA, 3, 1, 32 );
+		buf->WriteUBitLong( num, bits );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteWord )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteWord( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteWord( global::GetNumber<uint16_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteSignedVarInt32 )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteSignedVarInt32( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteSignedVarInt32( global::GetNumber<int32_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteVarInt32 )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteVarInt32( static_cast<uint32_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteVarInt32( global::GetNumber<uint32_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteSignedVarInt64 )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteSignedVarInt64( static_cast<int64_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteSignedVarInt64( global::GetNumber<int64_t>( LUA, 2 ) );
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( WriteVarInt64 )
 	{
 		bf_write *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		buf->WriteVarInt64( static_cast<uint64_t>( LUA->GetNumber( 2 ) ) );
-
+		buf->WriteVarInt64( global::GetNumber<uint64_t>( LUA, 2 ) );
 		return 0;
 	}
 
@@ -417,12 +316,11 @@ namespace sn_bf_write
 		int32_t bits = 0;
 		uint8_t *ptr = UCHARPTR::Get( LUA, 1, &bits );
 		if( LUA->Top( ) >= 2 )
-			bits = std::min( static_cast<int32_t>( LUA->CheckNumber( 2 ) ), bits );
+			bits = global::GetNumber<int32_t>( LUA, 2, 1, bits );
 
 		LUA->Push( 1 );
 		bf_write *writer = *Push( LUA, nullptr, LUA->ReferenceCreate( ) );
 		writer->StartWriting( ptr, BitByte( bits ), 0, bits );
-
 		return 1;
 	}
 
