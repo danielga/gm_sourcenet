@@ -1,7 +1,8 @@
 #include "ucharptr.hpp"
 
-#include <cstring>
 #include <bitbuf.h>
+
+#include <cstring>
 
 namespace UCHARPTR
 {

@@ -4,7 +4,9 @@
 #include "sn_bf_read.hpp"
 
 #include <inetchannelinfo.h>
+
 #include <string>
+#include <cstring>
 
 namespace NetMessages
 {
@@ -227,7 +229,7 @@ namespace NetMessages
 
 			size_t len = 0;
 			const char *data = LUA->GetString( 2, &len );
-			memcpy(
+			std::memcpy(
 				reinterpret_cast<void *>( msg->*M ), data, MaximumLength < len ? MaximumLength : len
 			);
 

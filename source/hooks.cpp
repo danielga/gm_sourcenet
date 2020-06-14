@@ -6,12 +6,14 @@
 #include "sn_bf_write.hpp"
 #include "net.hpp"
 
+#include <GarrysMod/Lua/Helpers.hpp>
+#include <GarrysMod/FunctionPointers.hpp>
+#include <Platform.hpp>
+
+#include <detouring/classproxy.hpp>
+
 #include <inetmsghandler.h>
 #include <cdll_int.h>
-#include <scanning/symbolfinder.hpp>
-#include <GarrysMod/Lua/Helpers.hpp>
-#include <detouring/classproxy.hpp>
-#include <Platform.hpp>
 
 namespace Hooks
 {
@@ -64,17 +66,6 @@ namespace Hooks
 	class CNetChanProxy : public Detouring::ClassProxy<CNetChan, CNetChanProxy>
 	{
 	private:
-
-#if defined SYSTEM_WINDOWS
-
-		typedef bool( __thiscall *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-#else
-
-		typedef bool( *ProcessMessages_t )( CNetChan *netchan, bf_read &buf );
-
-#endif
-
 		typedef CNetChan TargetClass;
 		typedef CNetChanProxy SubstituteClass;
 
@@ -83,25 +74,12 @@ namespace Hooks
 			return NetChannel::Get( LUA, index );
 		}
 
-		static const char ProcessMessages_sig[];
-		static const size_t ProcessMessages_siglen;
-
-		static ProcessMessages_t ProcessMessages_original;
+		static FunctionPointers::CNetChan_ProcessMessages_t ProcessMessages_original;
 
 	public:
 		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 		{
-			{
-				SymbolFinder symfinder;
-
-				ProcessMessages_original =
-					reinterpret_cast<ProcessMessages_t>( symfinder.Resolve(
-						global::engine_loader.GetModuleLoader( ).GetModule( ),
-						ProcessMessages_sig,
-						ProcessMessages_siglen
-					) );
-			}
-
+			ProcessMessages_original = FunctionPointers::CNetChan_ProcessMessages( );
 			if( ProcessMessages_original == nullptr )
 				LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 		}
@@ -210,15 +188,19 @@ namespace Hooks
 		{
 			CNetChan *netchan = This( );
 
-			static uint8_t data[100000] = { 0 };
 			if( !buf.IsOverflowed( ) )
 			{
-				memcpy( data, buf.GetBasePointer( ), buf.GetNumBytesRead( ) );
+				static uint8_t data[100000] = { 0 };
 
-				int32_t bitsread = buf.GetNumBitsRead( );
+				const int32_t bytesread = buf.GetNumBytesRead( );
+				if( bytesread > 0 )
+					std::memcpy( data, buf.GetBasePointer( ), bytesread );
+
+				const int32_t bitsread = buf.GetNumBitsRead( );
 				bf_write write( data, sizeof( data ) );
 				write.SeekToBit( bitsread );
 
+				bool handled = false;
 				HOOK_INIT( "PreProcessMessages" );
 				HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
 				HOOK_PUSH( bf_read **reader = sn_bf_read::Push( LUA, &buf ) );
@@ -232,18 +214,27 @@ namespace Hooks
 					) );
 				}
 
-				HOOK_CALL( 0 );
+				if( HOOK_CALL( 1 ) )
+				{
+					if( LUA->IsType( -1, GarrysMod::Lua::Type::BOOL ) )
+						handled = LUA->GetBool( -1 );
+
+					LUA->Pop( 1 );
+				}
 
 				*reader = nullptr;
 				*writer = nullptr;
 				HOOK_END( );
 
-				buf.StartReading(
-					write.GetBasePointer( ),
-					write.GetNumBytesWritten( ),
-					bitsread,
-					write.GetNumBitsWritten( )
-				);
+				if( handled )
+					buf.StartReading(
+						write.GetBasePointer( ),
+						write.GetNumBytesWritten( ),
+						bitsread,
+						write.GetNumBitsWritten( )
+					);
+				else
+					buf.Seek( bitsread );
 			}
 
 			return Call<bool, bf_read &>( ProcessMessages_original, buf );
@@ -262,28 +253,7 @@ namespace Hooks
 
 	CNetChanProxy CNetChanProxy::Singleton;
 
-#if defined SYSTEM_WINDOWS
-
-	const char CNetChanProxy::ProcessMessages_sig[] = "\x55\x8B\xEC\x83\xEC\x2C\xF7\x05";
-	const size_t CNetChanProxy::ProcessMessages_siglen =
-		sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
-
-#elif ( defined SYSTEM_LINUX && defined SOURCENET_SERVER ) || defined SYSTEM_MACOSX
-
-	const char CNetChanProxy::ProcessMessages_sig[] =
-		"@_ZN8CNetChan15ProcessMessagesER7bf_read";
-	const size_t CNetChanProxy::ProcessMessages_siglen = 0;
-
-#elif defined SYSTEM_LINUX && defined SOURCENET_CLIENT
-
-	const char CNetChanProxy::ProcessMessages_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x6C\x8B\x3D\x2A\x2A\x2A\x2A\x8B";
-	const size_t CNetChanProxy::ProcessMessages_siglen =
-		sizeof( CNetChanProxy::ProcessMessages_sig ) - 1;
-
-#endif
-
-	CNetChanProxy::ProcessMessages_t CNetChanProxy::ProcessMessages_original = nullptr;
+	FunctionPointers::CNetChan_ProcessMessages_t CNetChanProxy::ProcessMessages_original = nullptr;
 
 	class INetChannelHandlerProxy : public Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>
 	{

@@ -1,11 +1,12 @@
 #pragma once
 
 #include <GarrysMod/Lua/Interface.h>
-#include <lua.hpp>
-#include <stdint.h>
-#include <string>
 #include <GarrysMod/FactoryLoader.hpp>
+#include <lua.hpp>
 #include <Platform.hpp>
+
+#include <cstdint>
+#include <string>
 #include <limits>
 
 class IVEngineServer;

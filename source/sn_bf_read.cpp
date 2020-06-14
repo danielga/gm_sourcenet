@@ -2,6 +2,7 @@
 #include "ucharptr.hpp"
 
 #include <bitbuf.h>
+
 #include <algorithm>
 #include <vector>
 

@@ -1,8 +1,10 @@
 #include "datapack.hpp"
 
 #include <GarrysMod/Lua/Helpers.hpp>
-#include <scanning/symbolfinder.hpp>
+#include <GarrysMod/FunctionPointers.hpp>
+
 #include <detouring/classproxy.hpp>
+
 #include <networkstringtabledefs.h>
 #include <iserver.h>
 #include <iclient.h>
@@ -21,17 +23,7 @@ namespace DataPack
 	public:
 		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 		{
-			{
-				SymbolFinder symfinder;
-
-				SendFileToClient_original =
-					reinterpret_cast<SendFileToClient_t>( symfinder.Resolve(
-						global::server_loader.GetModule( ),
-						SendFileToClient_sig,
-						SendFileToClient_siglen
-					) );
-			}
-
+			SendFileToClient_original = FunctionPointers::GModDataPack_SendFileToClient( );
 			if( SendFileToClient_original == nullptr )
 				LUA->ThrowError( "unable to find GModDataPack::SendFileToClient" );
 		}
@@ -98,41 +90,14 @@ namespace DataPack
 		}
 
 	private:
-
-#ifdef SYSTEM_WINDOWS
-
-		typedef void( __thiscall *SendFileToClient_t )( GModDataPack *self, int client, int fileID );
-
-#else
-
-		typedef void( *SendFileToClient_t )( GModDataPack *self, int client, int fileID );
-
-#endif
-
-		static const char SendFileToClient_sig[];
-		static const size_t SendFileToClient_siglen;
-
-		static SendFileToClient_t SendFileToClient_original;
+		static FunctionPointers::GModDataPack_SendFileToClient_t SendFileToClient_original;
 
 		static int lua_receiving_client;
 		static const char lua_file_hook_name[];
 	};
 
-#if defined SYSTEM_WINDOWS
-
-	const char GModDataPackProxy::SendFileToClient_sig[] =
-		"\x55\x8B\xEC\x83\xEC\x40\x53\x57\x8B\x7D\x0C";
-	const size_t GModDataPackProxy::SendFileToClient_siglen =
-		sizeof( GModDataPackProxy::SendFileToClient_sig ) - 1;
-
-#elif defined SYSTEM_POSIX
-
-	const char GModDataPackProxy::SendFileToClient_sig[] = "@_ZN12GModDataPack16SendFileToClientEii";
-	const size_t GModDataPackProxy::SendFileToClient_siglen = 0;
-
-#endif
-
-	GModDataPackProxy::SendFileToClient_t GModDataPackProxy::SendFileToClient_original = nullptr;
+	FunctionPointers::GModDataPack_SendFileToClient_t
+		GModDataPackProxy::SendFileToClient_original = nullptr;
 
 	int GModDataPackProxy::lua_receiving_client = -1;
 	const char GModDataPackProxy::lua_file_hook_name[] = "SendLuaFileToClient";
@@ -205,31 +170,31 @@ namespace DataPack
 		size_t offset = 0;
 
 		uint8_t msgType = autorefresh ? 1 : 4; // message type
-		memcpy( &data[offset], &msgType, 1 );
+		std::memcpy( &data[offset], &msgType, 1 );
 		++offset;
 
 		if( autorefresh )
 		{
-			memcpy( &data[offset], path, pathlen );
+			std::memcpy( &data[offset], path, pathlen );
 			offset += pathlen;
 		}
 		else
 		{
-			memcpy( &data[offset], &fileID, 2 );
+			std::memcpy( &data[offset], &fileID, 2 );
 			offset += 2;
 		}
 
 		if( autorefresh )
 		{
 			size_t compressedLen = Compress( substitute, data, offset + 8 ) + 4;
-			memcpy( &data[offset], &compressedLen, 4 );
+			std::memcpy( &data[offset], &compressedLen, 4 );
 			offset += 4;
 		}
 		else
 			Compress( substitute, data, offset + 4 );
 
 		uint32_t crc32 = CrcCalc( &substitute[0], substitute.size( ) + 1 );
-		memcpy( &data[offset], &crc32, 4 );
+		std::memcpy( &data[offset], &crc32, 4 );
 
 		global::engine_server->GMOD_SendToClient( client, &data[0], static_cast<int>( 8 * data.size( ) ) );
 	}

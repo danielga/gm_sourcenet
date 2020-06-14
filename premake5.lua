@@ -6,11 +6,12 @@ newoption({
 
 local gmcommon = assert(_OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON"),
 	"you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory")
-include(path.join(gmcommon, "generator.v2.lua"))
+include(gmcommon .. "/generator.v2.lua")
 
 CreateWorkspace({name = "sourcenet", abi_compatible = true})
 	CreateProject({serverside = true})
 		IncludeLuaShared()
+		IncludeHelpersExtended()
 		IncludeSDKCommon()
 		IncludeSDKTier0()
 		IncludeSDKTier1()
@@ -21,9 +22,9 @@ CreateWorkspace({name = "sourcenet", abi_compatible = true})
 
 	CreateProject({serverside = false})
 		IncludeLuaShared()
+		IncludeHelpersExtended()
 		IncludeSDKCommon()
 		IncludeSDKTier0()
 		IncludeSDKTier1()
 		IncludeScanning()
 		IncludeDetouring()
-
