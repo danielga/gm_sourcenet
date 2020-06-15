@@ -5,6 +5,7 @@
 #include "sn_bf_write.hpp"
 
 #include <GarrysMod/Lua/AutoReference.h>
+
 #include <igameevents.h>
 
 namespace GameEventManager

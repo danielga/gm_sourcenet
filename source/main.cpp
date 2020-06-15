@@ -23,42 +23,15 @@
 
 #endif
 
-#include <scanning/symbolfinder.hpp>
+#include <GarrysMod/InterfacePointers.hpp>
+
 #include <interface.h>
 #include <eiface.h>
 #include <cdll_int.h>
 #include <iserver.h>
-#include <Platform.hpp>
 
 namespace global
 {
-
-#if defined SYSTEM_WINDOWS
-
-	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD8\x6D\x24\x83\x4D\xEC\x10";
-	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
-
-#elif defined SYSTEM_LINUX
-
-#if defined SOURCENET_SERVER
-
-	static const char IServer_sig[] = "@sv";
-	static const size_t IServer_siglen = 0;
-
-#elif defined SOURCENET_CLIENT
-
-	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xC7\x85\x68\xFF\xFF\xFF\x68";
-	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
-
-#endif
-
-#elif defined SYSTEM_MACOSX
-
-	static const char IServer_sig[] = "\x2A\x2A\x2A\x2A\x8B\x08\x89\x04\x24\xFF\x51\x28\xF3\x0F\x10\x45";
-	static const size_t IServer_siglen = sizeof( IServer_sig ) - 1;
-
-#endif
-
 	static bool loaded = false;
 
 	const char *tostring_format = "%s: %p";
@@ -116,11 +89,11 @@ namespace global
 	{
 		LUA->CreateTable( );
 
-		LUA->PushString( "sourcenet 1.1.8" );
+		LUA->PushString( "sourcenet 1.1.9" );
 		LUA->SetField( -2, "Version" );
 
 		// version num follows LuaJIT style, xxyyzz
-		LUA->PushNumber( 10108 );
+		LUA->PushNumber( 10109 );
 		LUA->SetField( -2, "VersionNum" );
 
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
@@ -142,33 +115,19 @@ GMOD_MODULE_OPEN( )
 {
 	global::lua = LUA;
 
-	global::engine_server = global::engine_loader.GetInterface<IVEngineServer>( INTERFACEVERSION_VENGINESERVER );
+	global::engine_server = InterfacePointers::VEngineServer( );
 	if( global::engine_server == nullptr )
 		LUA->ThrowError( "failed to retrieve server engine interface" );
 
 	global::is_dedicated = global::engine_server->IsDedicatedServer( );
 	if( !global::is_dedicated )
 	{
-		global::engine_client = global::engine_loader.GetInterface<IVEngineClient>( VENGINE_CLIENT_INTERFACE_VERSION );
+		global::engine_client = InterfacePointers::VEngineClient( );
 		if( global::engine_client == nullptr )
 			LUA->ThrowError( "failed to retrieve client engine interface" );
 	}
 
-	IServer **pserver = nullptr;
-	{
-		SymbolFinder symfinder;
-
-		pserver = reinterpret_cast<IServer **>( symfinder.Resolve(
-			global::engine_loader.GetModuleLoader( ).GetModule( ),
-			global::IServer_sig,
-			global::IServer_siglen
-		) );
-	}
-
-	if( pserver == nullptr )
-		LUA->ThrowError( "failed to locate IServer pointer" );
-
-	global::server = *pserver;
+	global::server = InterfacePointers::Server( );
 	if( global::server == nullptr )
 		LUA->ThrowError( "failed to locate IServer" );
 

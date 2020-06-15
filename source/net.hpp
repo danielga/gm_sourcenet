@@ -4,6 +4,7 @@
 #include <netadr.h>
 #include <utlvector.h>
 #include <inetchannel.h>
+
 #include <cstdint>
 
 // 0 == regular, 1 == file stream
@@ -53,12 +54,6 @@ typedef enum
 	NS_CLIENT,
 	NS_SERVER
 } netsrc_t;
-
-extern double net_time;
-
-extern netadr_t net_local_adr;
-
-extern qboolean net_noip;
 
 #define MAX_FRAGMENT_SIZE 256
 
@@ -146,131 +141,6 @@ public:
 		netframe_t frames[NET_FRAMES_BACKUP]; // frame history
 		netframe_t *currentframe;	// current frame
 	} netflow_t;
-
-	virtual const char *GetName( ) const override;	// get channel name
-	virtual const char *GetAddress( ) const override; // get channel IP address as string
-	virtual float GetTime( ) const override;	// current net time
-	virtual float GetTimeConnected( ) const override;	// get connection time in seconds
-	virtual int32_t GetBufferSize( ) const override;	// netchannel packet history size
-	virtual int32_t GetDataRate( ) const override; // send data rate in byte/sec
-
-	virtual bool IsLoopback( ) const override;	// true if loopback channel
-	virtual bool IsTimingOut( ) const override;	// true if timing out
-	virtual bool IsPlayback( ) const override;	// true if demo playback
-
-	virtual float GetLatency( int32_t flow ) const override;	 // current latency (RTT), more accurate but jittering
-	virtual float GetAvgLatency( int32_t flow ) const override; // average packet latency in seconds
-	virtual float GetAvgLoss( int32_t flow ) const override;	 // avg packet loss[0..1]
-	virtual float GetAvgChoke( int32_t flow ) const override;	 // avg packet choke[0..1]
-	virtual float GetAvgData( int32_t flow ) const override;	 // data flow in bytes/sec
-	virtual float GetAvgPackets( int32_t flow ) const override; // avg packets/sec
-	virtual int32_t GetTotalData( int32_t flow ) const override;	 // total flow in/out in bytes
-	virtual int32_t GetSequenceNr( int32_t flow ) const override;	// last send seq number
-	virtual bool IsValidPacket( int32_t flow, int32_t frame_number ) const override; // true if packet was not lost/dropped/chocked/flushed
-	virtual float GetPacketTime( int32_t flow, int32_t frame_number ) const override; // time when packet was send
-	virtual int32_t GetPacketBytes( int32_t flow, int32_t frame_number, int32_t group ) const override; // group size of this packet
-	virtual bool GetStreamProgress( int32_t flow, int32_t *received, int32_t *total ) const override;  // TCP progress if transmitting
-	virtual float GetTimeSinceLastReceived( void ) const override;	// get time since last recieved packet in seconds
-	virtual	float GetCommandInterpolationAmount( int32_t flow, int32_t frame_number ) const override;
-	virtual void GetPacketResponseLatency( int32_t flow, int32_t frame_number, int32_t *pnLatencyMsecs, int32_t *pnChoke ) const override;
-	virtual void GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const override;
-
-	virtual float GetTimeoutSeconds( ) const override;
-
-	virtual ~CNetChan( ) override;
-
-	virtual void SetDataRate( float rate ) override;
-	virtual bool RegisterMessage( INetMessage *msg ) override;
-	virtual bool StartStreaming( uint32_t challengeNr ) override;
-	virtual void ResetStreaming( void ) override;
-	virtual void SetTimeout( float seconds ) override;
-	virtual void SetDemoRecorder( IDemoRecorder *recorder ) override;
-	virtual void SetChallengeNr( uint32_t chnr ) override;
-
-	virtual void Reset( ) override;
-	virtual void Clear( ) override;
-	virtual void Shutdown( const char *reason ) override;
-
-	virtual void ProcessPlayback( ) override;
-	virtual bool ProcessStream( ) override;
-	virtual void ProcessPacket( netpacket_t *packet, bool bHasHeader ) override;
-
-	virtual bool SendNetMsg( INetMessage &msg, bool bForceReliable = false, bool bVoice = false ) override;
-	virtual bool SendData( bf_write &msg, bool bReliable = true ) override;
-	virtual bool SendFile( const char *filename, uint32_t transferID ) override;
-	virtual void DenyFile( const char *filename, uint32_t transferID ) override;
-	virtual void RequestFile_OLD( const char *filename, uint32_t transferID ) override;
-	virtual void SetChoked( ) override;
-	virtual int32_t SendDatagram( bf_write *data ) override;
-	virtual bool Transmit( bool onlyReliable = false ) override;
-
-	virtual const netadr_t	&GetRemoteAddress( ) const override;
-	virtual INetChannelHandler *GetMsgHandler( ) const override;
-	virtual int32_t GetDropNumber( ) const override;
-	virtual int32_t GetSocket( ) const override;
-	virtual uint32_t GetChallengeNr( ) const override;
-	virtual void GetSequenceData( int32_t &nOutSequenceNr, int32_t &nInSequenceNr, int32_t &nOutSequenceNrAck ) override;
-	virtual void SetSequenceData( int32_t nOutSequenceNr, int32_t nInSequenceNr, int32_t nOutSequenceNrAck ) override;
-
-	virtual void UpdateMessageStats( int32_t msggroup, int32_t bits ) override;
-	virtual bool CanPacket( ) const override;
-	virtual bool IsOverflowed( ) const override;
-	virtual bool IsTimedOut( ) const override;
-	virtual bool HasPendingReliableData( ) override;
-
-	virtual void SetFileTransmissionMode( bool bBackgroundMode ) override;
-	virtual void SetCompressionMode( bool bUseCompression ) override;
-	virtual uint32_t RequestFile( RequestFile_t, uint32_t ) override;
-
-	virtual void SetMaxBufferSize( bool bReliable, int32_t nBytes, bool bVoice = false ) override;
-
-	virtual bool IsNull( ) const override;
-	virtual int32_t GetNumBitsWritten( bool bReliable ) override;
-	virtual void SetInterpolationAmount( float flInterpolationAmount ) override;
-	virtual void SetRemoteFramerate( float flFrameTime, float flFrameTimeStdDeviation ) override;
-
-	// Max # of payload bytes before we must split/fragment the packet
-	virtual void SetMaxRoutablePayloadSize( int32_t nSplitSize ) override;
-	virtual int32_t GetMaxRoutablePayloadSize( ) override;
-
-	virtual int32_t GetProtocolVersion( ) override;
-
-	// Initialization
-	void Setup( netsrc_t socketnumber, netadr_t *adr, const char *nameid, INetChannelHandler *handler );
-
-	// Fragment operations
-	bool IsFileInWaitingList( const char *filename );
-	bool IsValidForFileTransfer( const char *filename );
-	bool CreateFragmentsFromFile( const char *filename, int32_t stream, uint32_t transferID );
-	bool CreateFragmentsFromBuffer( bf_write *buf, int32_t stream );
-	void CompressFragments( );
-	void UncompressFragments( dataFragments_t *fragments );
-
-	// Stream
-	void SendReliableViaStream( dataFragments_t *fragments );
-
-	//
-	bool CheckReceivingList( int32_t stream );
-
-	void RemoveHeadInWaitingList( int32_t stream );
-
-	// Subchannels
-	int32_t GetFreeSubChannel( );
-	void UpdateSubChannels( );
-	bool SendSubChannelData( bf_write &buf );
-	bool ReadSubChannelData( bf_read &buf, int32_t stream );
-
-	// Process functions
-	int32_t ProcessPacketHeader( netpacket_t *packet );
-	bool ProcessControlMessage( int32_t cmd, bf_read &msg );
-	bool ProcessMessages( bf_read &buf );
-
-	// Message lookup
-	INetMessage *FindMessage( int32_t type );
-
-	// Packet flow
-	void FlowNewPacket( int32_t flow, int32_t incoming_sequence, int32_t outgoing_acknowledged, int32_t chokecount, int32_t dropcount, int32_t bytes );
-	bool FlowUpdate( int32_t flow, int32_t bytes );
 
 	bool m_bProcessingMessages;
 	bool m_bShouldDelete;

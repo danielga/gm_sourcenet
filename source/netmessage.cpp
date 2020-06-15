@@ -5,11 +5,14 @@
 #include "netchannel.hpp"
 #include "net.hpp"
 
-#include <detouring/vfnhook.h>
-#include <inetmessage.h>
-#include <scanning/symbolfinder.hpp>
-#include <detouring/hde.h>
+#include <GarrysMod/FunctionPointers.hpp>
 #include <Platform.hpp>
+
+#include <detouring/helpers.hpp>
+#include <detouring/hde.h>
+
+#include <inetmessage.h>
+
 #include <unordered_map>
 
 #if defined( ARCHITECTURE_X86 )
@@ -52,16 +55,6 @@ namespace NetMessage
 
 #if defined SYSTEM_WINDOWS
 
-	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x51\x53\x56\x57\x8B\xD9\x6A";
-	static const size_t CBaseClient_ConnectionStart_siglen =
-		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
-
-	static const char CBaseClientState_ConnectionStart_sig[] =
-		"\x55\x8B\xEC\x83\xEC\x08\x53\x56\x57\x6A";
-	static const size_t CBaseClientState_ConnectionStart_siglen =
-		sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
-
 	static const uintptr_t CLC_CmdKeyValues_offset = 916;
 
 	static const uintptr_t SVC_CreateStringTable_offset = 691;
@@ -70,30 +63,6 @@ namespace NetMessage
 
 #elif defined SYSTEM_LINUX
 
-#if defined SOURCENET_SERVER
-
-	static const char CBaseClient_ConnectionStart_sig[] =
-		"@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
-	static const size_t CBaseClient_ConnectionStart_siglen = 0;
-
-	static const char CBaseClientState_ConnectionStart_sig[] =
-		"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
-	static const size_t CBaseClientState_ConnectionStart_siglen = 0;
-
-#elif defined SOURCENET_CLIENT
-
-	static const char CBaseClient_ConnectionStart_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B";
-	static const size_t CBaseClient_ConnectionStart_siglen =
-		sizeof( CBaseClient_ConnectionStart_sig ) - 1;
-
-	static const char CBaseClientState_ConnectionStart_sig[] =
-		"\x55\x89\xE5\x57\x56\x53\x83\xEC\x1C\x8B";
-	static const size_t CBaseClientState_ConnectionStart_siglen =
-		sizeof( CBaseClientState_ConnectionStart_sig ) - 1;
-
-#endif
-
 	static const uintptr_t CLC_CmdKeyValues_offset = 716;
 
 	static const uintptr_t SVC_CreateStringTable_offset = 571;
@@ -101,14 +70,6 @@ namespace NetMessage
 	static const uintptr_t SVC_CmdKeyValues_offset = 1691;
 
 #elif defined SYSTEM_MACOSX
-
-	static const char CBaseClient_ConnectionStart_sig[] =
-		"@_ZN11CBaseClient15ConnectionStartEP11INetChannel";
-	static const size_t CBaseClient_ConnectionStart_siglen = 0;
-
-	static const char CBaseClientState_ConnectionStart_sig[] =
-		"@_ZN16CBaseClientState15ConnectionStartEP11INetChannel";
-	static const size_t CBaseClientState_ConnectionStart_siglen = 0;
 
 	static const uintptr_t CLC_CmdKeyValues_offset = 1002;
 
@@ -420,33 +381,13 @@ namespace NetMessage
 
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		const uint8_t *CBaseClient_ConnectionStart = nullptr,
-			*CBaseClientState_ConnectionStart = nullptr;
-		{
-			SymbolFinder symfinder;
-
-			CBaseClient_ConnectionStart = static_cast<const uint8_t *>( symfinder.Resolve(
-				global::engine_loader.GetModuleLoader( ).GetModule( ),
-				CBaseClient_ConnectionStart_sig,
-				CBaseClient_ConnectionStart_siglen
-			) );
-
-			CBaseClientState_ConnectionStart = static_cast<const uint8_t *>( symfinder.Resolve(
-				global::engine_loader.GetModuleLoader( ).GetModule( ),
-				CBaseClientState_ConnectionStart_sig,
-				CBaseClientState_ConnectionStart_siglen,
-				// starting point for sigscan
-				// we use an offset because, on Linux, CBaseClient::ConnectionStart and
-				// CBaseClientState::ConnectionStart have the same signature
-				// this code expects CBaseClient::ConnectionStart to appear before
-				// CBaseClientState::ConnectionStart
-				CBaseClient_ConnectionStart + CBaseClient_ConnectionStart_siglen
-			) );
-		}
-
+		auto CBaseClient_ConnectionStart =
+			reinterpret_cast<const uint8_t *>( FunctionPointers::CBaseClient_ConnectionStart( ) );
 		if( CBaseClient_ConnectionStart == nullptr )
 			LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
 
+		auto CBaseClientState_ConnectionStart =
+			reinterpret_cast<const uint8_t *>( FunctionPointers::CBaseClientState_ConnectionStart( ) );
 		if( CBaseClientState_ConnectionStart == nullptr )
 			LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
 
@@ -481,7 +422,12 @@ namespace NetMessage
 	{
 		GarrysMod::Lua::ILuaBase *LUA = L->luabase;
 		LUA->SetState( L );
-		Push( LUA, new( std::nothrow ) NetMessage );
+		CNetChan *netchan = NetChannel::Get( LUA, 1 );
+		NetMessage *msg = new( std::nothrow ) NetMessage;
+		if( msg != nullptr )
+			msg->SetNetChannel( netchan );
+
+		Push( LUA, new( std::nothrow ) NetMessage, netchan );
 		return 1;
 	}
 

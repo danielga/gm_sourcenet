@@ -3,6 +3,7 @@
 #include "protocol.hpp"
 
 #include <GarrysMod/Lua/AutoReference.h>
+
 #include <networkstringtabledefs.h>
 
 namespace NetworkStringTableContainer

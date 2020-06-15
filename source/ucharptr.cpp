@@ -1,5 +1,7 @@
 #include "ucharptr.hpp"
 
+#include <bitbuf.h>
+
 #include <cstring>
 
 namespace UCHARPTR
@@ -16,9 +18,9 @@ namespace UCHARPTR
 
 	uint8_t *Push( GarrysMod::Lua::ILuaBase *LUA, int32_t bits, uint8_t *data )
 	{
-		if( bits <= 0 )
+		if( bits < 0 )
 			LUA->FormattedError(
-				"invalid amount of bits for a buffer (%d is less than or equal to zero)",
+				"invalid amount of bits for a buffer (%d is less than zero)",
 				bits
 			);
 
@@ -26,9 +28,12 @@ namespace UCHARPTR
 		if( data == nullptr )
 		{
 			own = true;
-			data = new( std::nothrow ) uint8_t[( bits + 7 ) >> 3];
-			if( data == nullptr )
-				LUA->ThrowError( "failed to allocate buffer" );
+			if( bits > 0 )
+			{
+				data = new( std::nothrow ) uint8_t[( bits + 7 ) >> 3];
+				if( data == nullptr )
+					LUA->ThrowError( "failed to allocate buffer" );
+			}
 		}
 
 		Container *container = LUA->NewUserType<Container>( metatype );
@@ -54,32 +59,32 @@ namespace UCHARPTR
 	uint8_t *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits, bool *own )
 	{
 		Container *container = GetUserData( LUA, index );
-		uint8_t *ptr = container->data;
-		if( ptr == nullptr )
+		int32_t cbits = container->bits;
+		if( cbits < 0 )
 			LUA->FormattedError( "invalid %s", metaname );
 
 		if( bits != nullptr )
-			*bits = container->bits;
+			*bits = cbits;
 
 		if( own != nullptr )
 			*own = container->own;
 
-		return ptr;
+		return container->data;
 	}
 
 	uint8_t *Release( GarrysMod::Lua::ILuaBase *LUA, int32_t index, int32_t *bits )
 	{
 		Container *container = GetUserData( LUA, index );
-		uint8_t *ptr = container->data;
-		if( ptr == nullptr )
+		int32_t cbits = container->bits;
+		if( cbits < 0 )
 			LUA->FormattedError( "invalid %s", metaname );
 
 		if( bits != nullptr )
-			*bits = container->bits;
+			*bits = cbits;
 
 		LUA->SetUserType( index, nullptr );
 
-		return ptr;
+		return container->data;
 	}
 
 	LUA_FUNCTION_STATIC( gc )
@@ -89,6 +94,7 @@ namespace UCHARPTR
 		if( container->own )
 			delete[] container->data;
 
+		container->bits = -1;
 		LUA->SetUserType( 1, nullptr );
 
 		return 0;
@@ -96,29 +102,21 @@ namespace UCHARPTR
 
 	LUA_FUNCTION_STATIC( eq )
 	{
-		uint8_t *ptr1 = Get( LUA, 1 );
-		uint8_t *ptr2 = Get( LUA, 2 );
-
-		LUA->PushBool( ptr1 == ptr2 );
-
+		LUA->PushBool( Get( LUA, 1 ) == Get( LUA, 2 ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( tostring )
 	{
 		uint8_t *ptr = Get( LUA, 1 );
-
 		LUA->PushFormattedString( global::tostring_format, metaname, ptr );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( IsValid )
 	{
 		global::CheckType( LUA, 1, metatype, metaname );
-
 		LUA->PushBool( GetUserData( LUA, 1 )->data != nullptr );
-
 		return 1;
 	}
 
@@ -126,9 +124,7 @@ namespace UCHARPTR
 	{
 		int32_t bits = 0;
 		Get( LUA, 1, &bits );
-
 		LUA->PushNumber( bits );
-
 		return 1;
 	}
 
@@ -136,19 +132,16 @@ namespace UCHARPTR
 	{
 		int32_t bits = 0;
 		uint8_t *src = Get( LUA, 1, &bits );
-
 		uint8_t *data = Push( LUA, bits );
-		memcpy( data, src, ( bits + 7 ) >> 3 );
-
+		std::memcpy( data, src, ( bits + 7 ) >> 3 );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( Constructor )
 	{
-		LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
-
-		Push( LUA, static_cast<int32_t>( LUA->GetNumber( 1 ) ) * 8 );
-
+		int32_t bits = global::GetNumber<int32_t>( LUA, 1, 1,
+			BitByte( std::numeric_limits<int32_t>::max( ) ) );
+		Push( LUA, bits * 8 );
 		return 1;
 	}
 

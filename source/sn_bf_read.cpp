@@ -2,7 +2,9 @@
 #include "ucharptr.hpp"
 
 #include <bitbuf.h>
+
 #include <algorithm>
+#include <vector>
 
 namespace sn_bf_read
 {
@@ -57,39 +59,28 @@ namespace sn_bf_read
 	LUA_FUNCTION_STATIC( gc )
 	{
 		Container *container = GetUserData( LUA, 1 );
-
 		LUA->ReferenceFree( container->bufref );
-
 		LUA->SetUserType( 1, nullptr );
-
 		return 0;
 	}
 
 	LUA_FUNCTION_STATIC( eq )
 	{
-		bf_read *buf1 = Get( LUA, 1 );
-		bf_read *buf2 = Get( LUA, 2 );
-
-		LUA->PushBool( buf1 == buf2 );
-
+		LUA->PushBool( Get( LUA, 1 ) == Get( LUA, 2 ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( tostring )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushFormattedString( global::tostring_format, metaname, buf );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( IsValid )
 	{
 		global::CheckType( LUA, 1, metatype, metaname );
-
 		LUA->PushBool( GetUserData( LUA, 1 )->preader != nullptr );
-
 		return 1;
 	}
 
@@ -109,147 +100,107 @@ namespace sn_bf_read
 	LUA_FUNCTION_STATIC( TotalBytesAvailable )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->TotalBytesAvailable( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBitsLeft )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBitsLeft( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBytesLeft )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBytesLeft( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBitsRead )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBitsRead( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( GetNumBytesRead )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->GetNumBytesRead( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( IsOverflowed )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushBool( buf->IsOverflowed( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( Seek )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		LUA->PushBool( buf->Seek( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
-
+		LUA->PushBool( buf->Seek( global::GetNumber<int32_t>( LUA, 2, 0 ) ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( SeekRelative )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		LUA->PushBool( buf->SeekRelative( static_cast<int32_t>( LUA->GetNumber( 2 ) ) ) );
-
+		LUA->PushBool( buf->SeekRelative( global::GetNumber<int32_t>( LUA, 2 ) ) );
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadBitAngle )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-		if( bits < 0 )
-			LUA->FormattedError( "invalid number of bits to read (%d is less than 0)", bits );
-
+		int32_t bits = global::GetNumber<int32_t>( LUA, 2, 1, 32 );
 		LUA->PushNumber( buf->ReadBitAngle( bits ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadAngle )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		QAngle ang;
 		buf->ReadBitAngles( ang );
-
 		LUA->PushAngle( ang );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadBits )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-
+		int32_t bits = global::GetNumber<int32_t>( LUA, 2, 1 );
 		uint8_t *data = UCHARPTR::Push( LUA, bits );
-
 		buf->ReadBits( data, bits );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadVector )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		Vector vec;
 		buf->ReadBitVec3Coord( vec );
-
 		LUA->PushVector( vec );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadNormal )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		Vector vec;
 		buf->ReadBitVec3Normal( vec );
-
 		LUA->PushVector( vec );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadByte )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadByte( ) );
-
 		return 1;
 	}
 
@@ -258,169 +209,128 @@ namespace sn_bf_read
 		bf_read *buf = Get( LUA, 1 );
 		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
-		int32_t bytes = static_cast<int32_t>( LUA->GetNumber( 2 ) );
+		int32_t bytes = global::GetNumber<int32_t>( LUA, 2, 1,
+			BitByte( std::numeric_limits<int32_t>::max( ) ) );
 
 		uint8_t *data = UCHARPTR::Push( LUA, bytes * 8 );
-
 		LUA->PushBool( buf->ReadBytes( data, bytes ) );
-
 		return 2;
 	}
 
 	LUA_FUNCTION_STATIC( ReadChar )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadChar( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadFloat )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadFloat( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadDouble )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		double num = 0.0;
 		buf->ReadBits( &num, sizeof( double ) * 8 );
 		LUA->PushNumber( num );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadLong )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadLong( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadLongLong )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( static_cast<double>( buf->ReadLongLong( ) ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadBit )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadOneBit( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadShort )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadShort( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadString )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
-		char str[2048] = { 0 };
-		bool success = buf->ReadString( str, sizeof( str ) );
-
-		LUA->PushString( str );
+		const int32_t max_size = buf->GetNumBytesLeft( ) + 1;
+		std::vector<char> str( static_cast<size_t>( max_size ) );
+		int32_t read = 0;
+		bool success = buf->ReadString( str.data( ), max_size, false, &read );
+		if( success )
+			LUA->PushString( str.data( ), static_cast<size_t>( read ) );
+		else
+			LUA->PushNil( );
 		LUA->PushBool( success );
-
 		return 2;
 	}
 
 	LUA_FUNCTION_STATIC( ReadInt )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-		if( bits < 0 || bits > 32 )
-			LUA->FormattedError(
-				"invalid number of bits to read (%d is not between 0 and 32)",
-				bits
-			);
-
+		int32_t bits = global::GetNumber<int32_t>( LUA, 2, 1, 32 );
 		LUA->PushNumber( buf->ReadSBitLong( bits ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadUInt )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
-
-		int32_t bits = static_cast<int32_t>( LUA->GetNumber( 2 ) );
-		if( bits < 0 || bits > 32 )
-			LUA->FormattedError(
-				"invalid number of bits to read (%d is not between 0 and 32)",
-				bits
-			);
-
+		int32_t bits = global::GetNumber<int32_t>( LUA, 2, 1, 32 );
 		LUA->PushNumber( buf->ReadUBitLong( bits ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadWord )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadWord( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadSignedVarInt32 )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadSignedVarInt32( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadVarInt32 )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( buf->ReadVarInt32( ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadSignedVarInt64 )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( static_cast<double>( buf->ReadSignedVarInt64( ) ) );
-
 		return 1;
 	}
 
 	LUA_FUNCTION_STATIC( ReadVarInt64 )
 	{
 		bf_read *buf = Get( LUA, 1 );
-
 		LUA->PushNumber( static_cast<double>( buf->ReadVarInt64( ) ) );
-
 		return 1;
 	}
 
@@ -429,12 +339,11 @@ namespace sn_bf_read
 		int32_t bits = 0;
 		uint8_t *ptr = UCHARPTR::Get( LUA, 1, &bits );
 		if( LUA->Top( ) >= 2 )
-			bits = std::min( static_cast<int32_t>( LUA->CheckNumber( 2 ) ), bits );
+			bits = global::GetNumber<int32_t>( LUA, 2, 1, bits );
 
 		LUA->Push( 1 );
 		bf_read *reader = *Push( LUA, nullptr, LUA->ReferenceCreate( ) );
 		reader->StartReading( ptr, BitByte( bits ), 0, bits );
-
 		return 1;
 	}
 
