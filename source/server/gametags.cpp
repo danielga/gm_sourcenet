@@ -10,6 +10,7 @@
 #include <steam/steam_gameserver.h>
 
 class CBaseServer;
+class CSteam3Server : public CSteamGameServerAPIContext { };
 
 namespace GameTags
 {
@@ -22,9 +23,13 @@ namespace GameTags
 			if( RecalculateTags_original == nullptr )
 				LUA->ThrowError( "unable to find CBaseServer::RecalculateTags" );
 
-			gameserver_context = InterfacePointers::SteamGameServerAPIContext( );
+			FunctionPointers::Steam3Server_t Steam3Server = FunctionPointers::Steam3Server( );
+			if( Steam3Server == nullptr )
+				LUA->ThrowError( "unable to find Steam3Server" );
+
+			gameserver_context = Steam3Server( );
 			if( gameserver_context == nullptr )
-				LUA->ThrowError( "Failed to load required CSteamGameServerAPIContext interface." );
+				LUA->ThrowError( "unable to load CSteamGameServerAPIContext interface" );
 		}
 
 		void RecalculateTags( )
@@ -63,13 +68,13 @@ namespace GameTags
 
 	private:
 		static FunctionPointers::CBaseServer_RecalculateTags_t RecalculateTags_original;
-		static CSteamGameServerAPIContext *gameserver_context;
+		static CSteam3Server *gameserver_context;
 		static std::string gametags_substitute;
 	};
 
 	FunctionPointers::CBaseServer_RecalculateTags_t
 		CBaseServerProxy::RecalculateTags_original = nullptr;
-	CSteamGameServerAPIContext *CBaseServerProxy::gameserver_context = nullptr;
+	CSteam3Server *CBaseServerProxy::gameserver_context = nullptr;
 	std::string CBaseServerProxy::gametags_substitute;
 
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
