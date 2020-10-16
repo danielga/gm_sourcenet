@@ -55,13 +55,35 @@ namespace NetMessage
 
 #if defined SYSTEM_WINDOWS
 
+#if defined ARCHITECTURE_X86_OLD
+
 	static const uintptr_t CLC_CmdKeyValues_offset = 916;
 
 	static const uintptr_t SVC_CreateStringTable_offset = 691;
 
 	static const uintptr_t SVC_CmdKeyValues_offset = 1935;
 
+#elif defined ARCHITECTURE_X86
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 950;
+
+	static const uintptr_t SVC_CreateStringTable_offset = 708;
+
+	static const uintptr_t SVC_CmdKeyValues_offset = 2100;
+
+#elif defined ARCHITECTURE_X86_64
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 1037;
+
+	static const uintptr_t SVC_CreateStringTable_offset = 773;
+
+	static const uintptr_t SVC_CmdKeyValues_offset = 2443;
+
+#endif
+
 #elif defined SYSTEM_LINUX
+
+#if defined ARCHITECTURE_X86_OLD
 
 	static const uintptr_t CLC_CmdKeyValues_offset = 716;
 
@@ -69,13 +91,43 @@ namespace NetMessage
 
 	static const uintptr_t SVC_CmdKeyValues_offset = 1691;
 
+#elif defined ARCHITECTURE_X86
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 743;
+
+	static const uintptr_t SVC_CreateStringTable_offset = 567;
+
+	static const uintptr_t SVC_CmdKeyValues_offset = 1707;
+
+#elif defined ARCHITECTURE_X86_64
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 901;
+
+	static const uintptr_t SVC_CreateStringTable_offset = 676;
+
+	static const uintptr_t SVC_CmdKeyValues_offset = 1998;
+
+#endif
+
 #elif defined SYSTEM_MACOSX
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 1002;
+#if defined ARCHITECTURE_X86
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 1031;
 
 	static const uintptr_t SVC_CreateStringTable_offset = 675;
 
 	static const uintptr_t SVC_CmdKeyValues_offset = 2112;
+
+#elif defined ARCHITECTURE_X86_64
+
+	static const uintptr_t CLC_CmdKeyValues_offset = 1012;
+
+	static const uintptr_t SVC_CreateStringTable_offset = 707;
+
+	static const uintptr_t SVC_CmdKeyValues_offset = 2301;
+
+#endif
 
 #endif
 
@@ -309,6 +361,12 @@ namespace NetMessage
 
 			|| instruction.opcode == 0xC2
 
+#if defined ARCHITECTURE_X86_64
+
+			|| ( instruction.len == 7 && instruction.opcode == 0xFF )
+
+#endif
+
 #elif defined SYSTEM_LINUX
 
 			|| instruction.opcode == 0x5D
@@ -318,40 +376,102 @@ namespace NetMessage
 			;
 	}
 
-	inline bool IsMoveInstruction( uint8_t opcode )
+#if defined SYSTEM_WINDOWS
+
+	inline bool IsPossibleVTable( const hdes &instruction, const uintptr_t funcCode, void ***vtable )
 	{
 
-#if defined SYSTEM_WINDOWS || defined SYSTEM_LINUX
+#if defined ARCHITECTURE_X86_64
 
-		return opcode == 0xC7;
+		if( instruction.len == 7 &&
+			instruction.opcode == 0x8D &&
+			( instruction.flags & F_DISP32 ) != 0 &&
+			instruction.disp.disp32 >= 10000 )
+		{
+			*vtable = reinterpret_cast<void **>( funcCode + instruction.len + instruction.disp.disp32 );
+			return true;
+		}
+
+#endif
+
+		if( instruction.len == 6 &&
+			instruction.opcode == 0xC7 &&
+			( instruction.flags & F_IMM32 ) != 0 &&
+			instruction.imm.imm32 >= 10000 )
+		{
+			*vtable = reinterpret_cast<void **>( hde_getimm( instruction ) );
+			return true;
+		}
+
+		return false;
+	}
+
+#elif defined SYSTEM_LINUX
+
+	inline bool IsPossibleVTable( const hdes &instruction, const uintptr_t funcCode, void ***vtable )
+	{
+
+#if defined ARCHITECTURE_X86_64
+
+		if( instruction.len == 7 &&
+			instruction.opcode == 0x8B &&
+			instruction.flags & F_DISP32 &&
+			instruction.disp.disp32 >= 10000 )
+		{
+			const uintptr_t address = *reinterpret_cast<const uintptr_t *>( funcCode + instruction.len + instruction.disp.disp32 );
+			*vtable = reinterpret_cast<void **>( address + 16 );
+			return true;
+		}
+
+		if( instruction.len == 7 &&
+			instruction.opcode == 0x8D &&
+			( instruction.flags & F_DISP32 ) != 0 &&
+			instruction.disp.disp32 >= 10000 )
+		{
+			*vtable = reinterpret_cast<void **>( funcCode + instruction.len + instruction.disp.disp32 );
+			return true;
+		}
+
+#elif defined ARCHITECTURE_X86
+
+		if( instruction.opcode == 0xC7 &&
+			( instruction.flags & F_IMM32 ) != 0 &&
+			instruction.imm.imm32 >= 10000 &&
+			( instruction.len == 6 || instruction.len == 7 ) )
+		{
+			*vtable = reinterpret_cast<void **>( hde_getimm( instruction ) );
+			return true;
+		}
+
+#endif
+
+		return false;
+	}
 
 #elif defined SYSTEM_MACOSX
 
-		return opcode == 0x8B;
-
-#endif
-
-	}
-
-	inline bool IsPossibleVTable( const hdes &instruction )
+	inline bool IsPossibleVTable( const hdes &instruction, const uintptr_t, void ***vtable )
 	{
-
-#if defined SYSTEM_LINUX
-
-		if( instruction.len == 7 &&
-			IsMoveInstruction( instruction.opcode ) &&
+		if( instruction.len == 6 &&
+			instruction.opcode == 0x8B &&
 			( instruction.flags & F_IMM32 ) != 0 &&
 			instruction.imm.imm32 >= 10000 )
+		{
+			*vtable = reinterpret_cast<void **>( hde_getimm( instruction ) );
 			return true;
+		}
+
+		return false;
+	}
 
 #endif
 
-		return instruction.len == 6 &&
-			IsMoveInstruction( instruction.opcode ) &&
-			( instruction.flags & F_IMM32 ) != 0;
+	inline const void *AdvancePointer( const void *pointer, uint32_t offset )
+	{
+		return reinterpret_cast<const void *>( reinterpret_cast<uintptr_t>( pointer ) + offset );
 	}
 
-	static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, const uint8_t *funcCode )
+	static void ResolveMessagesFromFunctionCode( GarrysMod::Lua::ILuaBase *LUA, const void *funcCode )
 	{
 		CNetMessage *msg = new( std::nothrow ) CNetMessage;
 		if( msg == nullptr )
@@ -363,17 +483,19 @@ namespace NetMessage
 		for(
 			uint32_t len = hde_disasm( funcCode, hs );
 			!IsEndOfFunction( hs );
-			funcCode += len, len = hde_disasm( funcCode, hs )
-			)
-			if( IsPossibleVTable( hs ) )
+			funcCode = AdvancePointer( funcCode, len ), len = hde_disasm( funcCode, hs )
+		)
+		{
+			void **vtable = nullptr;
+			if( IsPossibleVTable( hs, reinterpret_cast<uintptr_t>( funcCode ), &vtable ) )
 			{
-				void **vtable = reinterpret_cast<void **>( hde_getimm( hs ) );
 				msg->InstallVTable( vtable );
 
 				const char *name = msg->GetName( );
 				if( netmessages_vtables.find( name ) == netmessages_vtables.end( ) )
 					netmessages_vtables[name] = vtable;
 			}
+		}
 
 		msg->InstallVTable( msgvtable );
 		delete msg;
@@ -381,13 +503,13 @@ namespace NetMessage
 
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		auto CBaseClient_ConnectionStart =
-			reinterpret_cast<const uint8_t *>( FunctionPointers::CBaseClient_ConnectionStart( ) );
+		const void *CBaseClient_ConnectionStart =
+			reinterpret_cast<const void *>( FunctionPointers::CBaseClient_ConnectionStart( ) );
 		if( CBaseClient_ConnectionStart == nullptr )
 			LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
 
-		auto CBaseClientState_ConnectionStart =
-			reinterpret_cast<const uint8_t *>( FunctionPointers::CBaseClientState_ConnectionStart( ) );
+		const void *CBaseClientState_ConnectionStart =
+			reinterpret_cast<const void *>( FunctionPointers::CBaseClientState_ConnectionStart( ) );
 		if( CBaseClientState_ConnectionStart == nullptr )
 			LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
 
@@ -399,22 +521,22 @@ namespace NetMessage
 			CBaseClientState_ConnectionStart
 		) + SVC_CreateStringTable_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			SVC_CreateStringTable + sizeof( uintptr_t ) +
-			*reinterpret_cast<intptr_t *>( SVC_CreateStringTable )
+			SVC_CreateStringTable + sizeof( int32_t ) +
+			*reinterpret_cast<int32_t *>( SVC_CreateStringTable )
 		) );
 
 		uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 			CBaseClientState_ConnectionStart
 		) + SVC_CmdKeyValues_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			SVC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( SVC_CmdKeyValues )
+			SVC_CmdKeyValues + sizeof( int32_t ) + *reinterpret_cast<int32_t *>( SVC_CmdKeyValues )
 		) );
 
 		uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
 			CBaseClient_ConnectionStart
 		) + CLC_CmdKeyValues_offset;
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			CLC_CmdKeyValues + sizeof( uintptr_t ) + *reinterpret_cast<intptr_t *>( CLC_CmdKeyValues )
+			CLC_CmdKeyValues + sizeof( int32_t ) + *reinterpret_cast<int32_t *>( CLC_CmdKeyValues )
 		) );
 	}
 
