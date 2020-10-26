@@ -8,8 +8,10 @@ WEAPONSWEP_MSG_EQUIP = 3
 function SendEntityMessage(netchan, entindex, classID, buffer)
 	local messageType = buffer:ReadByte()
 	local entity = Entity(entindex)
-	
-	if not IsValid(entity) then return end
+
+	if not IsValid(entity) then
+		return
+	end
 
 	if entity:IsWeapon() then -- There is no Entity.GetClassID function, so this is a workaround
 		if messageType == WEAPONSWEP_MSG_HOLSTER then
