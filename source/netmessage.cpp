@@ -181,7 +181,7 @@ namespace NetMessage
 		if( it != netmessages_setup.end( ) )
 			( *it ).second( LUA );
 
-		LUA->SetFEnv( -3 );
+		LUA->SetFEnv( -2 );
 
 		if( netchan != nullptr )
 		{
