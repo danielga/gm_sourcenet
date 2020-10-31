@@ -952,7 +952,9 @@ namespace NetMessages
 
 	void SVC_GMod_ServerToClient::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		ReaderMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::Data>( LUA, "Data" );
+		NumberMember<SVC_GMod_ServerToClient, int32_t, &SVC_GMod_ServerToClient::Length>( LUA, "Length" );
+		ReaderMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::DataIn>( LUA, "DataIn" );
+		WriterMember<SVC_GMod_ServerToClient, &SVC_GMod_ServerToClient::DataOut>( LUA, "DataOut" );
 	}
 
 	const char CLC_ClientInfo::Name[] = "clc_ClientInfo";
@@ -1149,6 +1151,8 @@ namespace NetMessages
 
 	void CLC_GMod_ClientToServer::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		ReaderMember<CLC_GMod_ClientToServer, &CLC_GMod_ClientToServer::Data>( LUA, "Data" );
+		NumberMember<CLC_GMod_ClientToServer, int32_t, &CLC_GMod_ClientToServer::Length>( LUA, "Length" );
+		ReaderMember<CLC_GMod_ClientToServer, &CLC_GMod_ClientToServer::DataIn>( LUA, "DataIn" );
+		WriterMember<CLC_GMod_ClientToServer, &CLC_GMod_ClientToServer::DataOut>( LUA, "DataOut" );
 	}
 }

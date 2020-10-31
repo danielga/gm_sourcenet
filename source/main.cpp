@@ -56,8 +56,6 @@ namespace global
 		if( !LUA->IsType( -1, GarrysMod::Lua::Type::NIL ) )
 			return 1;
 
-		LUA->Pop( 2 );
-
 		LUA->GetFEnv( 1 );
 		LUA->Push( 2 );
 		LUA->RawGet( -2 );

@@ -532,7 +532,20 @@ namespace NetMessages
 
 		static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
-		bf_read Data;
+		SVC_GMod_ServerToClient( ) : Length( 0 ), DataOut( Data.Uint8, sizeof( Data ) )
+		{ }
+
+		int32_t Length;
+		bf_read DataIn;
+		bf_write DataOut;
+
+		union {
+			uint8_t Uint8[512] = { 0 };
+			uint16_t Uint16[256];
+			uint32_t Uint32[128];
+			uint64_t Uint64[64];
+			const char *String[128];
+		} Data;
 	};
 
 	class CLC_ClientInfo : public CNetMessage
@@ -681,6 +694,19 @@ namespace NetMessages
 
 		static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
 
-		bf_read Data;
+		CLC_GMod_ClientToServer( ) : Length( 0 ), DataOut( Data.Uint8, sizeof( Data ) )
+		{ }
+
+		int32_t Length;
+		bf_read DataIn;
+		bf_write DataOut;
+
+		union {
+			uint8_t Uint8[512] = { 0 };
+			uint16_t Uint16[256];
+			uint32_t Uint32[128];
+			uint64_t Uint64[64];
+			const char *String[128];
+		} Data;
 	};
 }
