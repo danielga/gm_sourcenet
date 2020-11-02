@@ -87,11 +87,11 @@ namespace global
 	{
 		LUA->CreateTable( );
 
-		LUA->PushString( "sourcenet 1.1.10" );
+		LUA->PushString( "sourcenet 1.1.11" );
 		LUA->SetField( -2, "Version" );
 
 		// version num follows LuaJIT style, xxyyzz
-		LUA->PushNumber( 10110 );
+		LUA->PushNumber( 10111 );
 		LUA->SetField( -2, "VersionNum" );
 
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "sourcenet" );
