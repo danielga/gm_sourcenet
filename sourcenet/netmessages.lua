@@ -176,8 +176,10 @@ NET_MESSAGES = {
 				local bits = read:ReadWord()
 				write:WriteWord(bits)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("clc_Move %i,%i,%i\n", new, backup, bits))
 			end
@@ -190,8 +192,10 @@ NET_MESSAGES = {
 				local bits = read:ReadWord()
 				write:WriteWord(bits)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("clc_VoiceData %i\n", bits))
 			end
@@ -281,8 +285,10 @@ NET_MESSAGES = {
 				local length = read:ReadLong()
 				write:WriteLong(length)
 
-				local keyvalues = read:ReadBits(length * 8)
-				write:WriteBits(keyvalues)
+				if length > 0 then
+					local keyvalues = read:ReadBytes(length)
+					write:WriteBits(keyvalues)
+				end
 
 				SourceNetMsg(string.format("clc_CmdKeyValues %i\n", length))
 			end
@@ -471,8 +477,10 @@ NET_MESSAGES = {
 				local bits = read:ReadShort()
 				write:WriteShort(bits)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_SendTable %i,%i\n", encoded, bits))
 			end
@@ -578,8 +586,10 @@ NET_MESSAGES = {
 				local bits = read:ReadUInt(20)
 				write:WriteUInt(bits, 20)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_UpdateStringTable tableid=%i,morechanged=%i,changed=%i,bits=%i\n", tableid, morechanged, changed, bits))
 			end
@@ -612,8 +622,10 @@ NET_MESSAGES = {
 				local bits = read:ReadWord()
 				write:WriteWord(bits)
 
-				local voicedata = read:ReadBits(bits)
-				write:WriteBits(voicedata)
+				if bits > 0 then
+					local voicedata = read:ReadBits(bits)
+					write:WriteBits(voicedata)
+				end
 
 				SourceNetMsg(string.format("svc_VoiceData client=%i,proximity=%i,bits=%i\n", client, proximity, bits))
 			end
@@ -642,8 +654,11 @@ NET_MESSAGES = {
 					write:WriteUInt(bits, 8)
 				end
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_Sounds reliable=%i,num=%i,bits=%i\n", reliable, num, bits))
 			end
@@ -763,8 +778,10 @@ NET_MESSAGES = {
 				local bits = read:ReadUInt(MAX_ENTITYMESSAGE_BITS)
 				write:WriteUInt(bits, MAX_ENTITYMESSAGE_BITS)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_EntityMessage entity=%i,class=%i,bits=%i\n", entity, class, bits))
 			end
@@ -777,8 +794,10 @@ NET_MESSAGES = {
 				local bits = read:ReadUInt(11)
 				write:WriteUInt(bits, 11)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_GameEvent bits=%i\n", bits))
 			end
@@ -813,8 +832,10 @@ NET_MESSAGES = {
 				local updatebaseline = read:ReadBit()
 				write:WriteBit(updatebaseline)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_PacketEntities %i,%i,%i,%i,%i,%i,%i\n", max, isdelta, delta, baseline, changed, bits, updatebaseline))
 			end
@@ -833,8 +854,10 @@ NET_MESSAGES = {
 				local bits = read:ReadVarInt32()
 				write:WriteVarInt32(bits)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_TempEntities %i,%i\n", num, bits))
 			end
@@ -861,8 +884,10 @@ NET_MESSAGES = {
 				local bytes = read:ReadWord()
 				write:WriteWord(bytes)
 
-				local data = read:ReadBytes(bytes)
-				write:WriteBytes(data, bytes)
+				if bytes > 0 then
+					local data = read:ReadBytes(bytes)
+					write:WriteBytes(data, bytes)
+				end
 
 				SourceNetMsg(string.format("svc_Menu menutype=%i,bytes=%i\n", menutype, bytes))
 			end
@@ -878,8 +903,10 @@ NET_MESSAGES = {
 				local bits = read:ReadUInt(20)
 				write:WriteUInt(bits, 20)
 
-				local data = read:ReadBits(bits)
-				write:WriteBits(data)
+				if bits > 0 then
+					local data = read:ReadBits(bits)
+					write:WriteBits(data)
+				end
 
 				SourceNetMsg(string.format("svc_GameEventList num=%i,bits=%i\n", num, bits))
 			end
@@ -906,8 +933,10 @@ NET_MESSAGES = {
 				local length = read:ReadLong()
 				write:WriteLong(length)
 
-				local keyvalues = read:ReadBits(length * 8)
-				write:WriteBits(keyvalues)
+				if length > 0 then
+					local keyvalues = read:ReadBytes(length)
+					write:WriteBits(keyvalues)
+				end
 
 				SourceNetMsg(string.format("svc_CmdKeyValues length=%i\n", length))
 			end
@@ -942,8 +971,10 @@ NET_MESSAGES = {
 					local length = read:ReadUInt(32)
 					write:WriteUInt(length)
 
-					local data = read:ReadBytes(length)
-					write:WriteBytes(data)
+					if length > 0 then
+						local data = read:ReadBytes(length)
+						write:WriteBytes(data)
+					end
 
 					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh length=%i,path=%s\n", length, path))
 				elseif msgtype == 3 then
@@ -952,8 +983,10 @@ NET_MESSAGES = {
 					local length = read:ReadUInt(16)
 					write:WriteUInt(length, 16)
 
-					local data = read:ReadBytes(length)
-					write:WriteBytes(data)
+					if length > 0 then
+						local data = read:ReadBytes(length)
+						write:WriteBytes(data)
+					end
 
 					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::UpdateFile length=%i\n", length))
 				end
