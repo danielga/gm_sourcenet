@@ -86,7 +86,7 @@ namespace GameEventManager
 	{
 		IGameEventManager2 *manager = global::engine_loader.GetInterface<IGameEventManager2>(
 			INTERFACEVERSION_GAMEEVENTSMANAGER2
-			);
+		);
 		if( manager == nullptr )
 			LUA->ThrowError( "failed to obtain IGameEventManager2" );
 

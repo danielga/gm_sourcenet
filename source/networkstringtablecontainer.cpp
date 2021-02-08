@@ -69,7 +69,7 @@ namespace NetworkStringTableContainer
 
 		INetworkStringTableContainer *container = global::engine_loader.GetInterface<INetworkStringTableContainer>(
 			INTERFACENAME_NETWORKSTRINGTABLESERVER
-			);
+		);
 		if( container == nullptr )
 			LUA->ThrowError( "failed to obtain INetworkStringTableContainer" );
 
@@ -77,7 +77,7 @@ namespace NetworkStringTableContainer
 
 		INetworkStringTableContainer *container = global::engine_loader.GetInterface<INetworkStringTableContainer>(
 			INTERFACENAME_NETWORKSTRINGTABLECLIENT
-			);
+		);
 		if( container == nullptr )
 			LUA->ThrowError( "failed to obtain INetworkStringTableContainer" );
 

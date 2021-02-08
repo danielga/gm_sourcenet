@@ -241,7 +241,7 @@ namespace DataPack
 		INetworkStringTableContainer *networkstringtable =
 			global::engine_loader.GetInterface<INetworkStringTableContainer>(
 				INTERFACENAME_NETWORKSTRINGTABLESERVER
-				);
+			);
 		if( networkstringtable == nullptr )
 			LUA->ThrowError( "unable to get INetworkStringTableContainer" );
 
