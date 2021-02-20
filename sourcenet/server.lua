@@ -11,7 +11,7 @@ local function StandardNetHook(netchan, nethook)
 	elseif not nethook.nochan then
 		table.insert(args, netchan)
 	end
-		
+
 	if nethook.args then
 		for k, v in pairs(nethook.args) do
 			table.insert(args, v)
@@ -46,18 +46,17 @@ local function DetachNetChannel(netchan)
 end
 
 function HookNetChannel(...)
-	for k, v in pairs({ ...}) do
+	for k, v in pairs({...}) do
 		local name = v.name:gsub("::", "_")
 		local exists = false
-		
-		for k, v in pairs(NET_HOOKS.attach) do	
+
+		for k, v in pairs(NET_HOOKS.attach) do
 			if v.name == name then
 				exists = true
-				
 				break
 			end
 		end
-		
+
 		if not exists then
 			table.insert(NET_HOOKS.attach, {name = name, hook = _G["Attach__" .. name], func = v.func, args = v.args, nochan = v.nochan})
 			table.insert(NET_HOOKS.detach, {name = name, hook = _G["Detach__" .. name], func = v.func, args = v.args, nochan = v.nochan})
@@ -68,14 +67,13 @@ function HookNetChannel(...)
 
 	for i = 1, 256 do
 		local netchan = CNetChan(i)
-		
+
 		if netchan then
 			if not attached then
 				AttachNetChannel(netchan)
-				
 				attached = true
 			end
-			
+
 			if not table.HasValue(NET_CHANNEL_INDICES, i) then
 				table.insert(NET_CHANNEL_INDICES, i)
 			end
@@ -89,16 +87,15 @@ function HookNetChannel(...)
 
 			if a1:GetIP() == a2:GetIP() and a1:GetPort() == a2:GetPort() then
 				table.remove(NET_CHANNEL_INDICES, k)
-
 				break
 			end
 		end
-		
+
 		if #NET_CHANNEL_INDICES == 0 then
 			DetachNetChannel(netchan)
 		end
 	end)
-	
+
 	hook.Add("ShutDown", "DetachHooks", function()
 		if #NET_CHANNEL_INDICES > 0 then
 			DetachNetChannel(CNetChan(NET_CHANNEL_INDICES[1]))
@@ -107,15 +104,15 @@ function HookNetChannel(...)
 end
 
 hook.Add("PlayerConnect", "CreateNetChannel", function(name, address)
-	if address == "none" then return end -- Bots don't have a net channel
+	if address == "none" then
+		return -- Bots don't have a net channel
+	end
 
 	local index
-
 	if #NET_CHANNEL_INDICES > 0 then
 		for i = 1, 256 do
 			if not table.HasValue(NET_CHANNEL_INDICES, i) then
 				index = i
-						
 				break
 			end
 		end
@@ -124,8 +121,7 @@ hook.Add("PlayerConnect", "CreateNetChannel", function(name, address)
 	end
 
 	local netchan = CNetChan(index)
-
-	if netchan then
+	if netchan ~= nil then
 		if #NET_CHANNEL_INDICES == 0 then
 			AttachNetChannel(netchan)
 		end
