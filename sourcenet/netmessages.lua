@@ -19,1087 +19,2120 @@ MAX_EDICT_BITS = 13
 
 function SourceNetMsg(msg)
 	if sourcenet_netmessage_info:GetInt() ~= 0 then
-		Msg("[snmi] " .. msg)
+		Msg("[snmi] " .. msg .. "\n")
 	end
 end
 
 NET_MESSAGES = {
-	[net_NOP] = { -- 0
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_NOP, NET_MESSAGE_BITS)
-		end
-	},
+	NET = {
+		[net_NOP] = { -- 0
+			__tostring = function()
+				return "net_NOP"
+			end,
+			__index = {
+				GetType = function()
+					return net_NOP
+				end,
+				GetName = function()
+					return "net_NOP"
+				end,
+				ReadFromBuffer = function(self)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-	[net_Disconnect] = { -- 1
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_Disconnect, NET_MESSAGE_BITS)
+					buffer:WriteUInt(net_NOP, NET_MESSAGE_BITS)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+				end
+			}
+		},
 
-			local reason = read:ReadString()
-			write:WriteString(reason)
+		[net_Disconnect] = { -- 1
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_Disconnect"
+				end
 
-			SourceNetMsg(string.format("net_Disconnect %s\n", reason))
-		end
-	},
+				return "net_Disconnect: " .. self.reason
+			end,
+			__index = {
+				GetType = function()
+					return net_Disconnect
+				end,
+				GetName = function()
+					return "net_Disconnect"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.reason = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-	[net_File] = { -- 2
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_File, NET_MESSAGE_BITS)
+					buffer:WriteUInt(net_Disconnect, NET_MESSAGE_BITS)
+					buffer:WriteString(self.reason)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.reason = nil
+				end
+			}
+		},
 
-			local transferid = read:ReadUInt(32)
-			write:WriteUInt(transferid, 32)
+		[net_File] = { -- 2
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_File"
+				end
 
-			local requested = read:ReadBit()
-			write:WriteBit(requested)
+				if not self.requested then
+					return string.format("net_File: transferid = %i, requested = false", self.transferid)
+				end
 
-			if requested == 0 then
-				SourceNetMsg(string.format("net_File %i,false\n", transferid))
-				return
-			end
+				return string.format("net_File: transferid = %i, requested = true, requesttype = %s, fileid = %i", self.transferid, self.requesttype, self.fileid)
+			end,
+			__index = {
+				GetType = function()
+					return net_File
+				end,
+				GetName = function()
+					return "net_File"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.transferid = buffer:ReadUInt(32)
+					self.requested = buffer:ReadBit() == 1
+					if not self.requested then
+						self.initialized = true
+						return
+					end
 
-			local requesttype = read:ReadUInt(1)
-			write:WriteUInt(requesttype, 1)
+					self.requesttype = buffer:ReadBit() == 1
+					self.fileid = buffer:ReadUInt(32)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-			local fileid = read:ReadUInt(32)
-			write:WriteUInt(fileid, 32)
+					buffer:WriteUInt(net_File, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.transferid, 32)
+					buffer:WriteBit(self.requested and 1 or 0)
 
-			SourceNetMsg(string.format("net_File %i,true,%i,%i\n", transferid, requesttype, fileid))
-		end
-	},
+					if not self.requested then
+						return true
+					end
 
-	[net_Tick] = { -- 3
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_Tick, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.requesttype and 1 or 0)
+					buffer:WriteUInt(self.fileid, 32)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.transferid = nil
+					self.requested = nil
+					self.requesttype = nil
+					self.fileid = nil
+				end
+			}
+		},
 
-			local tick = read:ReadLong()
-			write:WriteLong(tick)
+		[net_Tick] = { -- 3
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_Tick"
+				end
 
-			local hostframetime = read:ReadUInt(16)
-			write:WriteUInt(hostframetime, 16)
+				return string.format("net_Tick: tick = %i, hostframetime = %i, hostframetimedeviation = %i", self.tick, self.hostframetime, self.hostframetimedeviation)
+			end,
+			__index = {
+				GetType = function()
+					return net_Tick
+				end,
+				GetName = function()
+					return "net_Tick"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.tick = buffer:ReadLong()
+					self.hostframetime = buffer:ReadUInt(16)
+					self.hostframetimedeviation = buffer:ReadInt(16)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-			local hostframetimedeviation = read:ReadUInt(16)
-			write:WriteUInt(hostframetimedeviation, 16)
+					buffer:WriteUInt(net_Tick, NET_MESSAGE_BITS)
+					buffer:WriteLong(self.tick)
+					buffer:WriteUInt(self.hostframetime, 16)
+					buffer:WriteInt(self.hostframetimedeviation, 16)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.tick = nil
+					self.hostframetime = nil
+					self.hostframetimedeviation = nil
+				end
+			}
+		},
 
-			SourceNetMsg(string.format("net_Tick %i,%i,%i\n", tick, hostframetime, hostframetimedeviation))
-		end
-	},
+		[net_StringCmd] = { -- 4
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_StringCmd"
+				end
 
-	[net_StringCmd] = { -- 4
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_StringCmd, NET_MESSAGE_BITS)
+				return string.format("net_StringCmd: len = %d, cmd = %s", #self.cmd, self.cmd)
+			end,
+			__index = {
+				GetType = function()
+					return net_StringCmd
+				end,
+				GetName = function()
+					return "net_StringCmd"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.cmd = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-			local cmd = read:ReadString()
-			write:WriteString(cmd)
+					buffer:WriteUInt(net_StringCmd, NET_MESSAGE_BITS)
+					buffer:WriteString(self.cmd)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.cmd = nil
+				end
+			}
+		},
 
-			SourceNetMsg(string.format("net_StringCmd %s\n", cmd))
-		end
-	},
+		[net_SetConVar] = { -- 5
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_SetConVar"
+				end
 
-	[net_SetConVar] = { -- 5
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_SetConVar, NET_MESSAGE_BITS)
+				local values
+				for i = 1, #self.cvars do
+					local cvar = self.cvars[i]
+					if values then
+						values = string.format("%s, %s = %s", values, cvar.name, cvar.value)
+					else
+						values = string.format("%s = %s", cvar.name, cvar.value)
+					end
+				end
 
-			local count = read:ReadByte()
-			write:WriteByte(count)
+				return "net_SetConVar: " .. values
+			end,
+			__index = {
+				GetType = function()
+					return net_SetConVar
+				end,
+				GetName = function()
+					return "net_SetConVar"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					local count = buffer:ReadByte()
+					self.cvars = {}
+					for i = 1, count do
+						local cvarname = buffer:ReadString()
+						local cvarvalue = buffer:ReadString()
+						self.cvars[i] = {name = cvarname, value = cvarvalue}
+					end
 
-			for i = 1, count do
-				local cvarname = read:ReadString()
-				write:WriteString(cvarname)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local cvarvalue = read:ReadString()
-				write:WriteString(cvarvalue)
+					buffer:WriteUInt(net_SetConVar, NET_MESSAGE_BITS)
+					buffer:WriteByte(#self.cvars)
 
-				SourceNetMsg(string.format("net_SetConVar %s=%s\n", cvarname, cvarvalue))
-			end
-		end
-	},
+					for i = 1, #self.cvars do
+						local cvar = self.cvars[i]
+						buffer:WriteString(cvar.name)
+						buffer:WriteString(cvar.value)
+					end
 
-	[net_SignonState] = { -- 6
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_SignonState, NET_MESSAGE_BITS)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.cvars = nil
+				end
+			}
+		},
 
-			local state = read:ReadByte()
-			write:WriteByte(state)
+		[net_SignonState] = { -- 6
+			__tostring = function(self)
+				if not self.initialized then
+					return "net_SignonState"
+				end
 
-			local servercount = read:ReadLong()
-			write:WriteLong(servercount)
+				return string.format("net_SignonState: state = %i, spawncount = %i", self.state, self.spawncount)
+			end,
+			__index = {
+				GetType = function()
+					return net_SignonState
+				end,
+				GetName = function()
+					return "net_SignonState"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.state = buffer:ReadByte()
+					self.spawncount = buffer:ReadLong()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-			SourceNetMsg(string.format("net_SignonState %i,%i\n", state, servercount))
-		end
+					buffer:WriteUInt(net_SignonState, NET_MESSAGE_BITS)
+					buffer:WriteByte(self.state)
+					buffer:WriteLong(self.spawncount)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.state = nil
+					self.spawncount = nil
+				end
+			}
+		}
 	},
 
 	CLC = {
 		[clc_ClientInfo] = { -- 8
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_ClientInfo, NET_MESSAGE_BITS)
-
-				local spawncount = read:ReadLong()
-				write:WriteLong(spawncount)
-
-				local sendTableCRC = read:ReadLong()
-				write:WriteLong(sendTableCRC)
-
-				local ishltv = read:ReadBit()
-				write:WriteBit(ishltv)
-
-				local friendsID = read:ReadLong()
-				write:WriteLong(friendsID)
-
-				local guid = read:ReadString()
-				write:WriteString(guid)
-
-				for i = 1, MAX_CUSTOM_FILES do
-					local useFile = read:ReadBit()
-					write:WriteBit(useFile)
-
-					if useFile == 1 then
-						local fileCRC = read:ReadUInt(32)
-						write:WriteUInt(fileCRC, 32)
-
-						SourceNetMsg("clc_ClientInfo \t> customization file " .. i .. " = " .. fileCRC .. "\n")
-					end
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_ClientInfo"
 				end
 
-				SourceNetMsg(string.format("clc_ClientInfo %i,%i,%i,%i,%s\n", spawncount, sendTableCRC, ishltv, friendsID, guid))
-			end
+				return string.format("clc_ClientInfo: spawncount = %i, sendtablecrc = %i, ishltv = %s, friendsid = %i, guid = %s", self.spawncount, self.sendtablecrc, self.ishltv, self.friendsid, self.guid)
+			end,
+			__index = {
+				GetType = function()
+					return clc_ClientInfo
+				end,
+				GetName = function()
+					return "clc_ClientInfo"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.spawncount = buffer:ReadLong()
+					self.sendtablecrc = buffer:ReadLong()
+					self.ishltv = buffer:ReadBit() == 1
+					self.friendsid = buffer:ReadLong()
+					self.guid = buffer:ReadString()
+					self.customfiles = {}
+					for i = 1, MAX_CUSTOM_FILES do
+						self.customfiles[i] = buffer:ReadBit() == 1 and buffer:ReadUInt(32) or false
+					end
+
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_ClientInfo, NET_MESSAGE_BITS)
+					buffer:WriteLong(self.spawncount)
+					buffer:WriteLong(self.sendtablecrc)
+					buffer:WriteBit(self.ishltv and 1 or 0)
+					buffer:WriteLong(self.friendsid)
+					buffer:WriteString(self.guid)
+
+					for i = 1, MAX_CUSTOM_FILES do
+						local filecrc = self.customfiles[i]
+						buffer:WriteBit(filecrc ~= false and 1 or 0)
+						if filecrc then
+							buffer:WriteUInt(filecrc, 32)
+						end
+					end
+
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.spawncount = nil
+					self.sendtablecrc = nil
+					self.ishltv = nil
+					self.friendsid = nil
+					self.guid = nil
+					self.customfiles = nil
+				end
+			}
 		},
 
 		[clc_Move] = { -- 9
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_Move, NET_MESSAGE_BITS)
-
-				local new = read:ReadUInt(NUM_NEW_COMMAND_BITS)
-				write:WriteUInt(new, NUM_NEW_COMMAND_BITS)
-
-				local backup = read:ReadUInt(NUM_BACKUP_COMMAND_BITS)
-				write:WriteUInt(backup, NUM_BACKUP_COMMAND_BITS)
-
-				local bits = read:ReadWord()
-				write:WriteWord(bits)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_Move"
 				end
 
-				SourceNetMsg(string.format("clc_Move %i,%i,%i\n", new, backup, bits))
-			end
+				return string.format("clc_Move: new = %i, backup = %i, bits = %i", self.new, self.backup, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return clc_Move
+				end,
+				GetName = function()
+					return "clc_Move"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.new = buffer:ReadUInt(NUM_NEW_COMMAND_BITS)
+					self.backup = buffer:ReadUInt(NUM_BACKUP_COMMAND_BITS)
+					self.bits = buffer:ReadWord()
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_Move, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.new, NUM_NEW_COMMAND_BITS)
+					buffer:WriteUInt(self.backup, NUM_BACKUP_COMMAND_BITS)
+					buffer:WriteWord(self.bits)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.new = nil
+					self.backup = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[clc_VoiceData] = { -- 10
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_VoiceData, NET_MESSAGE_BITS)
-
-				local bits = read:ReadWord()
-				write:WriteWord(bits)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_VoiceData"
 				end
 
-				SourceNetMsg(string.format("clc_VoiceData %i\n", bits))
-			end
+				return "clc_VoiceData: bits = " .. self.bits
+			end,
+			__index = {
+				GetType = function()
+					return clc_VoiceData
+				end,
+				GetName = function()
+					return "clc_VoiceData"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.bits = buffer:ReadWord()
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_VoiceData, NET_MESSAGE_BITS)
+					buffer:WriteWord(self.bits)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[clc_BaselineAck] = { -- 11
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_BaselineAck, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_BaselineAck"
+				end
 
-				local tick = read:ReadLong()
-				write:WriteLong(tick)
+				return string.format("clc_BaselineAck: tick = %i, num = %i", self.tick, self.num)
+			end,
+			__index = {
+				GetType = function()
+					return clc_BaselineAck
+				end,
+				GetName = function()
+					return "clc_BaselineAck"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.tick = buffer:ReadLong()
+					self.num = buffer:ReadUInt(1)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local num = read:ReadUInt(1)
-				write:WriteUInt(num, 1)
-
-				SourceNetMsg(string.format("clc_BaselineAck %i,%i\n", tick, num))
-			end
+					buffer:WriteUInt(clc_BaselineAck, NET_MESSAGE_BITS)
+					buffer:WriteLong(self.tick)
+					buffer:WriteUInt(self.num, 1)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.tick = nil
+					self.num = nil
+				end
+			}
 		},
 
 		[clc_ListenEvents] = { -- 12
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_ListenEvents, NET_MESSAGE_BITS)
+			__tostring = function()
+				return "clc_ListenEvents"
+			end,
+			__index = {
+				GetType = function()
+					return clc_ListenEvents
+				end,
+				GetName = function()
+					return "clc_ListenEvents"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.events = {}
+					for i = 1, 16 do
+						self.events[i] = buffer:ReadUInt(32)
+					end
 
-				for i = 1, 16 do
-					local event = read:ReadUInt(32)
-					write:WriteUInt(event, 32)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_ListenEvents, NET_MESSAGE_BITS)
+
+					for i = 1, 16 do
+						buffer:WriteUInt(self.events[i], 32)
+					end
+
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.events = nil
 				end
-
-				SourceNetMsg(string.format("clc_ListenEvents\n"))
-			end
+			}
 		},
 
 		[clc_RespondCvarValue] = { -- 13
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_RespondCvarValue, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_RespondCvarValue"
+				end
 
-				local cookie = read:ReadInt(32)
-				write:WriteInt(cookie, 32)
+				return string.format("clc_RespondCvarValue: cookie = %i, status = %i, cvarname = %s, cvarvalue = %s", self.cookie, self.status, self.cvarname, self.cvarvalue)
+			end,
+			__index = {
+				GetType = function()
+					return clc_RespondCvarValue
+				end,
+				GetName = function()
+					return "clc_RespondCvarValue"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.cookie = buffer:ReadInt(32)
+					self.status = buffer:ReadInt(4)
+					self.cvarname = buffer:ReadString()
+					self.cvarvalue = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local status = read:ReadInt(4)
-				write:WriteInt(status, 4)
-
-				local cvarname = read:ReadString()
-				write:WriteString(cvarname)
-
-				local cvarvalue = read:ReadString()
-				write:WriteString(cvarvalue)
-
-				SourceNetMsg(string.format("clc_RespondCvarValue %i,%i,%s,%s\n", cookie, status, cvarname, cvarvalue))
-			end
+					buffer:WriteUInt(clc_RespondCvarValue, NET_MESSAGE_BITS)
+					buffer:WriteInt(self.cookie, 32)
+					buffer:WriteInt(self.status, 4)
+					buffer:WriteString(self.cvarname)
+					buffer:WriteString(self.cvarvalue)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.cookie = nil
+					self.status = nil
+					self.cvarname = nil
+					self.cvarvalue = nil
+				end
+			}
 		},
 
 		[clc_FileCRCCheck] = { -- 14
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_FileCRCCheck, NET_MESSAGE_BITS)
-
-				local reserved = read:ReadBit()
-				write:WriteBit(reserved)
-
-				local gamepath = read:ReadUInt(2)
-				write:WriteUInt(gamepath, 2)
-
-				local pathid = "commonpath"
-
-				if gamepath == 0 then
-					pathid = read:ReadString()
-					write:WriteString(pathid)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_FileCRCCheck"
 				end
 
-				local prefixid = read:ReadUInt(3)
-				write:WriteUInt(prefixid, 3)
+				return string.format("clc_FileCRCCheck: %s, %s, %s, %i, %s, %i", self.reserved, self.gamepath, self.pathid, self.prefixid, self.filename, self.crc)
+			end,
+			__index = {
+				GetType = function()
+					return clc_FileCRCCheck
+				end,
+				GetName = function()
+					return "clc_FileCRCCheck"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.reserved = buffer:ReadBit() == 1
+					self.gamepath = buffer:ReadUInt(2)
+					self.pathid = "commonpath"
+					if self.gamepath == 0 then
+						self.pathid = buffer:ReadString()
+					end
+					self.prefixid = buffer:ReadUInt(3)
+					self.filename = buffer:ReadString()
+					self.crc = buffer:ReadUInt(32)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local filename = read:ReadString()
-				write:WriteString(filename)
-
-				local crc = read:ReadUInt(32)
-				write:WriteUInt(crc, 32)
-
-				SourceNetMsg(string.format("clc_FileCRCCheck %i,%s,%s,%i,%s,%i", reserved, gamepath, pathid, prefixid, filename, crc))
-			end
+					buffer:WriteUInt(clc_FileCRCCheck, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.reserved and 1 or 0)
+					buffer:WriteUInt(self.gamepath, 2)
+					if self.gamepath == 0 then
+						buffer:WriteString(self.pathid)
+					end
+					buffer:WriteUInt(self.prefixid, 3)
+					buffer:WriteString(self.filename)
+					buffer:WriteUInt(self.crc, 32)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.reserved = nil
+					self.gamepath = nil
+					self.pathid = nil
+					self.prefixid = nil
+					self.filename = nil
+					self.crc = nil
+				end
+			}
 		},
 
 		[clc_CmdKeyValues] = { -- 16
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_CmdKeyValues, NET_MESSAGE_BITS)
-
-				local length = read:ReadLong()
-				write:WriteLong(length)
-
-				if length > 0 then
-					local keyvalues = read:ReadBytes(length)
-					write:WriteBits(keyvalues)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_CmdKeyValues"
 				end
 
-				SourceNetMsg(string.format("clc_CmdKeyValues %i\n", length))
-			end
+				return "clc_CmdKeyValues: " .. self.length
+			end,
+			__index = {
+				GetType = function()
+					return clc_CmdKeyValues
+				end,
+				GetName = function()
+					return "clc_CmdKeyValues"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.length = buffer:ReadUInt(32)
+					if self.length > 0 then
+						self.keyvalues = buffer:ReadBytes(self.length)
+					end
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_CmdKeyValues, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.length, 32)
+					if self.length > 0 then
+						buffer:WriteBytes(self.keyvalues)
+					end
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.length = nil
+					self.keyvalues = nil
+				end
+			}
 		},
 
 		[clc_FileMD5Check] = { -- 17
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_FileMD5Check, NET_MESSAGE_BITS)
-
-				local reserved = read:ReadBit()
-				write:WriteBit(reserved)
-
-				local gamepath = read:ReadUInt(2)
-				write:WriteUInt(gamepath, 2)
-
-				local pathid = "commonpath"
-
-				if gamepath == 0 then
-					pathid = read:ReadString()
-					write:WriteString(pathid)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_FileMD5Check"
 				end
 
-				local prefixid = read:ReadUInt(3)
-				write:WriteUInt(prefixid, 3)
+				return string.format("clc_FileMD5Check: reserved = %s, gamepath = %s, pathid = %s, prefixid = %i, filename = %s, md5 = %s", self.reserved, self.gamepath, self.pathid, self.prefixid, self.filename, self.md5)
+			end,
+			__index = {
+				GetType = function()
+					return clc_FileMD5Check
+				end,
+				GetName = function()
+					return "clc_FileMD5Check"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.reserved = buffer:ReadBit() == 1
+					self.gamepath = buffer:ReadUInt(2)
+					self.pathid = "commonpath"
+					if self.gamepath == 0 then
+						self.pathid = buffer:ReadString()
+					end
+					self.prefixid = buffer:ReadUInt(3)
+					self.filename = buffer:ReadString()
+					self.md5 = buffer:ReadBytes(16)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local filename = read:ReadString()
-				write:WriteString(filename)
-
-				local md5 = read:ReadBytes(16)
-				write:WriteUInt(md5, 16)
-
-				SourceNetMsg(string.format("clc_FileMD5Check %i,%s,%s,%i,%s,%s", reserved, gamepath, pathid, prefixid, filename, md5))
-			end
+					buffer:WriteUInt(clc_FileMD5Check, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.reserved and 1 or 0)
+					buffer:WriteUInt(self.gamepath, 2)
+					if self.gamepath == 0 then
+						buffer:WriteString(self.pathid)
+					end
+					buffer:WriteUInt(self.prefixid, 3)
+					buffer:WriteString(self.filename)
+					buffer:WriteUInt(self.md5, 16)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.reserved = nil
+					self.gamepath = nil
+					self.pathid = nil
+					self.prefixid = nil
+					self.filename = nil
+					self.md5 = nil
+				end
+			}
 		},
 
 		[clc_GMod_ClientToServer] = { -- 18
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(clc_GMod_ClientToServer, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "clc_GMod_ClientToServer"
+				end
 
-				local bits = read:ReadUInt(20)
-				write:WriteUInt(bits, 20)
-
-				local msgtype = read:ReadByte()
-				write:WriteByte(msgtype)
-				bits = bits - 8
-
-				if msgtype == 0 then
-					local id = read:ReadWord()
-					write:WriteWord(id)
-					bits = bits - 16
-
-					if bits > 0 then
-						local data = read:ReadBits(bits)
-						write:WriteBits(data)
-					end
-
-					SourceNetMsg(string.format("clc_GMod_ClientToServer netmessage bits=%i,msgtype=%i,id=%i/%s\n", bits, msgtype, id, util.NetworkIDToString(id) or "unknown message"))
-				elseif msgtype == 2 then
-					local strerr = read:ReadString()
-					write:WriteString(strerr)
-
-					SourceNetMsg(string.format("clc_GMod_ClientToServer client Lua error\n%s", strerr))
-				elseif msgtype == 4 then
-					local count = bits / 16
-
-					if count > 0 then
-						local id = read:ReadUInt(16)
-						write:WriteUInt(id, 16)
-
-						local str = tostring(id)
-
-						for i = 2, count do
-							id = read:ReadUInt(16)
-							write:WriteUInt(id, 16)
-
-							str = str .. ", " .. id
-						end
-
-						SourceNetMsg(string.format("clc_GMod_ClientToServer GModDataPack::SendFileToClient bits=%i,counts=%i %s\n", bits, count, str))
+				if self.msgtype == 0 then
+					return string.format("clc_GMod_ClientToServer netmessage: bits = %i, msgtype = %i, id = %i/%s", self.bits, self.msgtype, self.id, util.NetworkIDToString(self.id) or "unknown message")
+				elseif self.msgtype == 2 then
+					return string.format("clc_GMod_ClientToServer client Lua error: %s", self.strerr)
+				elseif self.msgtype == 4 then
+					self.count = self.bits / 16
+					if self.count > 0 then
+						return string.format("clc_GMod_ClientToServer GModDataPack::SendFileToClient: bits = %i, count = %i", self.bits, self.count)
 					else
-						SourceNetMsg("clc_GMod_ClientToServer GModDataPack::SendFileToClient\n")
+						return "clc_GMod_ClientToServer GModDataPack::SendFileToClient"
 					end
 				end
-			end
+
+				return "clc_GMod_ClientToServer invalid"
+			end,
+			__index = {
+				GetType = function()
+					return clc_GMod_ClientToServer
+				end,
+				GetName = function()
+					return "clc_GMod_ClientToServer"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					local bits = buffer:ReadUInt(20)
+					self.bits = bits
+					self.msgtype = buffer:ReadByte()
+					bits = bits - 8
+
+					if self.msgtype == 0 then
+						self.id = buffer:ReadWord()
+						bits = bits - 16
+
+						if bits > 0 then
+							self.data = buffer:ReadBits(bits)
+						end
+					elseif self.msgtype == 2 then
+						self.strerr = buffer:ReadString()
+					elseif self.msgtype == 4 then
+						self.count = bits / 16
+
+						self.ids = {}
+						for i = 1, self.count do
+							self.ids[i] = buffer:ReadUInt(16)
+						end
+					end
+
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(clc_GMod_ClientToServer, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.bits, 20)
+					buffer:WriteByte(self.msgtype)
+
+					if self.msgtype == 0 then
+						buffer:WriteWord(self.id)
+
+						if self.data ~= nil then
+							buffer:WriteBits(self.data)
+						end
+					elseif self.msgtype == 2 then
+						buffer:WriteString(self.strerr)
+					elseif self.msgtype == 4 then
+						for i = 1, self.count do
+							buffer:WriteUInt(self.ids[i], 16)
+						end
+					end
+
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.bits = nil
+					self.msgtype = nil
+					self.id = nil
+					self.data = nil
+					self.strerr = nil
+					self.ids = nil
+				end
+			}
 		},
 	},
 
 	SVC = {
 		[svc_Print] = { -- 7
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_Print, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_Print"
+				end
 
-				local str = read:ReadString()
-				write:WriteString(str)
+				return "svc_Print: " .. self.str
+			end,
+			__index = {
+				GetType = function()
+					return svc_Print
+				end,
+				GetName = function()
+					return "svc_Print"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.str = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				SourceNetMsg(string.format("svc_Print %s\n", str))
-			end
+					buffer:WriteUInt(svc_Print, NET_MESSAGE_BITS)
+					buffer:WriteString(self.str)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.str = nil
+				end
+			}
 		},
 
 		[svc_ServerInfo] = { -- 8
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_ServerInfo, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_ServerInfo"
+				end
 
-				-- Protocol version number
-				local version = read:ReadShort()
-				write:WriteShort(version)
+				return string.format("svc_ServerInfo: version = %i, servercount = %i, sourcetv = %s, dedicated = %s, serverclientcrc = %i, maxclasses = %i, servermapmd5 = %s, playernum = %i, maxclients = %i, interval_per_tick = %i, platform = %s, gamedir = %s, levelname = %s, skyname = %s, hostname = %s, loadingurl = %s, gamemode = %s", self.version, self.servercount, self.sourcetv, self.dedicated, self.serverclientcrc, self.maxclasses, self.servermapmd5, self.playernum, self.maxclients, self.interval_per_tick, string.char(self.platform), self.gamedir, self.levelname, self.skyname, self.hostname, self.loadingurl, self.gamemode)
+			end,
+			__index = {
+				GetType = function()
+					return svc_ServerInfo
+				end,
+				GetName = function()
+					return "svc_ServerInfo"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					-- Protocol version number
+					self.version = buffer:ReadShort()
+					-- # of servers spawned since server .exe started
+					-- So that we can detect new server startup during download, etc.
+					-- Map change causes new server to "spawn".
+					self.servercount = buffer:ReadLong()
+					-- Is SourceTV enabled?
+					self.sourcetv = buffer:ReadBit() == 1
+					-- 0 == listen, 1 == dedicated
+					self.dedicated = buffer:ReadBit() == 1
+					-- The client side DLL CRC check.
+					self.serverclientcrc = buffer:ReadLong()
+					-- Max amount of 'classes' (entity classes?)
+					self.maxclasses = buffer:ReadWord()
+					-- The MD5 of the server map must match the MD5 of the client map, else
+					-- the client is probably cheating.
+					self.servermapmd5 = buffer:ReadBytes(16)
+					-- Amount of clients currently connected
+					self.playernum = buffer:ReadByte()
+					-- Max amount of clients
+					self.maxclients = buffer:ReadByte()
+					-- Interval between ticks
+					self.interval_per_tick = buffer:ReadFloat()
+					-- Server platform ('w', ...?)
+					self.platform = buffer:ReadChar()
+					-- Directory used by game (eg. garrysmod)
+					self.gamedir = buffer:ReadString()
+					-- Map being played
+					self.levelname = buffer:ReadString()
+					-- Skybox to use
+					self.skyname = buffer:ReadString()
+					-- Server name
+					self.hostname = buffer:ReadString()
+					-- Loading URL of the server
+					self.loadingurl = buffer:ReadString()
+					-- Gamemode
+					self.gamemode = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				-- # of servers spawned since server .exe started
-				-- So that we can detect new server startup during download, etc.
-				-- Map change causes new server to "spawn".
-				local servercount = read:ReadLong()
-				write:WriteLong(servercount)
-
-				-- Is SourceTV enabled?
-				local sourcetv = read:ReadBit()
-				write:WriteBit(sourcetv)
-
-				-- 0 == listen, 1 == dedicated
-				local dedicated = read:ReadBit()
-				write:WriteBit(dedicated)
-
-				-- The client side DLL CRC check.
-				local serverclientcrc = read:ReadLong()
-				write:WriteLong(serverclientcrc)
-
-				-- Max amount of 'classes' (entity classes?)
-				local maxclasses = read:ReadWord()
-				write:WriteWord(maxclasses)
-
-				-- The MD5 of the server map must match the MD5 of the client map, else
-				-- the client is probably cheating.
-				local servermapmd5 = read:ReadBytes(16)
-				write:WriteBytes(servermapmd5)
-
-				-- Amount of clients currently connected
-				local playernum = read:ReadByte()
-				write:WriteByte(playernum)
-
-				-- Max amount of clients
-				local maxclients = read:ReadByte()
-				write:WriteByte(maxclients)
-
-				-- Interval between ticks
-				local interval_per_tick = read:ReadFloat()
-				write:WriteFloat(interval_per_tick)
-
-				-- Server platform ('w', ...?)
-				local platform = read:ReadChar()
-				write:WriteChar(platform)
-
-				-- Directory used by game (eg. garrysmod)
-				local gamedir = read:ReadString()
-				write:WriteString(gamedir)
-
-				-- Map being played
-				local levelname = read:ReadString()
-				write:WriteString(levelname)
-
-				-- Skybox to use
-				local skyname = read:ReadString()
-				write:WriteString(skyname)
-
-				-- Server name
-				local hostname = read:ReadString()
-				write:WriteString(hostname)
-
-				-- Loading URL of the server
-				local loadingurl = read:ReadString()
-				write:WriteString(loadingurl)
-
-				-- Gamemode
-				local gamemode = read:ReadString()
-				write:WriteString(gamemode)
-
-				SourceNetMsg(string.format("svc_ServerInfo %i,%i,%i,%i,%i,%i,%s,%i,%i,%i,%s,%s,%s,%s,%s,%s,%s\n", version, servercount, sourcetv, dedicated, serverclientcrc, maxclasses, servermapmd5, playernum, maxclients, interval_per_tick, string.char(platform), gamedir, levelname, skyname, hostname, loadingurl, gamemode))
-			end
+					buffer:WriteUInt(svc_ServerInfo, NET_MESSAGE_BITS)
+					buffer:WriteShort(self.version)
+					buffer:WriteLong(self.servercount)
+					buffer:WriteBit(self.sourcetv and 1 or 0)
+					buffer:WriteBit(self.dedicated and 1 or 0)
+					buffer:WriteLong(self.serverclientcrc)
+					buffer:WriteWord(self.maxclasses)
+					buffer:WriteBytes(self.servermapmd5)
+					buffer:WriteByte(self.playernum)
+					buffer:WriteByte(self.maxclients)
+					buffer:WriteFloat(self.interval_per_tick)
+					buffer:WriteChar(self.platform)
+					buffer:WriteString(self.gamedir)
+					buffer:WriteString(self.levelname)
+					buffer:WriteString(self.skyname)
+					buffer:WriteString(self.hostname)
+					buffer:WriteString(self.loadingurl)
+					buffer:WriteString(self.gamemode)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.version = nil
+					self.servercount = nil
+					self.sourcetv = nil
+					self.dedicated = nil
+					self.serverclientcrc = nil
+					self.maxclasses = nil
+					self.servermapmd5 = nil
+					self.playernum = nil
+					self.maxclients = nil
+					self.interval_per_tick = nil
+					self.platform = nil
+					self.gamedir = nil
+					self.levelname = nil
+					self.skyname = nil
+					self.hostname = nil
+					self.loadingurl = nil
+					self.gamemode = nil
+				end
+			}
 		},
 
 		[svc_SendTable] = { -- 9
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_SendTable, NET_MESSAGE_BITS)
-
-				local encoded = read:ReadBit()
-				write:WriteBit(encoded)
-
-				local bits = read:ReadShort()
-				write:WriteShort(bits)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_SendTable"
 				end
 
-				SourceNetMsg(string.format("svc_SendTable %i,%i\n", encoded, bits))
-			end
+				return string.format("svc_SendTable: encoded = %s, bits = %i", self.encoded, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_SendTable
+				end,
+				GetName = function()
+					return "svc_SendTable"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.encoded = buffer:ReadBit() == 1
+					self.bits = buffer:ReadWord()
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_SendTable, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.encoded and 1 or 0)
+					buffer:WriteWord(self.bits)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.encoded = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_ClassInfo] = { -- 10
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_ClassInfo, NET_MESSAGE_BITS)
-
-				local numclasses = read:ReadShort()
-				write:WriteShort(numclasses)
-
-				local useclientclasses = read:ReadBit()
-				write:WriteBit(useclientclasses)
-
-				local size = log2(numclasses) + 1
-				if useclientclasses == 0 then
-					for i = 1, numclasses do
-						local classid = read:ReadUInt(size)
-						write:WriteUInt(classid, size)
-
-						local classname = read:ReadString()
-						write:WriteString(classname)
-
-						local dtname = read:ReadString()
-						write:WriteString(dtname)
-
-						SourceNetMsg(string.format("svc_ClassInfo full update,%i,%s,%s\n", classid, classname, dtname))
-					end
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_ClassInfo"
 				end
 
-				SourceNetMsg(string.format("svc_ClassInfo %i,%i\n", numclasses, useclientclasses))
-			end
+				return string.format("svc_ClassInfo: numclasses = %i, useclientclasses = %s", self.numclasses, self.useclientclasses)
+			end,
+			__index = {
+				GetType = function()
+					return svc_ClassInfo
+				end,
+				GetName = function()
+					return "svc_ClassInfo"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.numclasses = buffer:ReadWord()
+					self.useclientclasses = buffer:ReadBit() == 1
+					if not self.useclientclasses then
+						self.classes = {}
+						local size = log2(self.numclasses) + 1
+						for i = 1, self.numclasses do
+							self.classes[i] = {}
+							self.classes[i].classid = buffer:ReadUInt(size)
+							self.classes[i].classname = buffer:ReadString()
+							self.classes[i].dtname = buffer:ReadString()
+						end
+					end
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_ClassInfo, NET_MESSAGE_BITS)
+					buffer:WriteWord(self.numclasses)
+					buffer:WriteBit(self.useclientclasses and 1 or 0)
+					if not self.useclientclasses then
+						local size = log2(self.numclasses) + 1
+						for i = 1, self.numclasses do
+							buffer:WriteUInt(self.classes[i].classid, size)
+							buffer:WriteString(self.classes[i].classname)
+							buffer:WriteString(self.classes[i].dtname)
+						end
+					end
+
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.numclasses = nil
+					self.useclientclasses = nil
+					self.classes = nil
+				end
+			}
 		},
 
 		[svc_SetPause] = { -- 11
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_SetPause, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_SetPause"
+				end
 
-				local state = read:ReadBit()
-				write:WriteBit(state)
+				return "svc_SetPause: " .. tostring(self.paused)
+			end,
+			__index = {
+				GetType = function()
+					return svc_SetPause
+				end,
+				GetName = function()
+					return "svc_SetPause"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.paused = buffer:ReadBit() == 1
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				SourceNetMsg(string.format("svc_SetPause %i\n", state))
-			end
+					buffer:WriteUInt(svc_SetPause, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.paused and 1 or 0)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.paused = nil
+				end
+			}
 		},
 
 		[svc_CreateStringTable] = { -- 12
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_CreateStringTable, NET_MESSAGE_BITS)
-
-				local tablename = read:ReadString()
-				write:WriteString(tablename)
-
-				local maxentries = read:ReadWord()
-				write:WriteWord(maxentries)
-
-				local size = log2(maxentries) + 1
-				local entries = read:ReadUInt(size)
-				write:WriteUInt(entries, size)
-
-				local bits = read:ReadVarInt32()
-				write:WriteVarInt32(bits)
-
-				local userdata = read:ReadBit()
-				write:WriteBit(userdata)
-
-				if userdata == 1 then
-					local userdatasize = read:ReadUInt(12)
-					write:WriteUInt(userdatasize, 12)
-
-					local userdatabits = read:ReadUInt(4)
-					write:WriteUInt(userdatabits, 4)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_CreateStringTable"
 				end
 
-				local compressed = read:ReadBit()
-				write:WriteBit(compressed)
+				return string.format("svc_CreateStringTable: tablename = %s, maxentries = %d, bits = %d, userdata = %s, userdatasize = %d, userdatabits = %d, compressed = %s", self.tablename, self.maxentries, self.bits, self.userdata, self.userdatasize, self.userdatabits, self.compressed)
+			end,
+			__index = {
+				GetType = function()
+					return svc_CreateStringTable
+				end,
+				GetName = function()
+					return "svc_CreateStringTable"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.tablename = buffer:ReadString()
+					self.maxentries = buffer:ReadWord()
+					self.entries = buffer:ReadUInt(log2(self.maxentries) + 1)
+					self.bits = buffer:ReadVarInt32()
+					self.userdata = buffer:ReadBit() == 1
+					self.userdatasize = self.userdata and buffer:ReadUInt(12) or 0
+					self.userdatabits = self.userdata and buffer:ReadUInt(4) or 0
+					self.compressed = buffer:ReadBit() == 1
+					self.data = self.bits > 0 and buffer:ReadBits(self.bits) or nil
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+					buffer:WriteUInt(svc_CreateStringTable, NET_MESSAGE_BITS)
+					buffer:WriteString(self.tablename)
+					buffer:WriteWord(self.maxentries)
+					buffer:WriteUInt(self.entries, log2(self.maxentries) + 1)
+					buffer:WriteVarInt32(self.bits)
+					buffer:WriteBit(self.userdata and 1 or 0)
+					if self.userdata then
+						buffer:WriteUInt(self.userdatasize, 12)
+						buffer:WriteUInt(self.userdatabits, 4)
+					end
+					buffer:WriteBit(self.compressed and 1 or 0)
+					if self.data ~= nil then
+						buffer:WriteBits(self.data)
+					end
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.tablename = nil
+					self.maxentries = nil
+					self.entries = nil
+					self.bits = nil
+					self.userdata = nil
+					self.userdatasize = nil
+					self.userdatabits = nil
+					self.compressed = nil
+					self.data = nil
 				end
-
-				SourceNetMsg(string.format("svc_CreateStringTable %s\n", tablename))
-			end
+			}
 		},
 
 		[svc_UpdateStringTable] = { -- 13
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_UpdateStringTable, NET_MESSAGE_BITS)
-
-				local tableid = read:ReadUInt(MAX_TABLES_BITS)
-				write:WriteUInt(tableid, MAX_TABLES_BITS)
-
-				local morechanged = read:ReadBit()
-				write:WriteBit(morechanged)
-
-				local changed = 1
-				if morechanged == 1 then
-					changed = read:ReadWord()
-					write:WriteWord(changed)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_UpdateStringTable"
 				end
 
-				local bits = read:ReadUInt(20)
-				write:WriteUInt(bits, 20)
+				return string.format("svc_UpdateStringTable: tableid = %i, changed = %i, bits = %i", self.tableid, self.changed, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_UpdateStringTable
+				end,
+				GetName = function()
+					return "svc_UpdateStringTable"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.tableid = buffer:ReadUInt(MAX_TABLES_BITS)
+					self.changed = buffer:ReadBit() == 1 and buffer:ReadUInt(16) or 1
+					self.bits = buffer:ReadUInt(20)
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+					buffer:WriteUInt(svc_UpdateStringTable, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.tableid, MAX_TABLES_BITS)
+					buffer:WriteBit(self.changed == 1 and 0 or 1)
+					if self.changed ~= 1 then
+						buffer:WriteUInt(self.changed, 16)
+					end
+					buffer:WriteUInt(self.bits, 20)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.tableid = nil
+					self.changed = nil
+					self.bits = nil
+					self.data = nil
 				end
-
-				SourceNetMsg(string.format("svc_UpdateStringTable tableid=%i,morechanged=%i,changed=%i,bits=%i\n", tableid, morechanged, changed, bits))
-			end
+			}
 		},
 
 		[svc_VoiceInit] = { -- 14
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_VoiceInit, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_VoiceInit"
+				end
 
-				local codec = read:ReadString()
-				write:WriteString(codec)
+				return string.format("svc_VoiceInit: codec = %s, quality = %i", self.codec, self.quality)
+			end,
+			__index = {
+				GetType = function()
+					return svc_VoiceInit
+				end,
+				GetName = function()
+					return "svc_VoiceInit"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.codec = buffer:ReadString()
+					self.quality = buffer:ReadByte()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local quality = read:ReadByte()
-				write:WriteByte(quality)
-
-				SourceNetMsg(string.format("svc_VoiceInit codec=%s,quality=%i\n", codec, quality))
-			end
+					buffer:WriteUInt(svc_VoiceInit, NET_MESSAGE_BITS)
+					buffer:WriteString(self.codec)
+					buffer:WriteByte(self.quality)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.codec = nil
+					self.quality = nil
+				end
+			}
 		},
 
 		[svc_VoiceData] = { -- 15
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_VoiceData, NET_MESSAGE_BITS)
-
-				local client = read:ReadByte()
-				write:WriteByte(client)
-
-				local proximity = read:ReadByte()
-				write:WriteByte(proximity)
-
-				local bits = read:ReadWord()
-				write:WriteWord(bits)
-
-				if bits > 0 then
-					local voicedata = read:ReadBits(bits)
-					write:WriteBits(voicedata)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_VoiceData"
 				end
 
-				SourceNetMsg(string.format("svc_VoiceData client=%i,proximity=%i,bits=%i\n", client, proximity, bits))
-			end
+				return string.format("svc_VoiceData: client = %i, proximity = %i, bits = %i", self.client, self.proximity, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_VoiceData
+				end,
+				GetName = function()
+					return "svc_VoiceData"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.client = buffer:ReadByte()
+					self.proximity = buffer:ReadByte()
+					self.bits = buffer:ReadWord()
+					if self.bits > 0 then
+						self.voicedata = buffer:ReadBits(self.bits)
+					end
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_VoiceData, NET_MESSAGE_BITS)
+					buffer:WriteByte(self.client)
+					buffer:WriteByte(self.proximity)
+					buffer:WriteWord(self.bits)
+					if self.voicedata ~= nil then
+						buffer:WriteBits(self.voicedata)
+					end
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.client = nil
+					self.proximity = nil
+					self.bits = nil
+					self.voicedata = nil
+				end
+			}
 		},
 
 		[svc_Sounds] = { -- 17
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_Sounds, NET_MESSAGE_BITS)
-
-				local reliable = read:ReadBit()
-				write:WriteBit(reliable)
-
-				local num
-				local bits
-
-				if reliable == 0 then
-					num = read:ReadUInt(8)
-					write:WriteUInt(num, 8)
-
-					bits = read:ReadUInt(16)
-					write:WriteUInt(bits, 16)
-				else
-					num = 1
-
-					bits = read:ReadUInt(8)
-					write:WriteUInt(bits, 8)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_Sounds"
 				end
 
+				return string.format("svc_Sounds: reliable = %s, num = %i, bits = %i\n", self.reliable, self.num, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_Sounds
+				end,
+				GetName = function()
+					return "svc_Sounds"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.reliable = buffer:ReadBit() == 1
+					self.num = self.reliable and 1 or buffer:ReadUInt(8)
+					self.bits = self.reliable and buffer:ReadUInt(8) or buffer:ReadUInt(16)
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+					buffer:WriteUInt(svc_Sounds, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.reliable and 1 or 0)
+					if not self.reliable then
+						buffer:WriteUInt(self.num, 8)
+						buffer:WriteUInt(self.bits, 16)
+					else
+						buffer:WriteUInt(self.bits, 8)
+					end
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.reliable = nil
+					self.num = nil
+					self.bits = nil
+					self.data = nil
 				end
-
-				SourceNetMsg(string.format("svc_Sounds reliable=%i,num=%i,bits=%i\n", reliable, num, bits))
-			end
+			}
 		},
 
 		[svc_SetView] = { -- 18
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_SetView, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_SetView"
+				end
 
-				local viewent = read:ReadUInt(MAX_EDICT_BITS)
-				write:WriteUInt(viewent, MAX_EDICT_BITS)
+				return "svc_SetView: viewent = " .. self.viewent
+			end,
+			__index = {
+				GetType = function()
+					return svc_SetView
+				end,
+				GetName = function()
+					return "svc_SetView"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.viewent = buffer:ReadUInt(MAX_EDICT_BITS)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				SourceNetMsg(string.format("svc_SetView viewent=%i\n", viewent))
-			end
+					buffer:WriteUInt(svc_SetView, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.viewent, MAX_EDICT_BITS)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.viewent = nil
+				end
+			}
 		},
 
 		[svc_FixAngle] = { -- 19
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_FixAngle, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_FixAngle"
+				end
 
-				local relative = read:ReadBit()
-				write:WriteBit(relative)
+				return string.format("svc_FixAngle: relative = %s, x = %i, y = %i, z = %i", self.relative, self.x, self.y, self.z)
+			end,
+			__index = {
+				GetType = function()
+					return svc_FixAngle
+				end,
+				GetName = function()
+					return "svc_FixAngle"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.relative = buffer:ReadBit() == 1
+					self.x = buffer:ReadBitAngle(16)
+					self.y = buffer:ReadBitAngle(16)
+					self.z = buffer:ReadBitAngle(16)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local x = read:ReadBitAngle(16)
-				write:WriteBitAngle(x, 16)
-
-				local y = read:ReadBitAngle(16)
-				write:WriteBitAngle(y, 16)
-
-				local z = read:ReadBitAngle(16)
-				write:WriteBitAngle(z, 16)
-
-				SourceNetMsg(string.format("svc_FixAngle relative=%i,x=%i,y=%i,z=%i\n", relative, x, y, z))
-			end
+					buffer:WriteUInt(svc_FixAngle, NET_MESSAGE_BITS)
+					buffer:WriteBit(self.relative and 1 or 0)
+					buffer:WriteBitAngle(self.x, 16)
+					buffer:WriteBitAngle(self.y, 16)
+					buffer:WriteBitAngle(self.z, 16)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.relative = nil
+					self.x = nil
+					self.y = nil
+					self.z = nil
+				end
+			}
 		},
 
 		[svc_CrosshairAngle] = { -- 20
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_CrosshairAngle, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_CrosshairAngle"
+				end
 
-				local p = read:ReadBitAngle(16) or 0
-				write:WriteBitAngle(p, 16)
+				return string.format("svc_CrosshairAngle: p = %i, y = %i, r = %i", self.p, self.y, self.r)
+			end,
+			__index = {
+				GetType = function()
+					return svc_CrosshairAngle
+				end,
+				GetName = function()
+					return "svc_CrosshairAngle"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.p = buffer:ReadBitAngle(16)
+					self.y = buffer:ReadBitAngle(16)
+					self.r = buffer:ReadBitAngle(16)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local y = read:ReadBitAngle(16) or 0
-				write:WriteBitAngle(y, 16)
-
-				local r = read:ReadBitAngle(16) or 0
-				write:WriteBitAngle(r, 16)
-
-				SourceNetMsg(string.format("svc_CrosshairAngle p=%i,y=%i,r=%i\n", p, y, r))
-			end
+					buffer:WriteUInt(svc_CrosshairAngle, NET_MESSAGE_BITS)
+					buffer:WriteBitAngle(self.p, 16)
+					buffer:WriteBitAngle(self.y, 16)
+					buffer:WriteBitAngle(self.r, 16)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.p = nil
+					self.y = nil
+					self.r = nil
+				end
+			}
 		},
 
 		[svc_BSPDecal] = { -- 21
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_BSPDecal, NET_MESSAGE_BITS)
-
-				local pos = read:ReadVector()
-				write:WriteVector(pos)
-
-				local texture = read:ReadUInt(9)
-				write:WriteUInt(texture, 9)
-
-				local useentity = read:ReadBit()
-				write:WriteBit(useentity)
-
-				local ent
-				local modulation
-
-				if useentity == 1 then
-					ent = read:ReadUInt(MAX_EDICT_BITS)
-					write:WriteUInt(ent, MAX_EDICT_BITS)
-
-					modulation = read:ReadUInt(12)
-					write:WriteUInt(modulation, 12)
-				else
-					ent = 0
-					modulation = 0
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_BSPDecal"
 				end
 
-				local lowpriority = read:ReadBit()
-				write:WriteBit(lowpriority)
+				return string.format("svc_BSPDecal: pos = %s, texture = %d, useentity = %s, ent = %d, modulation = %d, lowpriority = %s", tostring(self.pos), self.texture, self.useentity, self.ent, self.modulation, self.lowpriority)
+			end,
+			__index = {
+				GetType = function()
+					return svc_BSPDecal
+				end,
+				GetName = function()
+					return "svc_BSPDecal"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.pos = buffer:ReadVector()
+					self.texture = buffer:ReadUInt(9)
+					self.useentity = buffer:ReadBit() == 1
+					if self.useentity then
+						self.ent = buffer:ReadUInt(MAX_EDICT_BITS)
+						self.modulation = buffer:ReadUInt(12)
+					else
+						self.ent = 0
+						self.modulation = 0
+					end
+					self.lowpriority = buffer:ReadBit() == 1
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				SourceNetMsg(string.format("svc_BSPDecal %s, %d, %d, %d, %d, %d\n", tostring(pos), texture, useentity, ent, modulation, lowpriority))
-			end
+					buffer:WriteUInt(svc_BSPDecal, NET_MESSAGE_BITS)
+					buffer:WriteVector(self.pos)
+					buffer:WriteUInt(self.texture, 9)
+					buffer:WriteBit(self.useentity and 1 or 0)
+					if self.useentity then
+						buffer:WriteUInt(self.ent, MAX_EDICT_BITS)
+						buffer:WriteUInt(self.modulation, 12)
+					end
+					buffer:WriteBit(self.lowpriority and 1 or 0)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.pos = nil
+					self.texture = nil
+					self.useentity = nil
+					self.ent = nil
+					self.modulation = nil
+					self.lowpriority = nil
+				end
+			}
 		},
 
 		[svc_UserMessage] = { -- 23
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_UserMessage, NET_MESSAGE_BITS)
-
-				local msgtype = read:ReadByte()
-				write:WriteByte(msgtype)
-
-				local bits = read:ReadUInt(MAX_USERMESSAGE_BITS)
-				write:WriteUInt(bits, MAX_USERMESSAGE_BITS)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_UserMessage"
 				end
 
-				SourceNetMsg(string.format("svc_UserMessage msgtype=%i,bits=%i\n", msgtype, bits))
-			end
+				return string.format("svc_UserMessage: msgtype = %i, bits = %i", self.msgtype, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_UserMessage
+				end,
+				GetName = function()
+					return "svc_UserMessage"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.msgtype = buffer:ReadByte()
+					self.bits = buffer:ReadUInt(MAX_USERMESSAGE_BITS)
+					if self.bits > 0 then
+						self.data = buffer:ReadBits(self.bits)
+					end
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_UserMessage, NET_MESSAGE_BITS)
+					buffer:WriteByte(self.msgtype)
+					buffer:WriteUInt(self.bits, MAX_USERMESSAGE_BITS)
+					if self.data ~= nil then
+						buffer:WriteBits(self.data)
+					end
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.msgtype = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_EntityMessage] = { -- 24
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_EntityMessage, NET_MESSAGE_BITS)
-
-				local entity = read:ReadUInt(MAX_EDICT_BITS)
-				write:WriteUInt(entity, MAX_EDICT_BITS)
-
-				local class = read:ReadUInt(MAX_SERVER_CLASS_BITS)
-				write:WriteUInt(class, MAX_SERVER_CLASS_BITS)
-
-				local bits = read:ReadUInt(MAX_ENTITYMESSAGE_BITS)
-				write:WriteUInt(bits, MAX_ENTITYMESSAGE_BITS)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_EntityMessage"
 				end
 
-				SourceNetMsg(string.format("svc_EntityMessage entity=%i,class=%i,bits=%i\n", entity, class, bits))
-			end
+				return string.format("svc_EntityMessage: entity = %i, class = %i, bits = %i", self.entity, self.class, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_EntityMessage
+				end,
+				GetName = function()
+					return "svc_EntityMessage"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.entity = buffer:ReadUInt(MAX_EDICT_BITS)
+					self.class = buffer:ReadUInt(MAX_SERVER_CLASS_BITS)
+					self.bits = buffer:ReadUInt(MAX_ENTITYMESSAGE_BITS)
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_EntityMessage, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.entity, MAX_EDICT_BITS)
+					buffer:WriteUInt(self.class, MAX_SERVER_CLASS_BITS)
+					buffer:WriteUInt(self.bits, MAX_ENTITYMESSAGE_BITS)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.entity = nil
+					self.class = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_GameEvent] = { -- 25
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_GameEvent, NET_MESSAGE_BITS)
-
-				local bits = read:ReadUInt(11)
-				write:WriteUInt(bits, 11)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_GameEvent"
 				end
 
-				SourceNetMsg(string.format("svc_GameEvent bits=%i\n", bits))
-			end
+				return "svc_GameEvent: bits = " .. self.bits
+			end,
+			__index = {
+				GetType = function()
+					return svc_GameEvent
+				end,
+				GetName = function()
+					return "svc_GameEvent"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.bits = buffer:ReadUInt(11)
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_GameEvent, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.bits, 11)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_PacketEntities] = { -- 26
-			DefaultCopy = function( netchan, read, write )
-				write:WriteUInt(svc_PacketEntities, NET_MESSAGE_BITS)
-
-				local max = read:ReadUInt(MAX_EDICT_BITS)
-				write:WriteUInt(max, MAX_EDICT_BITS)
-
-				local isdelta = read:ReadBit()
-				write:WriteBit(isdelta)
-
-				local delta = -1
-
-				if isdelta == 1 then
-					delta = read:ReadLong()
-					write:WriteLong(delta)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_PacketEntities"
 				end
 
-				local baseline = read:ReadUInt(1)
-				write:WriteUInt(baseline, 1)
+				return string.format("svc_PacketEntities: max = %i, isdelta = %s, delta = %i, baseline = %s, changed = %i, bits = %i, updatebaseline = %s", self.max, self.isdelta, self.delta, self.baseline, self.changed, self.bits, self.updatebaseline)
+			end,
+			__index = {
+				GetType = function()
+					return svc_PacketEntities
+				end,
+				GetName = function()
+					return "svc_PacketEntities"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.max = buffer:ReadUInt(MAX_EDICT_BITS)
+					self.isdelta = buffer:ReadBit() == 1
+					self.delta = self.isdelta and buffer:ReadLong() or -1
+					self.baseline = buffer:ReadBit() == 1
+					self.changed = buffer:ReadUInt(MAX_EDICT_BITS)
+					self.bits = buffer:ReadUInt(24)
+					self.updatebaseline = buffer:ReadBit() == 1
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local changed = read:ReadUInt(MAX_EDICT_BITS)
-				write:WriteUInt(changed, MAX_EDICT_BITS)
-
-				local bits = read:ReadUInt(24)
-				write:WriteUInt(bits, 24)
-
-				local updatebaseline = read:ReadBit()
-				write:WriteBit(updatebaseline)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+					buffer:WriteUInt(svc_PacketEntities, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.max, MAX_EDICT_BITS)
+					buffer:WriteBit(self.isdelta and 1 or 0)
+					if self.isdelta then
+						buffer:WriteLong(self.delta)
+					end
+					buffer:WriteBit(self.baseline and 1 or 0)
+					buffer:WriteUInt(self.changed, MAX_EDICT_BITS)
+					buffer:WriteUInt(self.bits, 24)
+					buffer:WriteBit(self.updatebaseline and 1 or 0)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.max = nil
+					self.isdelta = nil
+					self.delta = nil
+					self.baseline = nil
+					self.changed = nil
+					self.bits = nil
+					self.updatebaseline = nil
+					self.data = nil
 				end
-
-				SourceNetMsg(string.format("svc_PacketEntities %i,%i,%i,%i,%i,%i,%i\n", max, isdelta, delta, baseline, changed, bits, updatebaseline))
-			end
+			}
 		},
 
 		[svc_TempEntities] = { -- 27
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_TempEntities, NET_MESSAGE_BITS)
-
-				local num = read:ReadUInt(8)
-				write:WriteUInt(num, 8)
-
-				--local bits = read:ReadUInt(20)
-				--write:WriteUInt(bits, 20)
-
-				local bits = read:ReadVarInt32()
-				write:WriteVarInt32(bits)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_TempEntities"
 				end
 
-				SourceNetMsg(string.format("svc_TempEntities %i,%i\n", num, bits))
-			end
+				return string.format("svc_TempEntities: num = %i, bits = %i\n", self.num, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_TempEntities
+				end,
+				GetName = function()
+					return "svc_TempEntities"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.num = buffer:ReadUInt(8)
+					self.bits = buffer:ReadVarInt32()
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_TempEntities, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.num, 8)
+					buffer:WriteVarInt32(self.bits)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.num = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_Prefetch] = { -- 28
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_Prefetch, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_Prefetch"
+				end
 
-				local index = read:ReadUInt(14)
-				write:WriteUInt(index, 14)
+				return "svc_Prefetch: index = " .. self.index
+			end,
+			__index = {
+				GetType = function()
+					return svc_Prefetch
+				end,
+				GetName = function()
+					return "svc_Prefetch"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.index = buffer:ReadUInt(14)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				SourceNetMsg(string.format("svc_Prefetch index=%i\n", index))
-			end
+					buffer:WriteUInt(svc_Prefetch, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.index, 14)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.index = nil
+				end
+			}
 		},
 
 		[svc_Menu] = { -- 29
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_Menu, NET_MESSAGE_BITS)
-
-				local menutype = read:ReadShort()
-				write:WriteShort(menutype)
-
-				local bytes = read:ReadWord()
-				write:WriteWord(bytes)
-
-				if bytes > 0 then
-					local data = read:ReadBytes(bytes)
-					write:WriteBytes(data, bytes)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_Menu"
 				end
 
-				SourceNetMsg(string.format("svc_Menu menutype=%i,bytes=%i\n", menutype, bytes))
-			end
+				return string.format("svc_Menu: menutype = %i, bytes = %i", self.menutype, self.bytes)
+			end,
+			__index = {
+				GetType = function()
+					return svc_Menu
+				end,
+				GetName = function()
+					return "svc_Menu"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.menutype = buffer:ReadWord()
+					self.bytes = buffer:ReadWord()
+					self.data = buffer:ReadBytes(self.bytes)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_Menu, NET_MESSAGE_BITS)
+					buffer:WriteWord(self.menutype)
+					buffer:WriteWord(self.bytes)
+					buffer:WriteBytes(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.menutype = nil
+					self.bytes = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_GameEventList] = { -- 30
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_GameEventList, NET_MESSAGE_BITS)
-
-				local num = read:ReadUInt(9)
-				write:WriteUInt(num, 9)
-
-				local bits = read:ReadUInt(20)
-				write:WriteUInt(bits, 20)
-
-				if bits > 0 then
-					local data = read:ReadBits(bits)
-					write:WriteBits(data)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_GameEventList"
 				end
 
-				SourceNetMsg(string.format("svc_GameEventList num=%i,bits=%i\n", num, bits))
-			end
+				return string.format("svc_GameEventList: num = %i, bits = %i", self.num, self.bits)
+			end,
+			__index = {
+				GetType = function()
+					return svc_GameEventList
+				end,
+				GetName = function()
+					return "svc_GameEventList"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.num = buffer:ReadUInt(9)
+					self.bits = buffer:ReadUInt(20)
+					self.data = buffer:ReadBits(self.bits)
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_GameEventList, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.num, 9)
+					buffer:WriteUInt(self.bits, 20)
+					buffer:WriteBits(self.data)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.num = nil
+					self.bits = nil
+					self.data = nil
+				end
+			}
 		},
 
 		[svc_GetCvarValue] = { -- 31
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_GetCvarValue, NET_MESSAGE_BITS)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_GetCvarValue"
+				end
 
-				local cookie = read:ReadInt(32)
-				write:WriteInt(cookie, 32)
+				return "svc_GetCvarValue: cvarname = " .. self.cvarname
+			end,
+			__index = {
+				GetType = function()
+					return svc_GetCvarValue
+				end,
+				GetName = function()
+					return "svc_GetCvarValue"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.cookie = buffer:ReadInt(32)
+					self.cvarname = buffer:ReadString()
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
 
-				local cvarname = read:ReadString()
-				write:WriteString(cvarname)
-
-				SourceNetMsg(string.format("svc_GetCvarValue cvarname=%s\n", cvarname))
-			end
+					buffer:WriteUInt(svc_GetCvarValue, NET_MESSAGE_BITS)
+					buffer:WriteInt(self.cookie, 32)
+					buffer:WriteString(self.cvarname)
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.cookie = nil
+					self.cvarname = nil
+				end
+			}
 		},
 
 		[svc_CmdKeyValues] = { -- 32
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_CmdKeyValues, NET_MESSAGE_BITS)
-
-				local length = read:ReadLong()
-				write:WriteLong(length)
-
-				if length > 0 then
-					local keyvalues = read:ReadBytes(length)
-					write:WriteBits(keyvalues)
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_CmdKeyValues"
 				end
 
-				SourceNetMsg(string.format("svc_CmdKeyValues length=%i\n", length))
-			end
+				return "svc_CmdKeyValues: length = " .. self.length
+			end,
+			__index = {
+				GetType = function()
+					return svc_CmdKeyValues
+				end,
+				GetName = function()
+					return "svc_CmdKeyValues"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					self.length = buffer:ReadUInt(32)
+					if self.length > 0 then
+						self.keyvalues = buffer:ReadBits(self.length * 8)
+					end
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_CmdKeyValues, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.length, 32)
+					if self.keyvalues then
+						buffer:WriteBits(self.keyvalues)
+					end
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.length = nil
+					self.keyvalues = nil
+				end
+			}
 		},
 
 		[svc_GMod_ServerToClient] = { -- 33
-			DefaultCopy = function(netchan, read, write)
-				write:WriteUInt(svc_GMod_ServerToClient, NET_MESSAGE_BITS)
-
-				local bits = read:ReadUInt(20)
-				write:WriteUInt(bits, 20)
-
-				local msgtype = read:ReadByte()
-				write:WriteByte(msgtype)
-				bits = bits - 8
-
-				if msgtype == 0 then
-					local id = read:ReadWord()
-					write:WriteWord(id)
-					bits = bits - 16
-
-					if bits > 0 then
-						local data = read:ReadBits(bits)
-						write:WriteBits(data)
-					end
-
-					SourceNetMsg(string.format("svc_GMod_ServerToClient netmessage bits=%i,id=%i/%s\n", bits, id, util.NetworkIDToString(id) or "unknown message"))
-				elseif msgtype == 1 then
-					local path = read:ReadString()
-					write:WriteString(path)
-
-					local length = read:ReadUInt(32)
-					write:WriteUInt(length)
-
-					if length > 0 then
-						local data = read:ReadBytes(length)
-						write:WriteBytes(data)
-					end
-
-					SourceNetMsg(string.format("svc_GMod_ServerToClient auto-refresh length=%i,path=%s\n", length, path))
-				elseif msgtype == 3 then
-					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::RequestFiles bits=%i\n", bits))
-				elseif msgtype == 4 then
-					local length = read:ReadUInt(16)
-					write:WriteUInt(length, 16)
-
-					if length > 0 then
-						local data = read:ReadBytes(length)
-						write:WriteBytes(data)
-					end
-
-					SourceNetMsg(string.format("svc_GMod_ServerToClient GModDataPack::UpdateFile length=%i\n", length))
+			__tostring = function(self)
+				if not self.initialized then
+					return "svc_GMod_ServerToClient"
 				end
-			end
-		},
+
+				if self.msgtype == 0 then
+					return string.format("svc_GMod_ServerToClient netmessage: bits = %i, id = %i/%s", self.bits, self.id, util.NetworkIDToString(self.id) or "unknown message")
+				elseif self.msgtype == 1 then
+					return string.format("svc_GMod_ServerToClient auto-refresh: length = %i, path = %s", self.length, self.path)
+				elseif self.msgtype == 3 then
+					return "svc_GMod_ServerToClient GModDataPack::RequestFiles: bits = " .. self.bits
+				elseif self.msgtype == 4 then
+					return "svc_GMod_ServerToClient GModDataPack::UpdateFile: length = " .. self.length
+				end
+
+				return "svc_GMod_ServerToClient invalid"
+			end,
+			__index = {
+				GetType = function()
+					return svc_GMod_ServerToClient
+				end,
+				GetName = function()
+					return "svc_GMod_ServerToClient"
+				end,
+				ReadFromBuffer = function(self, buffer)
+					local bits = buffer:ReadUInt(20)
+					self.bits = bits
+					self.msgtype = buffer:ReadByte()
+					bits = bits - 8
+
+					if self.msgtype == 0 then
+						self.id = buffer:ReadWord()
+						self.length = bits - 16
+
+						if self.length > 0 then
+							self.data = buffer:ReadBits(self.length)
+						end
+					elseif self.msgtype == 1 then
+						self.path = buffer:ReadString()
+						self.length = buffer:ReadUInt(32)
+						self.data = buffer:ReadBytes(self.length)
+					elseif self.msgtype == 3 then
+						self.length = bits
+
+						if self.length > 0 then
+							self.data = buffer:ReadBits(self.length)
+						end
+					elseif self.msgtype == 4 then
+						self.id = buffer:ReadUInt(16)
+						self.length = bits - 16
+
+						if self.length > 0 then
+							self.data = buffer:ReadBits(self.length)
+						end
+					end
+
+					self.initialized = true
+				end,
+				WriteToBuffer = function(self, buffer)
+					if not self.initialized then
+						return false
+					end
+
+					buffer:WriteUInt(svc_GMod_ServerToClient, NET_MESSAGE_BITS)
+					buffer:WriteUInt(self.bits, 20)
+					buffer:WriteByte(self.msgtype)
+
+					if self.msgtype == 0 then
+						buffer:WriteWord(self.id)
+
+						if self.data ~= nil then
+							buffer:WriteBits(self.data)
+						end
+					elseif self.msgtype == 1 then
+						buffer:WriteString(self.path)
+						buffer:WriteUInt(self.length)
+						buffer:WriteBytes(self.data)
+					elseif self.msgtype == 3 then
+						if self.data ~= nil then
+							buffer:WriteBits(self.data)
+						end
+					elseif self.msgtype == 4 then
+						buffer:WriteUInt(self.id, 16)
+
+						if self.data ~= nil then
+							buffer:WriteBits(self.data)
+						end
+					end
+
+					return true
+				end,
+				Reset = function(self)
+					self.initialized = nil
+					self.bits = nil
+					self.msgtype = nil
+					self.id = nil
+					self.data = nil
+					self.path = nil
+					self.length = nil
+				end
+			}
+		}
 	}
 }
 
---[[NET_MESSAGES = {
-	[net_NOP] = {
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_NOP, NET_MESSAGE_BITS)
-		end
-	},
-
-	[net_Disconnect] = {
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_Disconnect, NET_MESSAGE_BITS)
-
-			local reason = read:ReadString()
-			write:WriteString(reason)
-
-			SourceNetMsg(string.format("net_Disconnect %s\n", reason))
-		end
-	},
-
-	[net_File] = {
-		DefaultCopy = function(netchan, read, write)
-			write:WriteUInt(net_File, NET_MESSAGE_BITS)
-
-			local transferid = read:ReadUInt(32)
-			write:WriteUInt(transferid, 32)
-
-			local requested = read:ReadBit()
-			write:WriteBit(requested)
-
-			if requested == 0 then
-				SourceNetMsg(string.format("net_File %i,false\n", transferid))
-				return
-			end
-
-			local requesttype = read:ReadUInt(1)
-			write:WriteUInt(requesttype, 1)
-
-			local fileid = read:ReadUInt(32)
-			write:WriteUInt(fileid, 32)
-
-			SourceNetMsg(string.format("net_File %i,true,%i,%i\n", transferid, requesttype, fileid))
-		end
-	},
-
+local NET_MESSAGES_CONSTRUCTORS = {
+	NET = {},
 	CLC = {},
-
 	SVC = {}
 }
 
-local function AddNetMessage(tbl, type)
-	local netmessage = INetMessage(type)
-	tbl[type] = {
-		DefaultCopy = function(netchan, read, write)
-			if not netmessage:ReadFromBuffer(read) then
-				print("failed to read " .. netmessage)
-				return
-			end
-
-			if not netmessage:WriteToBuffer(write) then
-				print("failed to write " .. netmessage)
-				return
-			end
-
-			SourceNetMsg(tostring(netmessage) .. "\n")
+for net_messages_prefix, net_messages in pairs(NET_MESSAGES) do
+	for msgtype, metatable in pairs(net_messages) do
+		NET_MESSAGES_CONSTRUCTORS[net_messages_prefix][msgtype] = function()
+			return setmetatable({}, metatable)
 		end
-	}
+	end
 end
 
-AddNetMessage(NET_MESSAGES, net_Tick)
-AddNetMessage(NET_MESSAGES, net_StringCmd)
-AddNetMessage(NET_MESSAGES, net_SetConVar)
-AddNetMessage(NET_MESSAGES, net_SignonState)
+local NET_MESSAGES_NATIVE_CONSTRUCTORS = {
+	NET = {
+		[net_NOP] = NET_MESSAGES_CONSTRUCTORS.NET[net_NOP],
+		[net_Disconnect] = NET_Disconnect,
+		[net_File] = NET_File,
+		[net_Tick] = NET_Tick,
+		[net_StringCmd] = NET_StringCmd,
+		[net_SetConVar] = NET_SetConVar,
+		[net_SignonState] = NET_SignonState
+	},
 
-AddNetMessage(NET_MESSAGES.SVC, svc_ServerInfo)
-AddNetMessage(NET_MESSAGES.SVC, svc_SendTable)
-AddNetMessage(NET_MESSAGES.SVC, svc_ClassInfo)
-AddNetMessage(NET_MESSAGES.SVC, svc_SetPause)
-AddNetMessage(NET_MESSAGES.SVC, svc_CreateStringTable)
-AddNetMessage(NET_MESSAGES.SVC, svc_UpdateStringTable)
-AddNetMessage(NET_MESSAGES.SVC, svc_VoiceInit)
-AddNetMessage(NET_MESSAGES.SVC, svc_VoiceData)
-AddNetMessage(NET_MESSAGES.SVC, svc_Print)
-AddNetMessage(NET_MESSAGES.SVC, svc_Sounds)
-AddNetMessage(NET_MESSAGES.SVC, svc_SetView)
-AddNetMessage(NET_MESSAGES.SVC, svc_FixAngle)
-AddNetMessage(NET_MESSAGES.SVC, svc_CrosshairAngle)
-AddNetMessage(NET_MESSAGES.SVC, svc_BSPDecal)
-AddNetMessage(NET_MESSAGES.SVC, svc_UserMessage)
-AddNetMessage(NET_MESSAGES.SVC, svc_EntityMessage)
-AddNetMessage(NET_MESSAGES.SVC, svc_GameEvent)
-AddNetMessage(NET_MESSAGES.SVC, svc_PacketEntities)
-AddNetMessage(NET_MESSAGES.SVC, svc_TempEntities)
-AddNetMessage(NET_MESSAGES.SVC, svc_Prefetch)
-AddNetMessage(NET_MESSAGES.SVC, svc_Menu)
-AddNetMessage(NET_MESSAGES.SVC, svc_GameEventList)
-AddNetMessage(NET_MESSAGES.SVC, svc_GetCvarValue)
-AddNetMessage(NET_MESSAGES.SVC, svc_CmdKeyValues)
-AddNetMessage(NET_MESSAGES.SVC, svc_GMod_ServerToClient)
+	CLC = {
+		[clc_ClientInfo] = CLC_ClientInfo,
+		[clc_Move] = CLC_Move,
+		[clc_VoiceData] = CLC_VoiceData,
+		[clc_BaselineAck] = CLC_BaselineAck,
+		[clc_ListenEvents] = CLC_ListenEvents,
+		[clc_RespondCvarValue] = CLC_RespondCvarValue,
+		[clc_FileCRCCheck] = CLC_FileCRCCheck,
+		[clc_CmdKeyValues] = CLC_CmdKeyValues,
+		[clc_FileMD5Check] = CLC_FileMD5Check,
+		[clc_GMod_ClientToServer] = CLC_GMod_ClientToServer
+	},
 
-AddNetMessage(NET_MESSAGES.CLC, clc_ClientInfo)
-AddNetMessage(NET_MESSAGES.CLC, clc_Move)
-AddNetMessage(NET_MESSAGES.CLC, clc_VoiceData)
-AddNetMessage(NET_MESSAGES.CLC, clc_BaselineAck)
-AddNetMessage(NET_MESSAGES.CLC, clc_ListenEvents)
-AddNetMessage(NET_MESSAGES.CLC, clc_RespondCvarValue)
-AddNetMessage(NET_MESSAGES.CLC, clc_FileCRCCheck)
-AddNetMessage(NET_MESSAGES.CLC, clc_CmdKeyValues)
-AddNetMessage(NET_MESSAGES.CLC, clc_FileMD5Check)
-AddNetMessage(NET_MESSAGES.CLC, clc_GMod_ClientToServer)]]
+	SVC = {
+		[svc_Print] = SVC_Print,
+		[svc_ServerInfo] = SVC_ServerInfo,
+		[svc_SendTable] = SVC_SendTable,
+		[svc_ClassInfo] = SVC_ClassInfo,
+		[svc_SetPause] = SVC_SetPause,
+		[svc_CreateStringTable] = SVC_CreateStringTable,
+		[svc_UpdateStringTable] = SVC_UpdateStringTable,
+		[svc_VoiceInit] = SVC_VoiceInit,
+		[svc_VoiceData] = SVC_VoiceData,
+		[svc_Sounds] = SVC_Sounds,
+		[svc_SetView] = SVC_SetView,
+		[svc_FixAngle] = SVC_FixAngle,
+		[svc_CrosshairAngle] = SVC_CrosshairAngle,
+		[svc_BSPDecal] = SVC_BSPDecal,
+		[svc_UserMessage] = SVC_UserMessage,
+		[svc_EntityMessage] = SVC_EntityMessage,
+		[svc_GameEvent] = SVC_GameEvent,
+		[svc_PacketEntities] = SVC_PacketEntities,
+		[svc_TempEntities] = SVC_TempEntities,
+		[svc_Prefetch] = SVC_Prefetch,
+		[svc_Menu] = SVC_Menu,
+		[svc_GameEventList] = SVC_GameEventList,
+		[svc_GetCvarValue] = SVC_GetCvarValue,
+		[svc_CmdKeyValues] = SVC_CmdKeyValues,
+		[svc_GMod_ServerToClient] = SVC_GMod_ServerToClient
+	}
+}
+
+function NetMessage(netchan, msgtype, server)
+	local constructor = NET_MESSAGES_CONSTRUCTORS.NET[msgtype]
+	if constructor == nil then
+		if server then
+			constructor = NET_MESSAGES_CONSTRUCTORS.SVC[msgtype]
+		else
+			constructor = NET_MESSAGES_CONSTRUCTORS.CLC[msgtype]
+		end
+
+		if constructor == nil then
+			return
+		end
+	end
+
+	return constructor(netchan)
+end
