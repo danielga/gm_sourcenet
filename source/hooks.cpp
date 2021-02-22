@@ -237,7 +237,7 @@ namespace Hooks
 					buf.Seek( bitsread );
 			}
 
-			return Call<bool, CNetChan, bf_read &>( ProcessMessages_original, buf );
+			return Call( ProcessMessages_original, buf );
 		}
 
 		bool HookShutdown( CNetChan *netchan )
