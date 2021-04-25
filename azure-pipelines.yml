@@ -8,9 +8,18 @@ variables:
   REPOSITORY_DIR: $(System.DefaultWorkingDirectory)
   DISABLE_X86_64_BUILD: true
 trigger:
+  batch: true
+  branches:
+    include:
+    - '*'
   tags:
     include:
     - '*'
+  paths:
+    include:
+    - azure-pipelines.yml
+    - premake5.lua
+    - source
 jobs:
 - job: windows
   displayName: Windows
@@ -127,6 +136,7 @@ jobs:
     - windows
     - linux
     - macosx
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
   steps:
   - task: DownloadBuildArtifacts@0
     displayName: 'Download build artifacts'
