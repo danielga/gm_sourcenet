@@ -47,8 +47,8 @@ namespace global
 
 	template<typename NumericType>
 	inline NumericType GetNumber( GarrysMod::Lua::ILuaBase *LUA, int32_t idx,
-		NumericType min = std::numeric_limits<NumericType>::min( ),
-		NumericType max = std::numeric_limits<NumericType>::max( ) )
+		NumericType min = (std::numeric_limits<NumericType>::min)( ),
+		NumericType max = (std::numeric_limits<NumericType>::max)( ) )
 	{
 		double number = LUA->CheckNumber( idx );
 		if( number < static_cast<double>( min ) )

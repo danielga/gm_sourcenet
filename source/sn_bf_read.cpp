@@ -210,7 +210,7 @@ namespace sn_bf_read
 		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 
 		int32_t bytes = global::GetNumber<int32_t>( LUA, 2, 1,
-			BitByte( std::numeric_limits<int32_t>::max( ) ) );
+			BitByte( (std::numeric_limits<int32_t>::max)( ) ) );
 
 		uint8_t *data = UCHARPTR::Push( LUA, bytes * 8 );
 		LUA->PushBool( buf->ReadBytes( data, bytes ) );

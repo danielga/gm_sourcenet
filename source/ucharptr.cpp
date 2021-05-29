@@ -140,7 +140,7 @@ namespace UCHARPTR
 	LUA_FUNCTION_STATIC( Constructor )
 	{
 		int32_t bits = global::GetNumber<int32_t>( LUA, 1, 1,
-			BitByte( std::numeric_limits<int32_t>::max( ) ) );
+			BitByte( (std::numeric_limits<int32_t>::max)( ) ) );
 		Push( LUA, bits * 8 );
 		return 1;
 	}
