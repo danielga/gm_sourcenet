@@ -93,7 +93,7 @@ namespace NetMessage
 
 #elif defined ARCHITECTURE_X86
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 743;
+	static const uintptr_t CLC_CmdKeyValues_offset = 744;
 
 	static const uintptr_t SVC_CreateStringTable_offset = 567;
 
@@ -436,7 +436,7 @@ namespace NetMessage
 
 		if( instruction.opcode == 0xC7 &&
 			( instruction.flags & F_IMM32 ) != 0 &&
-			instruction.imm.imm32 >= 10000 &&
+			instruction.imm.imm32 >= 10000 && instruction.imm.imm32 != 0xFFFFFFFF &&
 			( instruction.len == 6 || instruction.len == 7 ) )
 		{
 			*vtable = reinterpret_cast<void **>( hde_getimm( instruction ) );
