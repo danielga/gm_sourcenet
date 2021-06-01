@@ -1,16 +1,18 @@
 require("sourcenet")
 
-function _R.Player:GetNetChannel()
+local PLAYER = FindMetaTable("Player")
+function PLAYER:GetNetChannel()
 	return CNetChan(self:EntIndex())
 end
 
-function _R.Player:SetConVar(name, value)
+function PLAYER:SetConVar(name, value)
 	local netchan = self:GetNetChannel()
-	
-	if not netchan then return end
-	
+	if netchan == nil then
+		return
+	end
+
 	local buf = netchan:GetReliableBuffer()
-	
+
 	buf:WriteUInt(net_SetConVar, NET_MESSAGE_BITS)
 	buf:WriteByte(1)
 	buf:WriteString(name)

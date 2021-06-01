@@ -3,7 +3,7 @@ include("sourcenet/incoming.lua")
 FilterIncomingMessage(svc_VoiceData, function(netchan, read, write)
 	write:WriteUInt(svc_VoiceData, NET_MESSAGE_BITS)
 
-	local client = read:ReadByte()		
+	local client = read:ReadByte()
 	write:WriteByte(client)
 
 	local proximity = read:ReadByte()

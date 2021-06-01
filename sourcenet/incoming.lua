@@ -7,123 +7,58 @@ end
 include("netmessages.lua")
 
 -- Initialization
-
 HookNetChannel(
 	-- nochan prevents a net channel being passed to the attach/detach functions
 	-- CNetChan::ProcessMessages doesn't use a virtual hook, so we don't need to pass the net channel
 	{name = "CNetChan::ProcessMessages", nochan = true}
 )
 
-local function CopyBufferEnd(dst, src)
-	local bitsleft = src:GetNumBitsLeft()
-	local data = src:ReadBits(bitsleft)
-	
-	dst:WriteBits(data)
-end
-
-local specialmsg
-local specialhandler = {
-	DefaultCopy = function(netchan, read, write)
-		specialmsg:ReadFromBuffer(read)
-		specialmsg:WriteToBuffer(write)
-	end
-}
 hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localchan)
-	local totalbits = read:GetNumBitsLeft() + read:GetNumBitsRead()
-
 	local islocal = netchan == localchan
 	if not game.IsDedicated() and ((islocal and SERVER) or (not islocal and CLIENT)) then
-		CopyBufferEnd(write, read)
-		return
+		MsgC(Color(255, 255, 0), "Ignoring a stream\n")
+		return false
 	end
 
-	hook.Call("BASE_PreProcessMessages", nil, netchan, read, write)
-
-	local changeLevelState = false
+	local totalbits = read:GetNumBitsLeft()
 
 	while read:GetNumBitsLeft() >= NET_MESSAGE_BITS do
 		local msg = read:ReadUInt(NET_MESSAGE_BITS)
-
-		if CLIENT then
-			-- Hack to prevent changelevel crashes
-			if msg == net_SignonState then
-				local state = read:ReadByte()
-				
-				if state == SIGNONSTATE_CHANGELEVEL then
-					changeLevelState = true
-					--print( "[gm_sourcenet] Received changelevel packet" )
-				end
-				
-				read:Seek(read:GetNumBitsRead() - 8)
-			end
-		end
-
-		local handler = NET_MESSAGES[msg]
-
-		--[[if msg ~= net_NOP and msg ~= 3 and msg ~= 9 then
-			Msg("(in) Pre Message: " .. msg .. ", bits: " .. read:GetNumBitsRead() .. "/" .. totalbits .. "\n")
-		end--]]
-	
+		local handler = NetMessage(netchan, msg, not SERVER)
 		if not handler then
-			if CLIENT then
-				handler = NET_MESSAGES.SVC[msg]
-			else
-				handler = NET_MESSAGES.CLC[msg]
-			end
-
-			if not handler then
-				for i = 1, netchan:GetNetMessageNum() do
-					local m = netchan:GetNetMessage(i)
-					if m:GetType() == msg then
-						handler = specialhandler
-						specialmsg = m
-						break
-					end
-				end
-
-				if not handler then
-					Msg("Unknown outgoing message: " .. msg .. "\n")
-						
-					write:Seek(totalbits)
-
-					break
-				end
-			end
+			MsgC(Color(255, 0, 0), "Unknown outgoing message " .. msg .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			return false
 		end
 
-		local func = handler.IncomingCopy or handler.DefaultCopy
+		--[[local success =]] handler:ReadFromBuffer(read)
+		--[[if not success then
+			MsgC(Color(255, 0, 0), "Failed to read message " .. handler:GetName() .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			return false
+		end]]
 
-		local success, ret = xpcall(func, debug.traceback, netchan, read, write)
+		local success = handler:WriteToBuffer(write)
 		if not success then
-			print(ret)
-
-			break
-		elseif ret == false then
-		--if func(netchan, read, write) == false then
-			Msg("Failed to filter message " .. msg .. "\n")
-
-			write:Seek(totalbits)
-
-			break
+			MsgC(Color(255, 0, 0), "Failed to write message " .. handler:GetName() .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			return false
 		end
 
-		--[[if msg ~= net_NOP and msg ~= 3 and msg ~= 9 then
-			Msg("(in) Post Message: " .. msg .. " bits: " .. read:GetNumBitsRead() .. "/" .. totalbits .. "\n")
-		end--]]
+		--MsgC(Color(255, 255, 255), "NetMessage: " .. tostring(handler) .. "\n")
 	end
-	
-	if CLIENT then
-		if changeLevelState then
-			--print("[gm_sourcenet] Server is changing level, calling PreNetChannelShutdown")
-			hook.Call("PreNetChannelShutdown", nil, netchan, "Server Changing Level")
-		end
+
+	local bitsleft = read:GetNumBitsLeft()
+	if bitsleft > 0 then
+		-- Should be inocuous padding bits but just to be sure, let's copy them
+		local data = read:ReadBits(bitsleft)
+		write:WriteBits(data)
 	end
+
+	--MsgC(Color(0, 255, 0), "Fully parsed stream with " .. totalbits .. " bit(s) written\n")
+	return true
 end)
 
 function FilterIncomingMessage(msg, func)
-	local handler = NET_MESSAGES[msg]
-
-	if not handler then
+	--[[local handler = NET_MESSAGES[msg]
+	if handler == nil then
 		if CLIENT then
 			handler = NET_MESSAGES.SVC[msg]
 		else
@@ -131,9 +66,9 @@ function FilterIncomingMessage(msg, func)
 		end
 	end
 
-	if handler then
+	if handler ~= nil then
 		handler.IncomingCopy = func
-	end
+	end]]
 end
 
 function UnFilterIncomingMessage(msg)

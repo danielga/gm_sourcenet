@@ -5,15 +5,16 @@ LUASTRINGS_TABLE_NAME = "networkstring"
 function ReadUserMessageString(buf)
 	if buf:ReadBit() == 1 then
 		local container = INetworkStringTableContainer()
-		
-		if not container then return end
-		
-		local pool = container:FindTable(LUASTRINGS_TABLE_NAME)
+		if container == nil then
+			return
+		end
 
-		if not pool then return end
+		local pool = container:FindTable(LUASTRINGS_TABLE_NAME)
+		if pool == nil then
+			return
+		end
 
 		local str = pool:GetString(buf:ReadShort())
-		
 		return str or "[STRING NOT POOLED]"
 	else
 		return buf:ReadString()
@@ -25,10 +26,9 @@ function ProcessUserMessage(msg, data)
 
 	if msg == 34 then
 		local umsgName = ReadUserMessageString(buf)
-		
 		Msg(string.format("Received Lua user message: curtime %f, name '%s', bytes %i\n", CurTime(), umsgName, buf:GetNumBytesLeft()))
 	elseif msg == 40 then
-		local varUnknown = buf:ReadLong()
+		buf:ReadLong()
 		local varType = buf:ReadByte()
 		local varName = ReadUserMessageString(buf)
 		local varValue
@@ -53,7 +53,7 @@ end
 
 FilterIncomingMessage(svc_UserMessage, function(netchan, read, write)
 	write:WriteUInt(svc_UserMessage, NET_MESSAGE_BITS)
-	
+
 	local msg = read:ReadByte()
 	local bits = read:ReadUInt(11)
 	local data = read:ReadBits(bits)
