@@ -49,7 +49,7 @@ namespace GameTags
 			return UnHook( RecalculateTags_original );
 		}
 
-		LUA_FUNCTION_IMPLEMENT( SetGameTags )
+		LUA_FUNCTION_STATIC_MEMBER( SetGameTags )
 		{
 			if( LUA->IsType( 1, GarrysMod::Lua::Type::STRING ) )
 				gametags_substitute = LUA->GetString( 1 );
@@ -63,8 +63,6 @@ namespace GameTags
 			);
 			return 1;
 		}
-
-		LUA_FUNCTION_WRAP( SetGameTags );
 
 	private:
 		static FunctionPointers::CBaseServer_RecalculateTags_t RecalculateTags_original;

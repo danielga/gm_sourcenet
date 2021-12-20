@@ -75,14 +75,12 @@ namespace DataPack
 			return UnHook( SendFileToClient_original );
 		}
 
-		LUA_FUNCTION_IMPLEMENT( EnableLuaFileValidation )
+		LUA_FUNCTION_STATIC_MEMBER( EnableLuaFileValidation )
 		{
 			LUA->CheckType( 1, GarrysMod::Lua::Type::BOOL );
 			LUA->PushBool( LUA->GetBool( 1 ) ? HookSendFileToClient( ) : UnHookSendFileToClient( ) );
 			return 1;
 		}
-
-		LUA_FUNCTION_WRAP( EnableLuaFileValidation );
 
 		static bool IsClientReceiving( int client )
 		{

@@ -17,57 +17,12 @@
 
 namespace Hooks
 {
-
-#define HOOK_INIT( name ) \
-	do \
-	{ \
-		GarrysMod::Lua::ILuaBase *LUA = global::lua; \
-		if( !LuaHelpers::PushHookRun( LUA, name ) ) \
-			break; \
-		int32_t _argc = 0
-
-	#define HOOK_PUSH( code ) \
-		code; \
-		++_argc
-
-	#define HOOK_CALL( returns ) \
-		LuaHelpers::CallHookRun( LUA, _argc, returns )
-
-	#define HOOK_END( ) \
-	} \
-	while( false )
-
-#define VIRTUAL_FUNCTION_SETUP( ret, name, ... ) \
-	static bool Attach##name( TargetClass *temp ) \
-	{ \
-		if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) ) \
-			return false; \
-		return Hook( &TargetClass::name, &SubstituteClass::name ); \
-	} \
-	LUA_FUNCTION_IMPLEMENT( LuaAttach##name ) \
-	{ \
-		TargetClass *temp = LuaGet( LUA, 1 ); \
-		LUA->PushBool( Attach##name( temp ) ); \
-		return 1; \
-	} \
-	LUA_FUNCTION_WRAP( LuaAttach##name ); \
-	static bool Detach##name( ) \
-	{ \
-		return UnHook( &TargetClass::name ); \
-	} \
-	LUA_FUNCTION_IMPLEMENT( LuaDetach##name ) \
-	{ \
-		LUA->PushBool( Detach##name( ) ); \
-		return 1; \
-	} \
-	LUA_FUNCTION_WRAP( LuaDetach##name ); \
-	virtual ret name( __VA_ARGS__ )
-
 	class CNetChanProxy : public Detouring::ClassProxy<CNetChan, CNetChanProxy>
 	{
 	private:
 		typedef CNetChan TargetClass;
 		typedef CNetChanProxy SubstituteClass;
+		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
 
 		static CNetChan *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 		{
@@ -84,73 +39,166 @@ namespace Hooks
 				LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( int32_t, SendDatagram, bf_write *data )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachSendDatagram )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::SendDatagram, &SubstituteClass::SendDatagram )
+			);
+			return 1;
+		}
+
+		static bool DetachSendDatagram( )
+		{
+			return UnHook( &TargetClass::SendDatagram );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachSendDatagram )
+		{
+			LUA->PushBool( DetachSendDatagram( ) );
+			return 1;
+		}
+
+		virtual int32_t SendDatagram( bf_write *data )
 		{
 			CNetChan *netchan = This( );
 
-			HOOK_INIT( "PreSendDatagram" );
-			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-
-			if( !global::is_dedicated )
 			{
-				HOOK_PUSH( NetChannel::Push(
-					LUA,
-					static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
-				) );
-			}
-			else
-			{
-				HOOK_PUSH( LUA->PushNil( ) );
-			}
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PreSendDatagram" ) != 0 )
+				{
+					NetChannel::Push( LUA, netchan );
 
-			HOOK_PUSH( bf_write **writer1 = sn_bf_write::Push( LUA, data ) );
-			HOOK_PUSH( bf_write **writer2 = sn_bf_write::Push( LUA, &netchan->m_StreamReliable ) );
-			HOOK_PUSH( bf_write **writer3 = sn_bf_write::Push( LUA, &netchan->m_StreamUnreliable ) );
-			HOOK_PUSH( bf_write **writer4 = sn_bf_write::Push( LUA, &netchan->m_StreamVoice ) );
-			HOOK_CALL( 0 );
+					if( !global::is_dedicated )
+					{
+						NetChannel::Push(
+							LUA,
+							static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
+						);
+					}
+					else
+					{
+						LUA->PushNil( );
+					}
 
-			*writer1 = nullptr;
-			*writer2 = nullptr;
-			*writer3 = nullptr;
-			*writer4 = nullptr;
-			HOOK_END( );
+					bf_write **writer1 = sn_bf_write::Push( LUA, data );
+					bf_write **writer2 = sn_bf_write::Push( LUA, &netchan->m_StreamReliable );
+					bf_write **writer3 = sn_bf_write::Push( LUA, &netchan->m_StreamUnreliable );
+					bf_write **writer4 = sn_bf_write::Push( LUA, &netchan->m_StreamVoice );
+
+					LuaHelpers::CallHookRun( LUA, 6, 0 );
+
+					*writer1 = nullptr;
+					*writer2 = nullptr;
+					*writer3 = nullptr;
+					*writer4 = nullptr;
+				}
+			}
 
 			int32_t r = Call( &CNetChan::SendDatagram, data );
 
-			HOOK_INIT( "PostSendDatagram" );
-			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PostSendDatagram" ) != 0 )
+				{
+					NetChannel::Push( LUA, netchan );
+
+					LuaHelpers::CallHookRun( LUA, 1, 0 );
+				}
+			}
 
 			return r;
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, ProcessPacket, netpacket_t *packet, bool bHasHeader )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachProcessPacket )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::ProcessPacket, &SubstituteClass::ProcessPacket )
+			);
+			return 1;
+		}
+
+		static bool DetachProcessPacket( )
+		{
+			return UnHook( &TargetClass::ProcessPacket );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachProcessPacket )
+		{
+			LUA->PushBool( DetachProcessPacket( ) );
+			return 1;
+		}
+
+		virtual void ProcessPacket( netpacket_t *packet, bool bHasHeader )
 		{
 			CNetChan *netchan = This( );
 
-			HOOK_INIT( "PreProcessPacket" );
-			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PreProcessPacket" ) != 0 )
+				{
+					NetChannel::Push( LUA, netchan );
+
+					LuaHelpers::CallHookRun( LUA, 1, 0 );
+				}
+			}
 
 			Call( &CNetChan::ProcessPacket, packet, bHasHeader );
 
-			HOOK_INIT( "PostProcessPacket" );
-			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PostProcessPacket" ) != 0 )
+				{
+					NetChannel::Push( LUA, netchan );
+
+					LuaHelpers::CallHookRun( LUA, 1, 0 );
+				}
+			}
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, Shutdown, const char *reason )
+		static bool AttachShutdown( TargetClass *temp )
+		{
+			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
+				return false;
+
+			return Hook( &TargetClass::Shutdown, &SubstituteClass::Shutdown );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachShutdown )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool( AttachShutdown( temp ) );
+			return 1;
+		}
+
+		static bool DetachShutdown( )
+		{
+			return UnHook( &TargetClass::Shutdown );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachShutdown )
+		{
+			LUA->PushBool( DetachShutdown( ) );
+			return 1;
+		}
+
+		virtual void Shutdown( const char *reason )
 		{
 			CNetChan *netchan = This( );
 
-			HOOK_INIT( "PreNetChannelShutdown" );
-			HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-			HOOK_PUSH( LUA->PushString( reason ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PreNetChannelShutdown" ) != 0 )
+				{
+					NetChannel::Push( LUA, netchan );
+					LUA->PushString( reason );
+
+					LuaHelpers::CallHookRun( LUA, 2, 0 );
+				}
+			}
 
 			NetMessage::Destroy( global::lua, netchan );
 
@@ -158,31 +206,29 @@ namespace Hooks
 
 			Call( &CNetChan::Shutdown, reason );
 
-			HOOK_INIT( "PostNetChannelShutdown" );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PostNetChannelShutdown" ) != 0 )
+					LuaHelpers::CallHookRun( LUA, 0, 0 );
+			}
 		}
 
-		LUA_FUNCTION_IMPLEMENT( LuaAttachProcessMessages )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachProcessMessages )
 		{
 			LUA->PushBool( Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) );
 			return 1;
 		}
-
-		LUA_FUNCTION_WRAP( LuaAttachProcessMessages );
 
 		static bool DetachProcessMessages( )
 		{
 			return UnHook( ProcessMessages_original );
 		}
 
-		LUA_FUNCTION_IMPLEMENT( LuaDetachProcessMessages )
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachProcessMessages )
 		{
 			LUA->PushBool( DetachProcessMessages( ) );
 			return 1;
 		}
-
-		LUA_FUNCTION_WRAP( LuaDetachProcessMessages );
 
 		bool ProcessMessages( bf_read &buf )
 		{
@@ -201,30 +247,34 @@ namespace Hooks
 				write.SeekToBit( bitsread );
 
 				bool handled = false;
-				HOOK_INIT( "PreProcessMessages" );
-				HOOK_PUSH( NetChannel::Push( LUA, netchan ) );
-				HOOK_PUSH( bf_read **reader = sn_bf_read::Push( LUA, &buf ) );
-				HOOK_PUSH( bf_write **writer = sn_bf_write::Push( LUA, &write ) );
-
-				if( !global::is_dedicated )
 				{
-					HOOK_PUSH( NetChannel::Push(
-						LUA,
-						static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
-					) );
+					GarrysMod::Lua::ILuaBase *LUA = global::lua;
+					if( LuaHelpers::PushHookRun( LUA, "PreProcessMessages" ) != 0 )
+					{
+						NetChannel::Push( LUA, netchan );
+						bf_read **reader = sn_bf_read::Push( LUA, &buf );
+						bf_write **writer = sn_bf_write::Push( LUA, &write );
+
+						if( !global::is_dedicated )
+						{
+							NetChannel::Push(
+								LUA,
+								static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
+							);
+						}
+
+						if( LuaHelpers::CallHookRun( LUA, global::is_dedicated ? 3 : 4, 1 ) )
+						{
+							if( LUA->IsType( -1, GarrysMod::Lua::Type::BOOL ) )
+								handled = LUA->GetBool( -1 );
+
+							LUA->Pop( 1 );
+						}
+
+						*reader = nullptr;
+						*writer = nullptr;
+					}
 				}
-
-				if( HOOK_CALL( 1 ) )
-				{
-					if( LUA->IsType( -1, GarrysMod::Lua::Type::BOOL ) )
-						handled = LUA->GetBool( -1 );
-
-					LUA->Pop( 1 );
-				}
-
-				*reader = nullptr;
-				*writer = nullptr;
-				HOOK_END( );
 
 				if( handled )
 					buf.StartReading(
@@ -240,14 +290,6 @@ namespace Hooks
 			return Call( ProcessMessages_original, buf );
 		}
 
-		bool HookShutdown( CNetChan *netchan )
-		{
-			if( !Detouring::ClassProxy<CNetChan, CNetChanProxy>::Initialize( netchan ) )
-				return false;
-
-			return Hook( &CNetChan::Shutdown, &CNetChanProxy::Shutdown );
-		}
-
 		static CNetChanProxy Singleton;
 	};
 
@@ -260,6 +302,7 @@ namespace Hooks
 	private:
 		typedef INetChannelHandler TargetClass;
 		typedef INetChannelHandlerProxy SubstituteClass;
+		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
 
 		static INetChannelHandler *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 		{
@@ -267,135 +310,333 @@ namespace Hooks
 		}
 
 	public:
-		VIRTUAL_FUNCTION_SETUP( void, ConnectionStart, INetChannel *netchannel )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionStart )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::ConnectionStart, &SubstituteClass::ConnectionStart )
+			);
+			return 1;
+		}
+
+		static bool DetachConnectionStart( )
+		{
+			return UnHook( &TargetClass::ConnectionStart );
+		}
+		
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachConnectionStart )
+		{
+			LUA->PushBool( DetachConnectionStart( ) );
+			return 1;
+		}
+
+		virtual void ConnectionStart( INetChannel *netchannel )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::ConnectionStart" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( NetChannel::Push( LUA, static_cast<CNetChan *>( netchannel ) ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::ConnectionStart" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					NetChannel::Push( LUA, static_cast<CNetChan *>( netchannel ) );
+
+					LuaHelpers::CallHookRun( LUA, 2, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::ConnectionStart, netchannel );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, ConnectionClosing, const char *reason )
+		static bool AttachConnectionClosing( TargetClass *temp )
+		{
+			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
+				return false;
+
+			return Hook( &TargetClass::ConnectionClosing, &SubstituteClass::ConnectionClosing );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionClosing )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool( AttachConnectionClosing( temp ) );
+			return 1;
+		}
+
+		static bool DetachConnectionClosing( )
+		{
+			return UnHook( &TargetClass::ConnectionClosing );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachConnectionClosing )
+		{
+			LUA->PushBool( DetachConnectionClosing( ) );
+			return 1;
+		}
+
+		virtual void ConnectionClosing( const char *reason )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::ConnectionClosing" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushString( reason ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::ConnectionClosing" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushString( reason );
+
+					LuaHelpers::CallHookRun( LUA, 2, 0 );
+				}
+			}
 
 			NetChannelHandler::Destroy( global::lua, handler );
 
 			Call( &INetChannelHandler::ConnectionClosing, reason );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, ConnectionCrashed, const char *reason )
+		static bool AttachConnectionCrashed( TargetClass *temp )
+		{
+			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
+				return false;
+
+			return Hook( &TargetClass::ConnectionCrashed, &SubstituteClass::ConnectionCrashed );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionCrashed )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool( AttachConnectionCrashed( temp ) );
+			return 1;
+		}
+
+		static bool DetachConnectionCrashed( )
+		{
+			return UnHook( &TargetClass::ConnectionCrashed );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachConnectionCrashed )
+		{
+			LUA->PushBool( DetachConnectionCrashed( ) );
+			return 1;
+		}
+
+		virtual void ConnectionCrashed( const char *reason )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::ConnectionCrashed" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushString( reason ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::ConnectionCrashed" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushString( reason );
+
+					LuaHelpers::CallHookRun( LUA, 2, 0 );
+				}
+			}
 
 			NetChannelHandler::Destroy( global::lua, handler );
 
 			Call( &INetChannelHandler::ConnectionCrashed, reason );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, PacketStart, int32_t incoming_sequence, int32_t outgoing_acknowledged )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachPacketStart )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::PacketStart, &SubstituteClass::PacketStart )
+			);
+			return 1;
+		}
+
+		static bool DetachPacketStart( )
+		{
+			return UnHook( &TargetClass::PacketStart );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachPacketStart )
+		{
+			LUA->PushBool( DetachPacketStart( ) );
+			return 1;
+		}
+
+		virtual void PacketStart( int32_t incoming_sequence, int32_t outgoing_acknowledged )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::PacketStart" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushNumber( incoming_sequence ) );
-			HOOK_PUSH( LUA->PushNumber( outgoing_acknowledged ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::PacketStart" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushNumber( incoming_sequence );
+					LUA->PushNumber( outgoing_acknowledged );
+
+					LuaHelpers::CallHookRun( LUA, 3, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::PacketStart, incoming_sequence, outgoing_acknowledged );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, PacketEnd )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachPacketEnd )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::PacketEnd, &SubstituteClass::PacketEnd )
+			);
+			return 1;
+		}
+
+		static bool DetachPacketEnd( )
+		{
+			return UnHook( &TargetClass::PacketEnd );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachPacketEnd )
+		{
+			LUA->PushBool( DetachPacketEnd( ) );
+			return 1;
+		}
+
+		virtual void PacketEnd( )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::PacketEnd" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::PacketEnd" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+
+					LuaHelpers::CallHookRun( LUA, 1, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::PacketEnd );
 		}
+		
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileRequested )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::FileRequested, &SubstituteClass::FileRequested )
+			);
+			return 1;
+		}
 
-		VIRTUAL_FUNCTION_SETUP( void, FileRequested, const char *fileName, uint32_t transferID )
+		static bool DetachFileRequested( )
+		{
+			return UnHook( &TargetClass::FileRequested );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachFileRequested )
+		{
+			LUA->PushBool( DetachFileRequested( ) );
+			return 1;
+		}
+
+		virtual void FileRequested( const char *fileName, uint32_t transferID )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::FileRequested" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushString( fileName ) );
-			HOOK_PUSH( LUA->PushNumber( transferID ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::FileRequested" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushString( fileName );
+					LUA->PushNumber( transferID );
+
+					LuaHelpers::CallHookRun( LUA, 3, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::FileRequested, fileName, transferID );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, FileReceived, const char *fileName, uint32_t transferID )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileReceived )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::FileReceived, &SubstituteClass::FileReceived )
+			);
+			return 1;
+		}
+
+		static bool DetachFileReceived( )
+		{
+			return UnHook( &TargetClass::FileReceived );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachFileReceived )
+		{
+			LUA->PushBool( DetachFileReceived( ) );
+			return 1;
+		}
+
+		virtual void FileReceived( const char *fileName, uint32_t transferID )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::FileReceived" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushString( fileName ) );
-			HOOK_PUSH( LUA->PushNumber( transferID ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::FileReceived" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushString( fileName );
+					LUA->PushNumber( transferID );
+
+					LuaHelpers::CallHookRun( LUA, 3, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::FileReceived, fileName, transferID );
 		}
 
-		VIRTUAL_FUNCTION_SETUP( void, FileDenied, const char *fileName, uint32_t transferID )
+		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileDenied )
+		{
+			TargetClass *temp = LuaGet( LUA, 1 );
+			LUA->PushBool(
+				ClassProxy::Initialize( temp, &Singleton ) &&
+				Hook( &TargetClass::FileDenied, &SubstituteClass::FileDenied )
+			);
+			return 1;
+		}
+
+		static bool DetachFileDenied( )
+		{
+			return UnHook( &TargetClass::FileDenied );
+		}
+
+		LUA_FUNCTION_STATIC_MEMBER( LuaDetachFileDenied )
+		{
+			LUA->PushBool( DetachFileDenied( ) );
+			return 1;
+		}
+
+		virtual void FileDenied( const char *fileName, uint32_t transferID )
 		{
 			INetChannelHandler *handler = This( );
 
-			HOOK_INIT( "INetChannelHandler::FileDenied" );
-			HOOK_PUSH( NetChannelHandler::Push( LUA, handler ) );
-			HOOK_PUSH( LUA->PushString( fileName ) );
-			HOOK_PUSH( LUA->PushNumber( transferID ) );
-			HOOK_CALL( 0 );
-			HOOK_END( );
+			{
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "INetChannelHandler::FileDenied" ) != 0 )
+				{
+					NetChannelHandler::Push( LUA, handler );
+					LUA->PushString( fileName );
+					LUA->PushNumber( transferID );
+
+					LuaHelpers::CallHookRun( LUA, 3, 0 );
+				}
+			}
 
 			Call( &INetChannelHandler::FileDenied, fileName, transferID );
-		}
-
-		bool HookConnectionClosing( INetChannelHandler *handler )
-		{
-			if( !Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler ) )
-				return false;
-
-			return Hook(
-				&INetChannelHandler::ConnectionClosing, &INetChannelHandlerProxy::ConnectionClosing
-			);
-		}
-
-		bool HookConnectionCrashed( INetChannelHandler *handler )
-		{
-			if( !Detouring::ClassProxy<INetChannelHandler, INetChannelHandlerProxy>::Initialize( handler ) )
-				return false;
-
-			return Hook(
-				&INetChannelHandler::ConnectionCrashed, &INetChannelHandlerProxy::ConnectionCrashed
-			);
 		}
 
 		static INetChannelHandlerProxy Singleton;
@@ -593,12 +834,12 @@ namespace Hooks
 
 	void HookCNetChan( CNetChan *netchan )
 	{
-		CNetChanProxy::Singleton.HookShutdown( netchan );
+		CNetChanProxy::Singleton.AttachShutdown( netchan );
 	}
 
 	void HookINetChannelHandler( INetChannelHandler *handler )
 	{
-		INetChannelHandlerProxy::Singleton.HookConnectionClosing( handler );
-		INetChannelHandlerProxy::Singleton.HookConnectionCrashed( handler );
+		INetChannelHandlerProxy::Singleton.AttachConnectionClosing( handler );
+		INetChannelHandlerProxy::Singleton.AttachConnectionCrashed( handler );
 	}
 }

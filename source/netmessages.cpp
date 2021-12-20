@@ -37,60 +37,22 @@ namespace NetMessages
 		LUA->SetField( -2, setter.c_str( ) );
 	}
 
-	template<
-		class ClassName,
-		typename MemberType,
-		MemberType ClassName::*M,
-		typename FunctionType,
-		void ( GarrysMod::Lua::ILuaBase::*Pusher )( FunctionType ),
-		FunctionType( GarrysMod::Lua::ILuaBase::*Getter )( int32_t )
-	>
-		struct Member
-	{
-		LUA_FUNCTION_IMPLEMENT( Get )
-		{
-			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
-			( LUA->*Pusher )( msg->*M );
-			return 1;
-		}
-
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
-		{
-			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
-			msg->*M = ( LUA->*Getter )( 2 );
-			return 0;
-		}
-
-		LUA_FUNCTION_WRAP( Set );
-
-		Member( GarrysMod::Lua::ILuaBase *LUA, const char *name )
-		{
-			SetupAccessors( LUA, name, Get, Set );
-		}
-	};
-
 	template<class ClassName, bool ClassName::*M>
 	struct BoolMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushBool( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = LUA->GetBool( 2 );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		BoolMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -101,23 +63,19 @@ namespace NetMessages
 	template<class ClassName, typename MemberType, MemberType ClassName::*M>
 	struct NumberMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushNumber( static_cast<double>( msg->*M ) );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = static_cast<MemberType>( LUA->GetNumber( 2 ) );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		NumberMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -128,23 +86,19 @@ namespace NetMessages
 	template<class ClassName, typename MemberType, MemberType ClassName::*M>
 	struct EnumMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushNumber( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = static_cast<MemberType>( static_cast<int32_t>( LUA->GetNumber( 2 ) ) );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		EnumMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -155,23 +109,19 @@ namespace NetMessages
 	template<class ClassName, QAngle ClassName::*M>
 	struct AngleMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushAngle( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = LUA->GetAngle( 2 );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		AngleMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -182,23 +132,19 @@ namespace NetMessages
 	template<class ClassName, Vector ClassName::*M>
 	struct VectorMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushVector( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = LUA->GetVector( 2 );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		VectorMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -212,18 +158,16 @@ namespace NetMessages
 		size_t MaximumLength,
 		MemberType( ClassName::*M )[MaximumLength]
 	>
-		struct ArrayMember
+	struct ArrayMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushString( reinterpret_cast<const char *>( msg->*M ), MaximumLength );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 
@@ -239,8 +183,6 @@ namespace NetMessages
 			return 0;
 		}
 
-		LUA_FUNCTION_WRAP( Set );
-
 		ArrayMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
 			SetupAccessors( LUA, name, Get, Set );
@@ -250,23 +192,19 @@ namespace NetMessages
 	template<class ClassName, size_t MaximumLength, char( ClassName::*M )[MaximumLength]>
 	struct StringArrayMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushString( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			V_strncpy( msg->*M, LUA->GetString( 2 ), MaximumLength );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		StringArrayMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -276,23 +214,19 @@ namespace NetMessages
 
 	template<class ClassName, const char *ClassName::*M> struct StringMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			LUA->PushString( msg->*M );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = LUA->GetString( 2 );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		StringMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -303,23 +237,19 @@ namespace NetMessages
 	template<class ClassName, bf_read ClassName::*M>
 	struct ReaderMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			sn_bf_read::Push( LUA, &( msg->*M ), -1 );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = *sn_bf_read::Get( LUA, 2, nullptr );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		ReaderMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
@@ -330,23 +260,19 @@ namespace NetMessages
 	template<class ClassName, bf_write ClassName::*M>
 	struct WriterMember
 	{
-		LUA_FUNCTION_IMPLEMENT( Get )
+		LUA_FUNCTION_STATIC_MEMBER( Get )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			sn_bf_write::Push( LUA, &( msg->*M ), -1 );
 			return 1;
 		}
 
-		LUA_FUNCTION_WRAP( Get );
-
-		LUA_FUNCTION_IMPLEMENT( Set )
+		LUA_FUNCTION_STATIC_MEMBER( Set )
 		{
 			ClassName *msg = CheckNetmessageType<ClassName>( LUA );
 			msg->*M = *sn_bf_write::Get( LUA, 2, nullptr );
 			return 0;
 		}
-
-		LUA_FUNCTION_WRAP( Set );
 
 		WriterMember( GarrysMod::Lua::ILuaBase *LUA, const char *name )
 		{
