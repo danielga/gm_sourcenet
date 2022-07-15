@@ -1,4 +1,5 @@
 #include "datapack.hpp"
+#include "protocol.hpp"
 
 #include <GarrysMod/Lua/Helpers.hpp>
 #include <GarrysMod/FunctionPointers.hpp>
@@ -10,7 +11,10 @@
 #include <iclient.h>
 #include <eiface.h>
 #include <LzmaLib.h>
-#include <7zCrc.h>
+#include <Sha256.h>
+
+#include <vector>
+#include <array>
 
 class GModDataPack;
 
@@ -100,24 +104,30 @@ namespace DataPack
 	int GModDataPackProxy::lua_receiving_client = -1;
 	const char GModDataPackProxy::lua_file_hook_name[] = "SendLuaFileToClient";
 
-	static size_t Compress( const std::string &input, std::vector<uint8_t> &output, size_t offset )
+	inline size_t MaximumCompressedSize( const std::string &input )
+	{
+		const size_t input_size = input.size( ) + 1;
+		return input_size + input_size / 3 + 128;
+	}
+
+	static std::vector<uint8_t> Compress( const std::string &input )
 	{
 		// The data is written:
 		//	5 bytes:	props
 		//	8 bytes:	uncompressed size
 		//	the rest:	the actual data
-		size_t iInputLength = input.size( ) + 1;
+		const size_t iInputLength = input.size( ) + 1;
 		size_t props_size = LZMA_PROPS_SIZE;
 		size_t iDestSize = iInputLength + iInputLength / 3 + 128;
 
-		output.resize( offset + iDestSize + LZMA_PROPS_SIZE + 8 );
+		std::vector<uint8_t> output( iDestSize + LZMA_PROPS_SIZE + 8, 0 );
 
 		const uint8_t *pInputData = reinterpret_cast<const uint8_t *>( input.c_str( ) );
-		uint8_t *pPropStart = reinterpret_cast<uint8_t *>( &output[offset] );
+		uint8_t *pPropStart = output.data( );
 		uint8_t *pSizeStart = pPropStart + LZMA_PROPS_SIZE;
 		uint8_t *pBodyStart = pSizeStart + 8;
 
-		int res = LzmaCompress(
+		const int res = LzmaCompress(
 			pBodyStart, &iDestSize, // Dest out
 			pInputData, iInputLength, // Input in
 			pPropStart, &props_size, // Props out
@@ -131,10 +141,10 @@ namespace DataPack
 		);
 
 		if( props_size != LZMA_PROPS_SIZE )
-			return 0;
+			return { };
 
 		if( res != SZ_OK )
-			return 0;
+			return { };
 
 		// Write our 8 byte LE size
 		pSizeStart[0] = iInputLength & 0xFF;
@@ -146,55 +156,53 @@ namespace DataPack
 		pSizeStart[6] = 0;
 		pSizeStart[7] = 0;
 
-		output.resize( offset + iDestSize + LZMA_PROPS_SIZE + 8 );
-		return iDestSize + LZMA_PROPS_SIZE + 8;
+		output.resize( iDestSize + LZMA_PROPS_SIZE + 8 );
+		return output;
 	}
 
 	inline void SendLuaFile( int client, int fileID, const std::string &substitute, bool autorefresh )
 	{
-		std::vector<uint8_t> data;
+		const char *path = client_lua_files->GetString( fileID );
 
-		const char *path = nullptr;
-		size_t pathlen = 0;
-		if( autorefresh )
-		{
-			path = client_lua_files->GetString( fileID );
-			pathlen = std::strlen( path ) + 1;
-			data.resize( 1 + pathlen + 4 + 4 );
-		}
-		else
-			data.resize( 1 + 2 + 4 );
-
-		size_t offset = 0;
-
-		uint8_t msgType = autorefresh ? 1 : 4; // message type
-		std::memcpy( &data[offset], &msgType, 1 );
-		++offset;
+		// Type 1b + SHA256 32b + compressed substitute Xb + alignment 4b
+		int min_buffer_size = 1 + 32 + MaximumCompressedSize( substitute ) + 4;
 
 		if( autorefresh )
 		{
-			std::memcpy( &data[offset], path, pathlen );
-			offset += pathlen;
+			if( path == nullptr )
+				return;
+
+			// (File path + NUL) Xb + (SHA256 + compressed substitute) size 4b
+			min_buffer_size += std::strlen( path ) + 1 + 4;
 		}
 		else
-		{
-			std::memcpy( &data[offset], &fileID, 2 );
-			offset += 2;
-		}
+			// File ID 2b
+			min_buffer_size += 2;
+
+		std::vector<uint8_t> buffer( min_buffer_size, 0 );
+		bf_write writer( "sourcenet SendLuaFile writer", buffer.data( ), buffer.size( ) );
+
+		writer.WriteByte( autorefresh ? 1 : 4 );
 
 		if( autorefresh )
-		{
-			size_t compressedLen = Compress( substitute, data, offset + 8 ) + 4;
-			std::memcpy( &data[offset], &compressedLen, 4 );
-			offset += 4;
-		}
+			writer.WriteString( path );
 		else
-			Compress( substitute, data, offset + 4 );
+			writer.WriteWord( fileID );
 
-		uint32_t crc32 = CrcCalc( &substitute[0], substitute.size( ) + 1 );
-		std::memcpy( &data[offset], &crc32, 4 );
+		const std::vector<uint8_t> compressed_buffer = Compress( substitute );
+		if( autorefresh )
+			writer.WriteUBitLong( 32 + compressed_buffer.size( ), 32 );
 
-		global::engine_server->GMOD_SendToClient( client, &data[0], static_cast<int>( 8 * data.size( ) ) );
+		CSha256 sha256;
+		Sha256_Init( &sha256 );
+		Sha256_Update( &sha256, reinterpret_cast<const uint8_t *>( substitute.c_str( ) ), substitute.size( ) + 1 );
+		std::array<uint8_t, 32> sha256_buffer { };
+		Sha256_Final( &sha256, sha256_buffer.data( ) );
+		writer.WriteBytes( sha256_buffer.data( ), sha256_buffer.size( ) );
+
+		writer.WriteBytes( compressed_buffer.data( ), static_cast<int>( compressed_buffer.size( ) ) );
+
+		global::engine_server->GMOD_SendToClient( client, writer.GetData( ), writer.GetNumBitsWritten( ) );
 	}
 
 	LUA_FUNCTION_STATIC( SendLuaFile )
@@ -250,8 +258,6 @@ namespace DataPack
 
 	void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
-		CrcGenerateTable( );
-
 		LUA->PushCFunction( GModDataPackProxy::EnableLuaFileValidation );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "EnableLuaFileValidation" );
 
