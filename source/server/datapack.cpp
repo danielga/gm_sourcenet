@@ -250,6 +250,8 @@ namespace DataPack
 
 	void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
+		CrcGenerateTable( );
+
 		LUA->PushCFunction( GModDataPackProxy::EnableLuaFileValidation );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "EnableLuaFileValidation" );
 
