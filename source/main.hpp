@@ -60,7 +60,7 @@ namespace global
 		else if( number > static_cast<double>( max ) )
 		{
 			auto extra = LUA->PushFormattedString( "number %f is greater than maximum limit of %f",
-				number, static_cast<double>( min ) );
+				number, static_cast<double>( max ) );
 			LUA->ArgError( idx, extra );
 		}
 
