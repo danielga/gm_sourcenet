@@ -56,13 +56,9 @@ namespace NetMessage
 #if defined SYSTEM_WINDOWS
 
 #if defined ARCHITECTURE_X86_OLD
+	static const uintptr_t SVC_CmdKeyValues_offset = 0x20;
 
-	static const uintptr_t CLC_CmdKeyValues_offset = 916;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 691;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 1935;
-
+	static const uintptr_t SVC_CreateStringTable_offset = 0x40;
 #elif defined ARCHITECTURE_X86
 
 	static const uintptr_t CLC_CmdKeyValues_offset = 950;
@@ -517,6 +513,29 @@ namespace NetMessage
 
 		ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
 
+#ifdef ARCHITECTURE_X86_OLD
+		const void* CLC_CmdKeyValues_Constructor =
+			reinterpret_cast<const void*>(FunctionPointers::CLC_CmdKeyValues_Constructor());
+
+		if (CLC_CmdKeyValues_Constructor == nullptr)
+			LUA->ThrowError("failed to locate CBaseClient::ConnectionStart");
+
+		ResolveMessagesFromFunctionCode(LUA, CLC_CmdKeyValues_Constructor);
+
+		uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
+			CLC_CmdKeyValues_Constructor
+			) + SVC_CmdKeyValues_offset;
+		ResolveMessagesFromFunctionCode(LUA, reinterpret_cast<const uint8_t*>(
+			SVC_CmdKeyValues
+		));
+
+		uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
+			CLC_CmdKeyValues_Constructor
+			) + SVC_CreateStringTable_offset;
+		ResolveMessagesFromFunctionCode(LUA, reinterpret_cast<const uint8_t*>(
+			SVC_CreateStringTable
+		));
+#else
 		uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
 			CBaseClientState_ConnectionStart
 		) + SVC_CreateStringTable_offset;
@@ -538,6 +557,7 @@ namespace NetMessage
 		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
 			CLC_CmdKeyValues + sizeof( int32_t ) + *reinterpret_cast<int32_t *>( CLC_CmdKeyValues )
 		) );
+#endif
 	}
 
 	template<class NetMessage> int Constructor( lua_State *L )
