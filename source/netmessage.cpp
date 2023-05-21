@@ -53,84 +53,6 @@ namespace NetMessage
 {
 	using namespace NetMessages;
 
-#if defined SYSTEM_WINDOWS
-
-#if defined ARCHITECTURE_X86_OLD
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 916;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 691;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 1935;
-
-#elif defined ARCHITECTURE_X86
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 950;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 708;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 2100;
-
-#elif defined ARCHITECTURE_X86_64
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 1037;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 773;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 2443;
-
-#endif
-
-#elif defined SYSTEM_LINUX
-
-#if defined ARCHITECTURE_X86_OLD
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 716;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 571;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 1691;
-
-#elif defined ARCHITECTURE_X86
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 744;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 567;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 1707;
-
-#elif defined ARCHITECTURE_X86_64
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 901;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 676;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 1998;
-
-#endif
-
-#elif defined SYSTEM_MACOSX
-
-#if defined ARCHITECTURE_X86
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 1031;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 675;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 2112;
-
-#elif defined ARCHITECTURE_X86_64
-
-	static const uintptr_t CLC_CmdKeyValues_offset = 1012;
-
-	static const uintptr_t SVC_CreateStringTable_offset = 707;
-
-	static const uintptr_t SVC_CmdKeyValues_offset = 2301;
-
-#endif
-
-#endif
-
 	struct Container
 	{
 		INetMessage *msg;
@@ -513,31 +435,30 @@ namespace NetMessage
 		if( CBaseClientState_ConnectionStart == nullptr )
 			LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
 
+		const void *CLC_CmdKeyValues_Constructor =
+			reinterpret_cast<const void *>( FunctionPointers::CLC_CmdKeyValues_Constructor( ) );
+		if( CLC_CmdKeyValues_Constructor == nullptr )
+			LUA->ThrowError( "failed to locate CLC_CmdKeyValues::CLC_CmdKeyValues" );
+
+		const void *SVC_CmdKeyValues_Constructor =
+			reinterpret_cast<const void *>( FunctionPointers::SVC_CmdKeyValues_Constructor( ) );
+		if( SVC_CmdKeyValues_Constructor == nullptr )
+			LUA->ThrowError( "failed to locate SVC_CmdKeyValues::SVC_CmdKeyValues" );
+
+		const void *SVC_CreateStringTable_Constructor =
+			reinterpret_cast<const void *>( FunctionPointers::SVC_CreateStringTable_Constructor( ) );
+		if( SVC_CreateStringTable_Constructor == nullptr )
+			LUA->ThrowError( "failed to locate SVC_CreateStringTable::SVC_CreateStringTable" );
+
 		ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
 
 		ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
 
-		uintptr_t SVC_CreateStringTable = reinterpret_cast<uintptr_t>(
-			CBaseClientState_ConnectionStart
-		) + SVC_CreateStringTable_offset;
-		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			SVC_CreateStringTable + sizeof( int32_t ) +
-			*reinterpret_cast<int32_t *>( SVC_CreateStringTable )
-		) );
+		ResolveMessagesFromFunctionCode( LUA, CLC_CmdKeyValues_Constructor );
 
-		uintptr_t SVC_CmdKeyValues = reinterpret_cast<uintptr_t>(
-			CBaseClientState_ConnectionStart
-		) + SVC_CmdKeyValues_offset;
-		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			SVC_CmdKeyValues + sizeof( int32_t ) + *reinterpret_cast<int32_t *>( SVC_CmdKeyValues )
-		) );
+		ResolveMessagesFromFunctionCode( LUA, SVC_CmdKeyValues_Constructor );
 
-		uintptr_t CLC_CmdKeyValues = reinterpret_cast<uintptr_t>(
-			CBaseClient_ConnectionStart
-		) + CLC_CmdKeyValues_offset;
-		ResolveMessagesFromFunctionCode( LUA, reinterpret_cast<const uint8_t *>(
-			CLC_CmdKeyValues + sizeof( int32_t ) + *reinterpret_cast<int32_t *>( CLC_CmdKeyValues )
-		) );
+		ResolveMessagesFromFunctionCode( LUA, SVC_CreateStringTable_Constructor );
 	}
 
 	template<class NetMessage> int Constructor( lua_State *L )
