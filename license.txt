@@ -2,7 +2,7 @@ gm_sourcenet
 A module for Garry's Mod that provides interfaces to many systems
 of VALVe's engine.
 -----------------------------------------------------------------------
-Copyright (c) 2015-2020, Daniel Almeida
+Copyright (c) 2015-2023, Daniel Almeida
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
