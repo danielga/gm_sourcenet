@@ -912,7 +912,7 @@ namespace NetMessages
 
 		for( size_t k = 0; k < MAX_CUSTOM_FILES; ++k )
 		{
-			LUA->PushNumber( k + 1 );
+			LUA->PushNumber( static_cast<double>( k + 1 ) );
 			LUA->GetTable( 2 );
 
 			msg->CustomFiles[k] = static_cast<CRC32_t>( LUA->GetNumber( -1 ) );
@@ -982,7 +982,7 @@ namespace NetMessages
 		auto &events = msg->EventArray;
 		for( int32_t k = 0; k < events.GetNumBits( ); ++k )
 		{
-			LUA->PushNumber( ++idx );
+			LUA->PushNumber( static_cast<double>( ++idx ) );
 			LUA->PushBool( events.IsBitSet( k ) );
 			LUA->SetTable( -3 );
 		}
@@ -999,7 +999,7 @@ namespace NetMessages
 		auto &events = msg->EventArray;
 		for( int32_t k = 0; k < events.GetNumBits( ); ++k )
 		{
-			LUA->PushNumber( ++idx );
+			LUA->PushNumber( static_cast<double>( ++idx ) );
 			LUA->GetTable( 2 );
 
 			if( LUA->GetBool( -1 ) )

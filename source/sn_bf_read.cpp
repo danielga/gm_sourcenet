@@ -100,7 +100,7 @@ namespace sn_bf_read
 	LUA_FUNCTION_STATIC( TotalBytesAvailable )
 	{
 		bf_read *buf = Get( LUA, 1 );
-		LUA->PushNumber( buf->TotalBytesAvailable( ) );
+		LUA->PushNumber( static_cast<double>( buf->TotalBytesAvailable( ) ) );
 		return 1;
 	}
 

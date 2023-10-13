@@ -165,7 +165,7 @@ namespace DataPack
 		const char *path = client_lua_files->GetString( fileID );
 
 		// Type 1b + SHA256 32b + compressed substitute Xb + alignment 4b
-		int min_buffer_size = 1 + 32 + MaximumCompressedSize( substitute ) + 4;
+		size_t min_buffer_size = 1 + 32 + MaximumCompressedSize( substitute ) + 4;
 
 		if( autorefresh )
 		{
@@ -180,7 +180,7 @@ namespace DataPack
 			min_buffer_size += 2;
 
 		std::vector<uint8_t> buffer( min_buffer_size, 0 );
-		bf_write writer( "sourcenet SendLuaFile writer", buffer.data( ), buffer.size( ) );
+		bf_write writer( "sourcenet SendLuaFile writer", buffer.data( ), static_cast<int>( buffer.size( ) ) );
 
 		writer.WriteByte( autorefresh ? 1 : 4 );
 
@@ -191,14 +191,14 @@ namespace DataPack
 
 		const std::vector<uint8_t> compressed_buffer = Compress( substitute );
 		if( autorefresh )
-			writer.WriteUBitLong( 32 + compressed_buffer.size( ), 32 );
+			writer.WriteUBitLong( static_cast<uint32_t>( 32 + compressed_buffer.size( ) ), 32 );
 
 		CSha256 sha256;
 		Sha256_Init( &sha256 );
 		Sha256_Update( &sha256, reinterpret_cast<const uint8_t *>( substitute.c_str( ) ), substitute.size( ) + 1 );
 		std::array<uint8_t, 32> sha256_buffer { };
 		Sha256_Final( &sha256, sha256_buffer.data( ) );
-		writer.WriteBytes( sha256_buffer.data( ), sha256_buffer.size( ) );
+		writer.WriteBytes( sha256_buffer.data( ), static_cast<int>( sha256_buffer.size( ) ) );
 
 		writer.WriteBytes( compressed_buffer.data( ), static_cast<int>( compressed_buffer.size( ) ) );
 
