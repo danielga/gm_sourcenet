@@ -68,7 +68,7 @@ local function HandleStream(name, netchan, write)
 		local msgtype = read:ReadUInt(NET_MESSAGE_BITS)
 		local handler = GetNetMessageInstance(netchan, msgtype)
 		if handler == nil then
-			MsgC(Color(255, 0, 0), "Unknown outgoing message " .. msgtype .. " on " .. name .. " stream with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			SourceNetMsg(Color(255, 0, 0), "Unknown outgoing message " .. msgtype .. " on " .. name .. " stream with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
 			return false
 		end
 
@@ -76,7 +76,7 @@ local function HandleStream(name, netchan, write)
 		local copy_function = outgoing_copy_table ~= nil and outgoing_copy_table[msgtype] or DefaultCopy
 		copy_function(netchan, read, write, handler)
 
-		-- MsgC(Color(255, 255, 0), "NetMessage from " .. name .. " stream: " .. tostring(handler) .. "\n")
+		SourceNetMsg(Color(255, 255, 0), "NetMessage from " .. name .. " stream: " .. tostring(handler) .. "\n")
 	end
 
 	local bitsleft = read:GetNumBitsLeft()
@@ -86,7 +86,7 @@ local function HandleStream(name, netchan, write)
 		write:WriteBits(data)
 	end
 
-	-- MsgC(Color(0, 255, 0), "Fully parsed " .. name .. " stream with " .. totalbits .. " bit(s) written\n")
+	SourceNetMsg(Color(0, 255, 0), "Fully parsed " .. name .. " stream with " .. totalbits .. " bit(s) written\n")
 	return true
 end
 
