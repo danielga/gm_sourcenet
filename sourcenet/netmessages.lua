@@ -17,9 +17,9 @@ MAX_ENTITYMESSAGE_BITS = 11
 MAX_SERVER_CLASS_BITS = 9
 MAX_EDICT_BITS = 13
 
-function SourceNetMsg(msg)
+function SourceNetMsg(...)
 	if sourcenet_netmessage_info:GetInt() ~= 0 then
-		Msg("[snmi] " .. msg .. "\n")
+		MsgC(...)
 	end
 end
 
