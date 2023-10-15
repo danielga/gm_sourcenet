@@ -60,11 +60,12 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 		return
 	end
 
+	local totalbits = read:GetNumBitsLeft()
 	while read:GetNumBitsLeft() >= NET_MESSAGE_BITS do
 		local msgtype = read:ReadUInt(NET_MESSAGE_BITS)
 		local handler = GetNetMessageInstance(netchan, msgtype)
 		if handler == nil then
-			MsgC(Color(255, 0, 0), "Unknown incoming message " .. msgtype .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			SourceNetMsg(Color(255, 0, 0), "Unknown incoming message " .. msgtype .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
 			return false
 		end
 
@@ -72,7 +73,7 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 		local copy_function = incoming_copy_table ~= nil and incoming_copy_table[msgtype] or DefaultCopy
 		copy_function(netchan, read, write, handler)
 
-		--MsgC(Color(255, 255, 255), "NetMessage: " .. tostring(handler) .. "\n")
+		SourceNetMsg(Color(255, 255, 255), "NetMessage: " .. tostring(handler) .. "\n")
 	end
 
 	local bitsleft = read:GetNumBitsLeft()
@@ -82,7 +83,7 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 		write:WriteBits(data)
 	end
 
-	--MsgC(Color(0, 255, 0), "Fully parsed stream with " .. totalbits .. " bit(s) written\n")
+	SourceNetMsg(Color(0, 255, 0), "Fully parsed stream with " .. totalbits .. " bit(s) written\n")
 	return true
 end)
 
