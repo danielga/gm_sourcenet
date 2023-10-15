@@ -81,6 +81,7 @@ hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localc
 		-- Should be inocuous padding bits but just to be sure, let's copy them
 		local data = read:ReadBits(bitsleft)
 		write:WriteBits(data)
+		SourceNetMsg(Color(255, 255, 0), "Copied " .. bitsleft .. " bit(s)\n")
 	end
 
 	SourceNetMsg(Color(0, 255, 0), "Fully parsed stream with " .. totalbits .. " bit(s) written\n")
