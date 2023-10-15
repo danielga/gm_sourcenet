@@ -14,6 +14,8 @@
 
 #include <inetmsghandler.h>
 #include <cdll_int.h>
+#include <eiface.h>
+#include <iserver.h>
 
 namespace Hooks
 {
@@ -22,7 +24,6 @@ namespace Hooks
 	private:
 		typedef CNetChan TargetClass;
 		typedef CNetChanProxy SubstituteClass;
-		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
 
 		static CNetChan *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 		{
@@ -32,6 +33,8 @@ namespace Hooks
 		static FunctionPointers::CNetChan_ProcessMessages_t ProcessMessages_original;
 
 	public:
+		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
+
 		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 		{
 			ProcessMessages_original = FunctionPointers::CNetChan_ProcessMessages( );
@@ -41,9 +44,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachSendDatagram )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::SendDatagram, &SubstituteClass::SendDatagram )
 			);
 			return 1;
@@ -113,9 +114,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachProcessPacket )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::ProcessPacket, &SubstituteClass::ProcessPacket )
 			);
 			return 1;
@@ -159,18 +158,14 @@ namespace Hooks
 			}
 		}
 
-		static bool AttachShutdown( TargetClass *temp )
+		static bool AttachShutdown( )
 		{
-			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
-				return false;
-
 			return Hook( &TargetClass::Shutdown, &SubstituteClass::Shutdown );
 		}
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachShutdown )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
-			LUA->PushBool( AttachShutdown( temp ) );
+			LUA->PushBool( AttachShutdown( ) );
 			return 1;
 		}
 
@@ -302,7 +297,6 @@ namespace Hooks
 	private:
 		typedef INetChannelHandler TargetClass;
 		typedef INetChannelHandlerProxy SubstituteClass;
-		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
 
 		static INetChannelHandler *LuaGet( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 		{
@@ -310,13 +304,16 @@ namespace Hooks
 		}
 
 	public:
+		typedef Detouring::ClassProxy<TargetClass, SubstituteClass> ClassProxy;
+
+		static bool AttachConnectionStart( )
+		{
+			return Hook( &TargetClass::ConnectionStart, &SubstituteClass::ConnectionStart );
+		}
+
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionStart )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
-			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
-				Hook( &TargetClass::ConnectionStart, &SubstituteClass::ConnectionStart )
-			);
+			LUA->PushBool( AttachConnectionStart( ) );
 			return 1;
 		}
 
@@ -349,18 +346,14 @@ namespace Hooks
 			Call( &INetChannelHandler::ConnectionStart, netchannel );
 		}
 
-		static bool AttachConnectionClosing( TargetClass *temp )
+		static bool AttachConnectionClosing( )
 		{
-			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
-				return false;
-
 			return Hook( &TargetClass::ConnectionClosing, &SubstituteClass::ConnectionClosing );
 		}
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionClosing )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
-			LUA->PushBool( AttachConnectionClosing( temp ) );
+			LUA->PushBool( AttachConnectionClosing( ) );
 			return 1;
 		}
 
@@ -395,18 +388,14 @@ namespace Hooks
 			Call( &INetChannelHandler::ConnectionClosing, reason );
 		}
 
-		static bool AttachConnectionCrashed( TargetClass *temp )
+		static bool AttachConnectionCrashed( )
 		{
-			if( !Detouring::ClassProxy<TargetClass, SubstituteClass>::Initialize( temp, &Singleton ) )
-				return false;
-
 			return Hook( &TargetClass::ConnectionCrashed, &SubstituteClass::ConnectionCrashed );
 		}
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachConnectionCrashed )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
-			LUA->PushBool( AttachConnectionCrashed( temp ) );
+			LUA->PushBool( AttachConnectionCrashed( ) );
 			return 1;
 		}
 
@@ -443,9 +432,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachPacketStart )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::PacketStart, &SubstituteClass::PacketStart )
 			);
 			return 1;
@@ -483,9 +470,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachPacketEnd )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::PacketEnd, &SubstituteClass::PacketEnd )
 			);
 			return 1;
@@ -521,9 +506,7 @@ namespace Hooks
 		
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileRequested )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::FileRequested, &SubstituteClass::FileRequested )
 			);
 			return 1;
@@ -561,9 +544,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileReceived )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::FileReceived, &SubstituteClass::FileReceived )
 			);
 			return 1;
@@ -601,9 +582,7 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachFileDenied )
 		{
-			TargetClass *temp = LuaGet( LUA, 1 );
 			LUA->PushBool(
-				ClassProxy::Initialize( temp, &Singleton ) &&
 				Hook( &TargetClass::FileDenied, &SubstituteClass::FileDenied )
 			);
 			return 1;
@@ -649,9 +628,91 @@ namespace Hooks
 		return 0;
 	}
 
+#if defined SOURCENET_SERVER
+
+	static Detouring::Hook NET_CreateNetChannel_hook;
+
+	static INetChannel *NET_CreateNetChannel_detour(
+		int socket,
+		const ns_address *adr,
+		const char *name,
+		INetChannelHandler *handler,
+		const unsigned char *pbEncryptionKey,
+		bool bForceNewChannel
+	) {
+		INetChannel *netchan = NET_CreateNetChannel_hook.GetTrampoline<FunctionPointers::NET_CreateNetChannel_t>( )(
+			socket,
+			adr,
+			name,
+			handler,
+			pbEncryptionKey,
+			bForceNewChannel
+		);
+		if( netchan == nullptr )
+			return netchan;
+
+		HookCNetChan( static_cast<CNetChan *>( netchan ) );
+		HookINetChannelHandler( handler );
+		NET_CreateNetChannel_hook.Destroy( );
+		return netchan;
+	}
+
+	static void DetourCreateNetChannel( GarrysMod::Lua::ILuaBase *LUA )
+	{
+		auto NET_CreateNetChannel_original = FunctionPointers::NET_CreateNetChannel( );
+		if( NET_CreateNetChannel_original == nullptr )
+			LUA->ThrowError( "failed to locate NET_CreateNetChannel" );
+
+		if( !NET_CreateNetChannel_hook.Create(
+			reinterpret_cast<void *>( NET_CreateNetChannel_original ),
+			reinterpret_cast<void *>( NET_CreateNetChannel_detour )
+		) )
+			LUA->ThrowError( "failed to create hook for NET_CreateNetChannel" );
+
+		if( !NET_CreateNetChannel_hook.Enable( ) )
+			LUA->ThrowError( "failed to hook NET_CreateNetChannel" );
+	}
+
+#endif
+
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
 		CNetChanProxy::Initialize( LUA );
+
+#if defined SOURCENET_SERVER
+
+		const int client_count = global::server->GetClientCount( );
+		CNetChan *netchan = nullptr;
+		for( int k = 1; netchan == nullptr && k < client_count; ++k )
+			netchan = static_cast<CNetChan *>( global::engine_server->GetPlayerNetInfo( k ) );
+
+		if( netchan == nullptr )
+		{
+			DetourCreateNetChannel( LUA );
+			return;
+		}
+
+		auto handler = netchan->GetMsgHandler( );
+		if( handler == nullptr )
+		{
+			DetourCreateNetChannel( LUA );
+			return;
+		}
+
+#elif defined SOURCENET_CLIENT
+
+		CNetChan *netchan = static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) );
+		if( netchan == nullptr )
+			LUA->ThrowError( "failed to retrieve client CNetChan" );
+
+		auto handler = netchan->GetMsgHandler( );
+		if( handler == nullptr )
+			LUA->ThrowError( "failed to retrieve client INetChannelHandler" );
+
+#endif
+
+		HookCNetChan( netchan );
+		HookINetChannelHandler( handler );
 	}
 
 	void Initialize( GarrysMod::Lua::ILuaBase *LUA )
@@ -737,6 +798,13 @@ namespace Hooks
 
 	void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
+
+#if defined SOURCENET_SERVER
+
+		NET_CreateNetChannel_hook.Destroy( );
+
+#endif
+
 		CNetChanProxy::DetachSendDatagram( );
 		CNetChanProxy::DetachProcessPacket( );
 		CNetChanProxy::DetachShutdown( );
@@ -834,12 +902,14 @@ namespace Hooks
 
 	void HookCNetChan( CNetChan *netchan )
 	{
-		CNetChanProxy::Singleton.AttachShutdown( netchan );
+		CNetChanProxy::ClassProxy::Initialize( netchan, &CNetChanProxy::Singleton );
+		CNetChanProxy::Singleton.AttachShutdown( );
 	}
 
 	void HookINetChannelHandler( INetChannelHandler *handler )
 	{
-		INetChannelHandlerProxy::Singleton.AttachConnectionClosing( handler );
-		INetChannelHandlerProxy::Singleton.AttachConnectionCrashed( handler );
+		INetChannelHandlerProxy::ClassProxy::Initialize( handler, &INetChannelHandlerProxy::Singleton );
+		INetChannelHandlerProxy::Singleton.AttachConnectionClosing( );
+		INetChannelHandlerProxy::Singleton.AttachConnectionCrashed( );
 	}
 }
