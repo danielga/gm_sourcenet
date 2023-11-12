@@ -229,58 +229,65 @@ namespace Hooks
 		{
 			CNetChan *netchan = This( );
 
-			if( !buf.IsOverflowed( ) )
+			if( buf.IsOverflowed( ) )
+				return Call( ProcessMessages_original, buf );
+
+			const uint8_t *original_data = buf.GetBasePointer( );
+			static uint8_t data[100000] = { 0 };
+
+			const int32_t bytesread = buf.GetNumBytesRead( );
+			if( bytesread > sizeof( data ) )
+				throw "FUCK";
+
+			if( bytesread > 0 )
+				std::memcpy( data, buf.GetBasePointer( ), bytesread );
+
+			const int32_t bitsread = buf.GetNumBitsRead( );
+			bf_write write( data, sizeof( data ) );
+			write.SeekToBit( bitsread );
+
+			bool handled = false;
 			{
-				static uint8_t data[100000] = { 0 };
-
-				const int32_t bytesread = buf.GetNumBytesRead( );
-				if( bytesread > 0 )
-					std::memcpy( data, buf.GetBasePointer( ), bytesread );
-
-				const int32_t bitsread = buf.GetNumBitsRead( );
-				bf_write write( data, sizeof( data ) );
-				write.SeekToBit( bitsread );
-
-				bool handled = false;
+				GarrysMod::Lua::ILuaBase *LUA = global::lua;
+				if( LuaHelpers::PushHookRun( LUA, "PreProcessMessages" ) != 0 )
 				{
-					GarrysMod::Lua::ILuaBase *LUA = global::lua;
-					if( LuaHelpers::PushHookRun( LUA, "PreProcessMessages" ) != 0 )
+					NetChannel::Push( LUA, netchan );
+					bf_read **reader = sn_bf_read::Push( LUA, &buf );
+					bf_write **writer = sn_bf_write::Push( LUA, &write );
+
+					if( !global::is_dedicated )
 					{
-						NetChannel::Push( LUA, netchan );
-						bf_read **reader = sn_bf_read::Push( LUA, &buf );
-						bf_write **writer = sn_bf_write::Push( LUA, &write );
-
-						if( !global::is_dedicated )
-						{
-							NetChannel::Push(
-								LUA,
-								static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
-							);
-						}
-
-						if( LuaHelpers::CallHookRun( LUA, global::is_dedicated ? 3 : 4, 1 ) )
-						{
-							if( LUA->IsType( -1, GarrysMod::Lua::Type::BOOL ) )
-								handled = LUA->GetBool( -1 );
-
-							LUA->Pop( 1 );
-						}
-
-						*reader = nullptr;
-						*writer = nullptr;
+						NetChannel::Push(
+							LUA,
+							static_cast<CNetChan *>( global::engine_client->GetNetChannelInfo( ) )
+						);
 					}
-				}
 
-				if( handled )
-					buf.StartReading(
-						write.GetBasePointer( ),
-						write.GetNumBytesWritten( ),
-						bitsread,
-						write.GetNumBitsWritten( )
-					);
-				else
-					buf.Seek( bitsread );
+					if( LuaHelpers::CallHookRun( LUA, global::is_dedicated ? 3 : 4, 1 ) )
+					{
+						if( LUA->IsType( -1, GarrysMod::Lua::Type::BOOL ) )
+							handled = LUA->GetBool( -1 );
+
+						LUA->Pop( 1 );
+					}
+
+					*reader = nullptr;
+					*writer = nullptr;
+				}
 			}
+
+			if( handled )
+			{
+				std::memcpy( const_cast<uint8_t *>( original_data ), data, write.GetNumBytesWritten( ) );
+				buf.StartReading(
+					original_data,
+					write.GetNumBytesWritten( ),
+					bitsread,
+					write.GetNumBitsWritten( )
+				);
+			}
+			else
+				buf.Seek( bitsread );
 
 			return Call( ProcessMessages_original, buf );
 		}

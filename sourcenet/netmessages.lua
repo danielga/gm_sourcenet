@@ -1674,7 +1674,9 @@ NET_MESSAGES = {
 					self.changed = buffer:ReadUInt(MAX_EDICT_BITS)
 					self.bits = buffer:ReadUInt(24)
 					self.updatebaseline = buffer:ReadBit() == 1
-					self.data = buffer:ReadBits(self.bits)
+					if self.bits > 0 then
+						self.data = buffer:ReadBits(self.bits)
+					end
 					self.initialized = true
 				end,
 				WriteToBuffer = function(self, buffer)
@@ -1692,7 +1694,9 @@ NET_MESSAGES = {
 					buffer:WriteUInt(self.changed, MAX_EDICT_BITS)
 					buffer:WriteUInt(self.bits, 24)
 					buffer:WriteBit(self.updatebaseline and 1 or 0)
-					buffer:WriteBits(self.data)
+					if self.bits > 0 then
+						buffer:WriteBits(self.data)
+					end
 					return true
 				end,
 				Reset = function(self)
