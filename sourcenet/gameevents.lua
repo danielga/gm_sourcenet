@@ -5,11 +5,11 @@ else
 end
 
 local manager = IGameEventManager2()
-local function FilterGameEvent(netchan, read, write, hookname)
+local function FilterGameEvent(netchan, read, write, hookname, streamname)
 	local bits = read:ReadUInt(11)
 	local data = read:ReadBits(bits)
 
-	SourceNetMsg(string.format("svc_GameEvent bits=%i\n", bits))
+	SourceNetMsg(string.format("svc_GameEvent on %s stream: bits=%i\n", streamname, bits))
 
 	if not read:IsOverflowed() then
 		local buffer = sn_bf_read(data)
@@ -25,7 +25,7 @@ local function FilterGameEvent(netchan, read, write, hookname)
 				local serialized_buffer = sn_bf_write(serialized_data)
 
 				manager:SerializeEvent(event, serialized_buffer)
-				
+
 				write:WriteUInt(serialized_buffer:GetNumBitsWritten(), 11)
 				write:WriteBits(serialized_buffer:GetBasePointer())
 			else
@@ -38,10 +38,10 @@ end
 
 if CLIENT then
 	FilterIncomingMessage(svc_GameEvent, function(netchan, read, write)
-		FilterGameEvent(netchan, read, write, "ProcessGameEvent")
+		FilterGameEvent(netchan, read, write, "ProcessGameEvent", "client")
 	end)
 else
-	FilterOutgoingMessage(svc_GameEvent, function(netchan, read, write)
-		FilterGameEvent(netchan, read, write, "SendGameEvent")
+	FilterOutgoingMessage(svc_GameEvent, function(netchan, read, write, streamname)
+		FilterGameEvent(netchan, read, write, "SendGameEvent", streamname)
 	end)
 end

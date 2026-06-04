@@ -1,1 +1,48 @@
+# Premake-generated project files
 /projects/
+
+# Cloned dependencies (fetched via the bootstrap scripts)
+/dependencies/
+
+# Build artifacts
+/OUTPUT/
+*.dll
+*.so
+*.lib
+*.exp
+*.pdb
+*.obj
+*.o
+*.a
+*.exe
+
+# Build / debug logs
+*.log
+build_*.log
+srcds_crash_*.mdmp
+core
+core.*
+
+# Visual Studio local state
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+.vs/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local build helpers and notes
+build_windows.bat
+build_linux.sh
+make_x64_implibs.bat
+FIXES.md
+wiki.md

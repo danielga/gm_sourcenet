@@ -13,6 +13,7 @@
 
 #include <inetmessage.h>
 
+#include <cstdio>
 #include <unordered_map>
 
 #if defined( ARCHITECTURE_X86 )
@@ -482,8 +483,12 @@ namespace NetMessage
 
 		if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
 		{
+			std::printf( "[sourcenet] missing engine vtable for '%s' -- constructor will be unavailable\n",
+			             NetMessage::Name );
 			delete msg;
-			LUA->FormattedError( "failed to find vtable for '%s'", NetMessage::Name );
+			LUA->PushNil( );
+			LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, NetMessage::LuaName );
+			return;
 		}
 
 		BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );

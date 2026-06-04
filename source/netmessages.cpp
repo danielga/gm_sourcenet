@@ -4,6 +4,7 @@
 #include "sn_bf_read.hpp"
 
 #include <inetchannelinfo.h>
+#include <const.h>
 
 #include <string>
 #include <cstring>
@@ -927,7 +928,7 @@ namespace NetMessages
 		NumberMember<CLC_ClientInfo, int32_t, &CLC_ClientInfo::ServerCount>( LUA, "ServerCount" );
 		BoolMember<CLC_ClientInfo, &CLC_ClientInfo::HLTV>( LUA, "HLTV" );
 		NumberMember<CLC_ClientInfo, uint32_t, &CLC_ClientInfo::FriendsID>( LUA, "FriendsID" );
-		StringArrayMember<CLC_ClientInfo, 32, &CLC_ClientInfo::FriendsName>( LUA, "FriendsName" );
+		StringArrayMember<CLC_ClientInfo, MAX_PLAYER_NAME_LENGTH, &CLC_ClientInfo::FriendsName>( LUA, "FriendsName" );
 		SetupAccessors(
 			LUA, "CustomFiles", CLC_ClientInfo_GetCustomFiles, CLC_ClientInfo_SetCustomFiles
 		);
