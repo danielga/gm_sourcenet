@@ -7,7 +7,6 @@ hook.Add("SendGameEvent", "ChangeReason", function(netchan, event)
 
 	if reason == "Disconnect by user." then
 		event:SetString("reason", "Disconnected after " .. math.floor(netchan:GetTime() - netchan:GetConnectTime()) .. " seconds")
-	
 		return event
 	end
 end)

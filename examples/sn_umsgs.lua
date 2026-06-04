@@ -1,13 +1,15 @@
 require("sourcenet")
 
-function _R.Player:GetNetChannel()
+local PLAYER = FindMetaTable("Player")
+function PLAYER:GetNetChannel()
 	return CNetChan(self:EntIndex())
 end
 
-function _R.Player:Test()
+function PLAYER:Test()
 	local netchan = self:GetNetChannel()
-	
-	if not netchan then return end
+	if netchan == nil then
+		return
+	end
 
 	local reliablebuffer = netchan:GetReliableBuffer()
 

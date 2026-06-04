@@ -7,135 +7,97 @@ end
 include("netmessages.lua")
 
 -- Initialization
-
 HookNetChannel(
 	-- nochan prevents a net channel being passed to the attach/detach functions
 	-- CNetChan::ProcessMessages doesn't use a virtual hook, so we don't need to pass the net channel
 	{name = "CNetChan::ProcessMessages", nochan = true}
 )
 
-local function CopyBufferEnd(dst, src)
-	local bitsleft = src:GetNumBitsLeft()
-	local data = src:ReadBits(bitsleft)
-	
-	dst:WriteBits(data)
+local NET_MESSAGES_INSTANCES = {}
+
+local function GetNetMessageInstance(netchan, msgtype)
+	local handler = NET_MESSAGES_INSTANCES[msgtype]
+	if handler == nil then
+		handler = NetMessage(netchan, msgtype, not SERVER)
+		NET_MESSAGES_INSTANCES[msgtype] = handler
+	else
+		handler:Reset()
+	end
+
+	return handler
 end
 
-local specialmsg
-local specialhandler = {
-	DefaultCopy = function(netchan, read, write)
-		specialmsg:ReadFromBuffer(read)
-		specialmsg:WriteToBuffer(write)
-	end
+local NET_MESSAGES_INCOMING_COPY = {
+	NET = {},
+	CLC = {},
+	SVC = {}
 }
-hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localchan)
-	local totalbits = read:GetNumBitsLeft() + read:GetNumBitsRead()
 
+local function GetIncomingCopyTableForMessageType(msgtype)
+	if NET_MESSAGES.NET[msgtype] ~= nil then
+		return NET_MESSAGES_INCOMING_COPY.NET
+	end
+
+	if CLIENT and NET_MESSAGES.SVC[msgtype] ~= nil then
+		return NET_MESSAGES_INCOMING_COPY.SVC
+	end
+
+	if SERVER and NET_MESSAGES.CLC[msgtype] ~= nil then
+		return NET_MESSAGES_INCOMING_COPY.CLC
+	end
+
+	return nil
+end
+
+local function DefaultCopy(netchan, read, write, handler)
+	handler:ReadFromBuffer(read)
+	handler:WriteToBuffer(write)
+end
+
+hook.Add("PreProcessMessages", "InFilter", function(netchan, read, write, localchan)
 	local islocal = netchan == localchan
 	if not game.IsDedicated() and ((islocal and SERVER) or (not islocal and CLIENT)) then
-		CopyBufferEnd(write, read)
 		return
 	end
 
-	hook.Call("BASE_PreProcessMessages", nil, netchan, read, write)
-
-	local changeLevelState = false
-
+	local totalbits = read:GetNumBitsLeft()
 	while read:GetNumBitsLeft() >= NET_MESSAGE_BITS do
-		local msg = read:ReadUInt(NET_MESSAGE_BITS)
-
-		if CLIENT then
-			-- Hack to prevent changelevel crashes
-			if msg == net_SignonState then
-				local state = read:ReadByte()
-				
-				if state == SIGNONSTATE_CHANGELEVEL then
-					changeLevelState = true
-					--print( "[gm_sourcenet] Received changelevel packet" )
-				end
-				
-				read:Seek(read:GetNumBitsRead() - 8)
-			end
+		local msgtype = read:ReadUInt(NET_MESSAGE_BITS)
+		local handler = GetNetMessageInstance(netchan, msgtype)
+		if handler == nil then
+			SourceNetMsg(Color(255, 0, 0), "Unknown incoming message " .. msgtype .. " with " .. read:GetNumBitsLeft() .. " bit(s) left\n")
+			return false
 		end
 
-		local handler = NET_MESSAGES[msg]
+		local incoming_copy_table = GetIncomingCopyTableForMessageType(msgtype)
+		local copy_function = incoming_copy_table ~= nil and incoming_copy_table[msgtype] or DefaultCopy
+		copy_function(netchan, read, write, handler)
 
-		--[[if msg ~= net_NOP and msg ~= 3 and msg ~= 9 then
-			Msg("(in) Pre Message: " .. msg .. ", bits: " .. read:GetNumBitsRead() .. "/" .. totalbits .. "\n")
-		end--]]
-	
-		if not handler then
-			if CLIENT then
-				handler = NET_MESSAGES.SVC[msg]
-			else
-				handler = NET_MESSAGES.CLC[msg]
-			end
-
-			if not handler then
-				for i = 1, netchan:GetNetMessageNum() do
-					local m = netchan:GetNetMessage(i)
-					if m:GetType() == msg then
-						handler = specialhandler
-						specialmsg = m
-						break
-					end
-				end
-
-				if not handler then
-					Msg("Unknown outgoing message: " .. msg .. "\n")
-						
-					write:Seek(totalbits)
-
-					break
-				end
-			end
-		end
-
-		local func = handler.IncomingCopy or handler.DefaultCopy
-
-		local success, ret = xpcall(func, debug.traceback, netchan, read, write)
-		if not success then
-			print(ret)
-
-			break
-		elseif ret == false then
-		--if func(netchan, read, write) == false then
-			Msg("Failed to filter message " .. msg .. "\n")
-
-			write:Seek(totalbits)
-
-			break
-		end
-
-		--[[if msg ~= net_NOP and msg ~= 3 and msg ~= 9 then
-			Msg("(in) Post Message: " .. msg .. " bits: " .. read:GetNumBitsRead() .. "/" .. totalbits .. "\n")
-		end--]]
+		SourceNetMsg(Color(255, 255, 255), "NetMessage: " .. tostring(handler) .. "\n")
 	end
-	
-	if CLIENT then
-		if changeLevelState then
-			--print("[gm_sourcenet] Server is changing level, calling PreNetChannelShutdown")
-			hook.Call("PreNetChannelShutdown", nil, netchan, "Server Changing Level")
-		end
+
+	local bitsleft = read:GetNumBitsLeft()
+	if bitsleft > 0 then
+		-- Should be inocuous padding bits but just to be sure, let's copy them
+		local data = read:ReadBits(bitsleft)
+		write:WriteBits(data)
+		SourceNetMsg(Color(255, 255, 0), "Copied " .. bitsleft .. " bit(s)\n")
 	end
+
+	SourceNetMsg(Color(0, 255, 0), "Fully parsed stream with " .. totalbits .. " bit(s) written\n")
+	return true
 end)
 
-function FilterIncomingMessage(msg, func)
-	local handler = NET_MESSAGES[msg]
-
-	if not handler then
-		if CLIENT then
-			handler = NET_MESSAGES.SVC[msg]
-		else
-			handler = NET_MESSAGES.CLC[msg]
-		end
+function FilterIncomingMessage(msgtype, func)
+	local incoming_copy_table = GetIncomingCopyTableForMessageType(msgtype)
+	if incoming_copy_table == nil then
+		return false
 	end
 
-	if handler then
-		handler.IncomingCopy = func
-	end
+	incoming_copy_table[msgtype] = func
+	return true
 end
 
-function UnFilterIncomingMessage(msg)
-	FilterIncomingMessage(msg, nil)
+function UnFilterIncomingMessage(msgtype)
+	return FilterIncomingMessage(msgtype, nil)
 end

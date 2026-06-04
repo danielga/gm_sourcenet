@@ -3,7 +3,7 @@ include("sourcenet/outgoing.lua")
 
 FilterOutgoingMessage(net_StringCmd, function(netchan, read, write)
 	local cmd = read:ReadString()
-	
+
 	print(string.format("Sending command \"%s\"", cmd))
 
 	write:WriteUInt(net_StringCmd, NET_MESSAGE_BITS)
@@ -12,7 +12,7 @@ end)
 
 FilterIncomingMessage(net_StringCmd, function(netchan, read, write)
 	local cmd = read:ReadString()
-	
+
 	print(string.format("Executing command \"%s\"", cmd))
 
 	write:WriteUInt(net_StringCmd, NET_MESSAGE_BITS)
