@@ -25,11 +25,11 @@ namespace DataPack
 	class GModDataPackProxy : Detouring::ClassProxy<GModDataPack, GModDataPackProxy>
 	{
 	public:
-		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+		static void Initialize( GarrysMod::Lua::ILuaBase * )
 		{
+			// Non-fatal: if the signature scan misses, Lua-file validation is
+			// unavailable (EnableLuaFileValidation returns false) instead of aborting load.
 			SendFileToClient_original = FunctionPointers::GModDataPack_SendFileToClient( );
-			if( SendFileToClient_original == nullptr )
-				LUA->ThrowError( "unable to find GModDataPack::SendFileToClient" );
 		}
 
 		void SendFileToClient( int client, int fileID )
@@ -82,6 +82,11 @@ namespace DataPack
 		LUA_FUNCTION_STATIC_MEMBER( EnableLuaFileValidation )
 		{
 			LUA->CheckType( 1, GarrysMod::Lua::Type::BOOL );
+			if( SendFileToClient_original == nullptr )
+			{
+				LUA->PushBool( false );
+				return 1;
+			}
 			LUA->PushBool( LUA->GetBool( 1 ) ? HookSendFileToClient( ) : UnHookSendFileToClient( ) );
 			return 1;
 		}
@@ -96,6 +101,10 @@ namespace DataPack
 
 		static int lua_receiving_client;
 		static const char lua_file_hook_name[];
+
+		// A live instance keeps the ClassProxy SharedState alive so the static
+		// Hook()/UnHook() entrypoints work.
+		static GModDataPackProxy Singleton;
 	};
 
 	FunctionPointers::GModDataPack_SendFileToClient_t
@@ -103,6 +112,7 @@ namespace DataPack
 
 	int GModDataPackProxy::lua_receiving_client = -1;
 	const char GModDataPackProxy::lua_file_hook_name[] = "SendLuaFileToClient";
+	GModDataPackProxy GModDataPackProxy::Singleton;
 
 	inline size_t MaximumCompressedSize( const std::string &input )
 	{
@@ -207,6 +217,13 @@ namespace DataPack
 
 	LUA_FUNCTION_STATIC( SendLuaFile )
 	{
+		if( client_lua_files == nullptr )
+		{
+			LUA->PushNil( );
+			LUA->PushString( "SendLuaFile unavailable (client_lua_files string table not found)" );
+			return 2;
+		}
+
 		LUA->CheckType( 1, GarrysMod::Lua::Type::NUMBER );
 		LUA->CheckType( 2, GarrysMod::Lua::Type::NUMBER );
 		LUA->CheckType( 3, GarrysMod::Lua::Type::STRING );
@@ -249,11 +266,9 @@ namespace DataPack
 				INTERFACENAME_NETWORKSTRINGTABLESERVER
 			);
 		if( networkstringtable == nullptr )
-			LUA->ThrowError( "unable to get INetworkStringTableContainer" );
+			return;
 
 		client_lua_files = networkstringtable->FindTable( "client_lua_files" );
-		if( client_lua_files == nullptr )
-			LUA->ThrowError( "missing \"client_lua_files\" string table" );
 	}
 
 	void Initialize( GarrysMod::Lua::ILuaBase *LUA )

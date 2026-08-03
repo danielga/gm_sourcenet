@@ -809,25 +809,7 @@ namespace NetMessages
 		NumberMember<SVC_Prefetch, uint16_t, &SVC_Prefetch::SoundIndex>( LUA, "SoundIndex" );
 	}
 
-	const char SVC_Menu::Name[] = "svc_Menu";
-	const char SVC_Menu::LuaName[] = "SVC_Menu";
-	const int32_t SVC_Menu::Type = svc_Menu;
-
-	SVC_Menu::SVC_Menu( ) :
-		MenuKeyValues( nullptr )
-	{ }
-
-	SVC_Menu::~SVC_Menu( )
-	{
-		if( MenuKeyValues != nullptr )
-			MenuKeyValues->deleteThis( );
-	}
-
-	void SVC_Menu::SetupLua( GarrysMod::Lua::ILuaBase *LUA )
-	{
-		EnumMember<SVC_Menu, DIALOG_TYPE, &SVC_Menu::DialogType>( LUA, "DialogType" );
-		NumberMember<SVC_Menu, int32_t, &SVC_Menu::Length>( LUA, "Length" );
-	}
+	// SVC_Menu (svc_Menu, 29) removed from the GMod engine.
 
 	const char SVC_GameEventList::Name[] = "svc_GameEventList";
 	const char SVC_GameEventList::LuaName[] = "SVC_GameEventList";

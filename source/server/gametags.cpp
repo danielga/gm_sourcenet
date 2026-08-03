@@ -17,19 +17,23 @@ namespace GameTags
 	class CBaseServerProxy : Detouring::ClassProxy<CBaseServer, CBaseServerProxy>
 	{
 	public:
-		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+		static void Initialize( GarrysMod::Lua::ILuaBase * )
 		{
+			// Non-fatal: if any signature scan misses, disable just GameTags
+			// (SetGameTags returns false) instead of aborting the module load.
 			RecalculateTags_original = FunctionPointers::CBaseServer_RecalculateTags( );
 			if( RecalculateTags_original == nullptr )
-				LUA->ThrowError( "unable to find CBaseServer::RecalculateTags" );
+				return;
 
 			FunctionPointers::Steam3Server_t Steam3Server = FunctionPointers::Steam3Server( );
 			if( Steam3Server == nullptr )
-				LUA->ThrowError( "unable to find Steam3Server" );
+				return;
 
 			gameserver_context = Steam3Server( );
 			if( gameserver_context == nullptr )
-				LUA->ThrowError( "unable to load CSteamGameServerAPIContext interface" );
+				return;
+
+			available = true;
 		}
 
 		void RecalculateTags( )
@@ -51,6 +55,12 @@ namespace GameTags
 
 		LUA_FUNCTION_STATIC_MEMBER( SetGameTags )
 		{
+			if( !available )
+			{
+				LUA->PushBool( false );
+				return 1;
+			}
+
 			if( LUA->IsType( 1, GarrysMod::Lua::Type::STRING ) )
 				gametags_substitute = LUA->GetString( 1 );
 			else
@@ -68,12 +78,19 @@ namespace GameTags
 		static FunctionPointers::CBaseServer_RecalculateTags_t RecalculateTags_original;
 		static CSteam3Server *gameserver_context;
 		static std::string gametags_substitute;
+		static bool available;
+
+		// A live instance keeps the ClassProxy SharedState alive so the static
+		// Hook()/UnHook() entrypoints work.
+		static CBaseServerProxy Singleton;
 	};
 
 	FunctionPointers::CBaseServer_RecalculateTags_t
 		CBaseServerProxy::RecalculateTags_original = nullptr;
 	CSteam3Server *CBaseServerProxy::gameserver_context = nullptr;
 	std::string CBaseServerProxy::gametags_substitute;
+	bool CBaseServerProxy::available = false;
+	CBaseServerProxy CBaseServerProxy::Singleton;
 
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{

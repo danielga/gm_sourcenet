@@ -138,11 +138,17 @@ namespace NetMessage
 	{
 		LUA->GetField( GarrysMod::Lua::INDEX_REGISTRY, table_name );
 
-		for( int32_t k = 0; k < netchan->m_NetMessages.Count( ); ++k )
+		// Runs on every disconnect via the Shutdown hook. A drifted net.hpp layout makes
+		// Count() garbage; bail on an implausible count to avoid dereferencing wild pointers.
+		const int32_t count = netchan->m_NetMessages.Count( );
+		if( count >= 0 && count <= 4096 )
 		{
-			LUA->PushUserdata( netchan->m_NetMessages[k] );
-			LUA->PushNil( );
-			LUA->SetTable( -3 );
+			for( int32_t k = 0; k < count; ++k )
+			{
+				LUA->PushUserdata( netchan->m_NetMessages[k] );
+				LUA->PushNil( );
+				LUA->SetTable( -3 );
+			}
 		}
 
 		LUA->Pop( 1 );
@@ -425,40 +431,33 @@ namespace NetMessage
 
 	void PreInitialize( GarrysMod::Lua::ILuaBase *LUA )
 	{
+		// These engine functions are disassembled to discover netmessage vtables.
+		// Non-fatal: skip any that can't be located instead of aborting the module.
 		const void *CBaseClient_ConnectionStart =
 			reinterpret_cast<const void *>( FunctionPointers::CBaseClient_ConnectionStart( ) );
-		if( CBaseClient_ConnectionStart == nullptr )
-			LUA->ThrowError( "failed to locate CBaseClient::ConnectionStart" );
-
 		const void *CBaseClientState_ConnectionStart =
 			reinterpret_cast<const void *>( FunctionPointers::CBaseClientState_ConnectionStart( ) );
-		if( CBaseClientState_ConnectionStart == nullptr )
-			LUA->ThrowError( "failed to locate CBaseClientState::ConnectionStart" );
-
 		const void *CLC_CmdKeyValues_Constructor =
 			reinterpret_cast<const void *>( FunctionPointers::CLC_CmdKeyValues_Constructor( ) );
-		if( CLC_CmdKeyValues_Constructor == nullptr )
-			LUA->ThrowError( "failed to locate CLC_CmdKeyValues::CLC_CmdKeyValues" );
-
 		const void *SVC_CmdKeyValues_Constructor =
 			reinterpret_cast<const void *>( FunctionPointers::SVC_CmdKeyValues_Constructor( ) );
-		if( SVC_CmdKeyValues_Constructor == nullptr )
-			LUA->ThrowError( "failed to locate SVC_CmdKeyValues::SVC_CmdKeyValues" );
-
 		const void *SVC_CreateStringTable_Constructor =
 			reinterpret_cast<const void *>( FunctionPointers::SVC_CreateStringTable_Constructor( ) );
-		if( SVC_CreateStringTable_Constructor == nullptr )
-			LUA->ThrowError( "failed to locate SVC_CreateStringTable::SVC_CreateStringTable" );
 
-		ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
+		if( CBaseClient_ConnectionStart != nullptr )
+			ResolveMessagesFromFunctionCode( LUA, CBaseClient_ConnectionStart );
 
-		ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
+		if( CBaseClientState_ConnectionStart != nullptr )
+			ResolveMessagesFromFunctionCode( LUA, CBaseClientState_ConnectionStart );
 
-		ResolveMessagesFromFunctionCode( LUA, CLC_CmdKeyValues_Constructor );
+		if( CLC_CmdKeyValues_Constructor != nullptr )
+			ResolveMessagesFromFunctionCode( LUA, CLC_CmdKeyValues_Constructor );
 
-		ResolveMessagesFromFunctionCode( LUA, SVC_CmdKeyValues_Constructor );
+		if( SVC_CmdKeyValues_Constructor != nullptr )
+			ResolveMessagesFromFunctionCode( LUA, SVC_CmdKeyValues_Constructor );
 
-		ResolveMessagesFromFunctionCode( LUA, SVC_CreateStringTable_Constructor );
+		if( SVC_CreateStringTable_Constructor != nullptr )
+			ResolveMessagesFromFunctionCode( LUA, SVC_CreateStringTable_Constructor );
 	}
 
 	template<class NetMessage> int Constructor( lua_State *L )
@@ -482,8 +481,10 @@ namespace NetMessage
 
 		if( netmessages_vtables.find( NetMessage::Name ) == netmessages_vtables.end( ) )
 		{
+			// Non-fatal: skip this message type if its vtable wasn't found on this
+			// engine build, rather than aborting the whole module.
 			delete msg;
-			LUA->FormattedError( "failed to find vtable for '%s'", NetMessage::Name );
+			return;
 		}
 
 		BuildVTable( netmessages_vtables[NetMessage::Name], msg->GetVTable( ) );
@@ -732,9 +733,6 @@ namespace NetMessage
 		LUA->PushNumber( svc_Prefetch );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Prefetch" );
 
-		LUA->PushNumber( svc_Menu );
-		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Menu" );
-
 		LUA->PushNumber( svc_GameEventList );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEventList" );
 
@@ -811,7 +809,7 @@ namespace NetMessage
 		Register<SVC_PacketEntities>( LUA );
 		Register<SVC_TempEntities>( LUA );
 		Register<SVC_Prefetch>( LUA );
-		Register<SVC_Menu>( LUA );
+		// svc_Menu (29) removed from the GMod engine.
 		Register<SVC_GameEventList>( LUA );
 		Register<SVC_GetCvarValue>( LUA );
 		Register<SVC_CmdKeyValues>( LUA );
@@ -856,7 +854,6 @@ namespace NetMessage
 		UnRegister<SVC_PacketEntities>( LUA );
 		UnRegister<SVC_TempEntities>( LUA );
 		UnRegister<SVC_Prefetch>( LUA );
-		UnRegister<SVC_Menu>( LUA );
 		UnRegister<SVC_GameEventList>( LUA );
 		UnRegister<SVC_GetCvarValue>( LUA );
 		UnRegister<SVC_CmdKeyValues>( LUA );
@@ -1029,9 +1026,6 @@ namespace NetMessage
 
 		LUA->PushNil( );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Prefetch" );
-
-		LUA->PushNil( );
-		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_Menu" );
 
 		LUA->PushNil( );
 		LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, "svc_GameEventList" );

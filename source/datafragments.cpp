@@ -9,18 +9,25 @@ namespace dataFragments
 	{
 		dataFragments_t *datafrag;
 		CNetChan *netchan;
+		bool owned; // true only when Push allocated the datafrag itself
 	};
 
 	static int32_t metatype = 0;
 	static const char *metaname = "dataFragments_t";
 
-	static bool IsValid( dataFragments_t *datafrag, CNetChan *netchan )
+	// Owned standalone fragments are always valid; channel-derived ones only while their channel is.
+	static bool IsValid( const Container *udata )
 	{
-		return datafrag != nullptr && NetChannel::IsValid( netchan );
+		if( udata->datafrag == nullptr )
+			return false;
+		if( udata->owned )
+			return true;
+		return NetChannel::IsValid( udata->netchan );
 	}
 
 	void Push( GarrysMod::Lua::ILuaBase *LUA, dataFragments_t *datafrag, CNetChan *netchan )
 	{
+		bool owned = false;
 		if( datafrag == nullptr )
 		{
 			datafrag = new( std::nothrow ) dataFragments_t;
@@ -29,11 +36,13 @@ namespace dataFragments
 				LUA->PushNil( );
 				return;
 			}
+			owned = true;
 		}
 
 		Container *udata = LUA->NewUserType<Container>( metatype );
 		udata->datafrag = datafrag;
 		udata->netchan = netchan;
+		udata->owned = owned;
 
 		LUA->PushMetaTable( metatype );
 		LUA->SetMetaTable( -2 );
@@ -52,7 +61,7 @@ namespace dataFragments
 	{
 		Container *udata = GetUserData( LUA, index );
 		dataFragments_t *datafrag = udata->datafrag;
-		if( !IsValid( datafrag, udata->netchan ) )
+		if( !IsValid( udata ) )
 			LUA->FormattedError( "invalid %s", metaname );
 
 		if( netchan != nullptr )
@@ -65,7 +74,8 @@ namespace dataFragments
 	{
 		Container *udata = GetUserData( LUA, 1 );
 
-		if( udata->netchan != nullptr )
+		// Only free fragments we allocated; channel-derived ones point into engine memory.
+		if( udata->owned )
 			delete udata->datafrag;
 
 		LUA->SetUserType( 1, nullptr );
@@ -88,7 +98,7 @@ namespace dataFragments
 	LUA_FUNCTION_STATIC( IsValid )
 	{
 		Container *udata = GetUserData( LUA, 1 );
-		LUA->PushBool( IsValid( udata->datafrag, udata->netchan ) );
+		LUA->PushBool( IsValid( udata ) );
 		return 1;
 	}
 

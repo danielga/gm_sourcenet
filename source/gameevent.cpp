@@ -55,7 +55,13 @@ namespace GameEvent
 	{
 		Container *udata = GetUserData( LUA, 1 );
 
-		if( udata->manager != nullptr )
+		// Guard against a recycled userdata block: GMod shares LuaJIT's allocator with the
+		// engine and __gc runs lazily, so the backing may already belong to another object.
+		// Only free when it still matches the live event manager.
+		if( udata != nullptr
+			&& udata->event != nullptr
+			&& udata->manager != nullptr
+			&& udata->manager == GameEventManager::GetManager( ) )
 			udata->manager->FreeEvent( udata->event );
 
 		LUA->SetUserType( 1, nullptr );

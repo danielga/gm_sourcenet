@@ -226,6 +226,12 @@ public:
 
 	// packet history
 	netflow_t m_DataFlow[MAX_FLOWS];
+
+	// LAYOUT FIX: the current GMod engine carries 0xE0 more bytes in the m_DataFlow region
+	// than this reconstruction models. A blind pad realigns the following fields
+	// (m_SubChannels @ 0x34C, m_Name @ 0x24C4). 32-bit- and engine-version-specific.
+	uint8_t m_sourcenet_layout_pad[0xE0];
+
 	// total bytes for each message group
 	int32_t m_MsgStats[INetChannelInfo::TOTAL];
 

@@ -456,23 +456,7 @@ namespace NetMessages
 		uint16_t SoundIndex;
 	};
 
-	class SVC_Menu : public CNetMessage
-	{
-	public:
-		static const char Name[];
-		static const char LuaName[];
-		static const int32_t Type;
-
-		SVC_Menu( );
-
-		~SVC_Menu( );
-
-		static void SetupLua( GarrysMod::Lua::ILuaBase *LUA );
-
-		KeyValues *MenuKeyValues;
-		DIALOG_TYPE DialogType;
-		int32_t Length;
-	};
+	// SVC_Menu (svc_Menu, 29) removed from the GMod engine.
 
 	class SVC_GameEventList : public CNetMessage
 	{

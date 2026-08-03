@@ -303,7 +303,7 @@ namespace NetChannel
 		if( offset < 0 || offset >= netchan->m_WaitingList[stream].Count( ) )
 			return 0;
 
-		dataFragments::Push( LUA, netchan->m_WaitingList[stream].Element( offset ) );
+		dataFragments::Push( LUA, netchan->m_WaitingList[stream].Element( offset ), netchan );
 
 		return 1;
 	}
@@ -333,7 +333,7 @@ namespace NetChannel
 		if( stream < 0 || stream >= MAX_STREAMS )
 			return 0;
 
-		dataFragments::Push( LUA, &netchan->m_ReceiveList[stream] );
+		dataFragments::Push( LUA, &netchan->m_ReceiveList[stream], netchan );
 
 		return 1;
 	}
@@ -346,9 +346,10 @@ namespace NetChannel
 
 		for( int32_t i = 0; i < MAX_SUBCHANNELS; ++i )
 		{
-			subchannel::Push( LUA, &netchan->m_SubChannels[i], netchan );
-
+			// Key before value: SetTable pops value (top) then key (-2).
 			LUA->PushNumber( i + 1 );
+
+			subchannel::Push( LUA, &netchan->m_SubChannels[i], netchan );
 
 			LUA->SetTable( -3 );
 		}
@@ -1043,8 +1044,9 @@ namespace NetChannel
 		int32_t index = -1;
 		if( LUA->IsType( 1, GarrysMod::Lua::Type::ENTITY ) )
 		{
-			LUA->PushMetaTable( GarrysMod::Lua::Type::ENTITY );
-			LUA->GetField( -1, "EntIndex" );
+			// Index the entity directly so EntIndex resolves via __index; the raw
+			// metatable has no such field on current GMod builds.
+			LUA->GetField( 1, "EntIndex" );
 			LUA->Push( 1 );
 			LUA->Call( 1, 1 );
 

@@ -32,11 +32,11 @@ namespace Hooks
 		static FunctionPointers::CNetChan_ProcessMessages_t ProcessMessages_original;
 
 	public:
-		static void Initialize( GarrysMod::Lua::ILuaBase *LUA )
+		static void Initialize( GarrysMod::Lua::ILuaBase * )
 		{
+			// Located by signature scan; if it misses, the ProcessMessages hook is unavailable
+			// (Attach/Detach return false) but the vtable-based hooks still work.
 			ProcessMessages_original = FunctionPointers::CNetChan_ProcessMessages( );
-			if( ProcessMessages_original == nullptr )
-				LUA->ThrowError( "failed to locate CNetChan::ProcessMessages" );
 		}
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachSendDatagram )
@@ -215,13 +215,13 @@ namespace Hooks
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaAttachProcessMessages )
 		{
-			LUA->PushBool( Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) );
+			LUA->PushBool( ProcessMessages_original != nullptr && Hook( ProcessMessages_original, &CNetChanProxy::ProcessMessages ) );
 			return 1;
 		}
 
 		static bool DetachProcessMessages( )
 		{
-			return UnHook( ProcessMessages_original );
+			return ProcessMessages_original != nullptr && UnHook( ProcessMessages_original );
 		}
 
 		LUA_FUNCTION_STATIC_MEMBER( LuaDetachProcessMessages )

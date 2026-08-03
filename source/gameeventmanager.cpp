@@ -15,6 +15,14 @@ namespace GameEventManager
 
 	static GarrysMod::Lua::AutoReference manager_ref;
 
+	// Cached copy of the resolved singleton.
+	static IGameEventManager2 *manager_ptr = nullptr;
+
+	IGameEventManager2 *GetManager( )
+	{
+		return manager_ptr;
+	}
+
 	static IGameEventManager2 *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 	{
 		global::CheckType( LUA, index, metatype, metaname );
@@ -90,7 +98,7 @@ namespace GameEventManager
 		if( manager == nullptr )
 			LUA->ThrowError( "failed to obtain IGameEventManager2" );
 
-
+		manager_ptr = manager;
 
 		metatype = LUA->CreateMetaTable( metaname );
 

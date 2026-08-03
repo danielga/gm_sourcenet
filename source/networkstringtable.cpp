@@ -5,7 +5,9 @@
 namespace NetworkStringTable
 {
 	static int32_t metatype = 0;
-	static const char *metaname = "IGameEvent";
+	// Must be unique: sharing "IGameEvent" made CreateMetaTable return that type's
+	// metatable, so GetName collided and segfaulted.
+	static const char *metaname = "INetworkStringTable";
 
 	void Push( GarrysMod::Lua::ILuaBase *LUA, INetworkStringTable *table )
 	{
