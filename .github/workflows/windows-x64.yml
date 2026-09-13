@@ -1,0 +1,161 @@
+name: Build modules
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*", "[0-9]*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows x86 and x64 modules
+    runs-on: windows-2022
+
+    env:
+      GARRYSMOD_COMMON_BRANCH: x86-64-support-sourcesdk
+      GARRYSMOD_COMMON_REPOSITORY: https://github.com/danielga/garrysmod_common.git
+      PREMAKE_VERSION: 5.0.0-beta8
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Fetch x64 build dependencies
+        shell: pwsh
+        run: |
+          $dependencies = Join-Path $env:GITHUB_WORKSPACE 'dependencies'
+          $common = Join-Path $dependencies 'garrysmod_common'
+          New-Item -ItemType Directory -Force $dependencies | Out-Null
+          git clone --depth 1 --branch $env:GARRYSMOD_COMMON_BRANCH --recurse-submodules $env:GARRYSMOD_COMMON_REPOSITORY $common
+
+          $premakeDirectory = Join-Path $dependencies 'windows/premake-core'
+          $archive = Join-Path $premakeDirectory 'premake.zip'
+          New-Item -ItemType Directory -Force $premakeDirectory | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/danielga/garrysmod_common/releases/download/premake-build%2F$env:PREMAKE_VERSION/premake-$env:PREMAKE_VERSION-windows.zip" -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $premakeDirectory -Force
+
+      - name: Generate Visual Studio project
+        shell: pwsh
+        env:
+          GARRYSMOD_COMMON: ${{ github.workspace }}\dependencies\garrysmod_common
+        run: |
+          & "$env:GITHUB_WORKSPACE\dependencies\windows\premake-core\premake5.exe" vs2022
+
+      - name: Build Release x86 and x64
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -products '*' -requires Microsoft.Component.MSBuild -latest -property installationPath
+          if (-not $installation) { throw 'Visual Studio Build Tools were not found.' }
+          $msbuild = Join-Path $installation 'MSBuild\Current\Bin\MSBuild.exe'
+          & $msbuild "$env:GITHUB_WORKSPACE\projects\windows\vs2022\sourcenet.sln" /m /p:Configuration=Release /p:Platform=Win32
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $msbuild "$env:GITHUB_WORKSPACE\projects\windows\vs2022\sourcenet.sln" /m /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Stage release files
+        shell: pwsh
+        run: |
+          $release = Join-Path $env:RUNNER_TEMP 'sourcenet-windows'
+          New-Item -ItemType Directory -Force $release | Out-Null
+          Copy-Item "$env:GITHUB_WORKSPACE\projects\windows\vs2022\x86_64\Release\gmcl_sourcenet_win64.dll" $release
+          Copy-Item "$env:GITHUB_WORKSPACE\projects\windows\vs2022\x86_64\Release\gmsv_sourcenet_win64.dll" $release
+          Copy-Item "$env:GITHUB_WORKSPACE\projects\windows\vs2022\x86\Release\gmcl_sourcenet_win32.dll" $release
+          Copy-Item "$env:GITHUB_WORKSPACE\projects\windows\vs2022\x86\Release\gmsv_sourcenet_win32.dll" $release
+          "RELEASE_DIRECTORY=$release" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sourcenet-windows
+          path: ${{ env.RELEASE_DIRECTORY }}/*.dll
+          if-no-files-found: error
+
+
+  linux:
+    name: Build Linux x86 and x64 modules
+    runs-on: ubuntu-22.04
+
+    env:
+      GARRYSMOD_COMMON_BRANCH: x86-64-support-sourcesdk
+      GARRYSMOD_COMMON_REPOSITORY: https://github.com/danielga/garrysmod_common.git
+      PREMAKE_VERSION: 5.0.0-beta8
+      CC: gcc
+      CXX: g++
+      AR: gcc-ar
+      NM: gcc-nm
+      RANLIB: gcc-ranlib
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install 32-bit build support
+        shell: bash
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y g++-multilib libc6-dev-i386
+
+      - name: Fetch x64 build dependencies
+        shell: bash
+        run: |
+          mkdir -p dependencies
+          git clone --depth 1 --branch "$GARRYSMOD_COMMON_BRANCH" --recurse-submodules "$GARRYSMOD_COMMON_REPOSITORY" dependencies/garrysmod_common
+          mkdir -p dependencies/linux/premake-core
+          curl -fsSL "https://github.com/danielga/garrysmod_common/releases/download/premake-build%2F${PREMAKE_VERSION}/premake-${PREMAKE_VERSION}-linux.tar.gz" | tar -xz -C dependencies/linux/premake-core
+          chmod +x dependencies/linux/premake-core/premake5
+
+      - name: Generate Makefiles
+        shell: bash
+        env:
+          GARRYSMOD_COMMON: ${{ github.workspace }}/dependencies/garrysmod_common
+        run: dependencies/linux/premake-core/premake5 gmake
+
+      - name: Build Release x86 and x64
+        shell: bash
+        run: |
+          make -C projects/linux/gmake -j"$(getconf _NPROCESSORS_ONLN)" config=release_x86
+          make -C projects/linux/gmake -j"$(getconf _NPROCESSORS_ONLN)" config=release_x86_64
+
+      - name: Stage release files
+        shell: bash
+        run: |
+          release="$RUNNER_TEMP/sourcenet-linux"
+          mkdir -p "$release"
+          find projects/linux/gmake -type f -path '*/Release/*.dll' -exec cp {} "$release" \;
+          mv "$release/gmcl_sourcenet_linux.dll" "$release/gmcl_sourcenet_linux32.dll"
+          mv "$release/gmsv_sourcenet_linux.dll" "$release/gmsv_sourcenet_linux32.dll"
+          test "$(find "$release" -maxdepth 1 -type f -name '*.dll' | wc -l)" -eq 4
+          echo "RELEASE_DIRECTORY=$release" >> "$GITHUB_ENV"
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sourcenet-linux
+          path: ${{ env.RELEASE_DIRECTORY }}/*.dll
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [windows, linux]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Download module artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/*.dll --generate-notes

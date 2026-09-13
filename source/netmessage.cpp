@@ -811,7 +811,11 @@ namespace NetMessage
 		Register<SVC_PacketEntities>( LUA );
 		Register<SVC_TempEntities>( LUA );
 		Register<SVC_Prefetch>( LUA );
+		// The 64-bit Garry's Mod protocol no longer instantiates svc_Menu.
+		// There is consequently no engine vtable to borrow for this legacy message.
+#if !defined ARCHITECTURE_X86_64
 		Register<SVC_Menu>( LUA );
+#endif
 		Register<SVC_GameEventList>( LUA );
 		Register<SVC_GetCvarValue>( LUA );
 		Register<SVC_CmdKeyValues>( LUA );
@@ -856,7 +860,9 @@ namespace NetMessage
 		UnRegister<SVC_PacketEntities>( LUA );
 		UnRegister<SVC_TempEntities>( LUA );
 		UnRegister<SVC_Prefetch>( LUA );
+#if !defined ARCHITECTURE_X86_64
 		UnRegister<SVC_Menu>( LUA );
+#endif
 		UnRegister<SVC_GameEventList>( LUA );
 		UnRegister<SVC_GetCvarValue>( LUA );
 		UnRegister<SVC_CmdKeyValues>( LUA );

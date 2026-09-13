@@ -4,6 +4,17 @@
 
 A module for Garry's Mod that provides interfaces to many systems of VALVe's engine, based on [gm\_sourcenet3][1], created by Chrisaster.
 
+## Automated builds and releases
+
+GitHub Actions builds Windows and Linux, in both x86 and x64 variants, on every push and pull request. Push a tag beginning with `v` (for example, `v1.1.17.1`) to publish every DLL in a GitHub Release.
+
+The release contains:
+
+- `gmcl_sourcenet_win32.dll` / `gmsv_sourcenet_win32.dll` — Windows x86 client/server modules
+- `gmcl_sourcenet_win64.dll` / `gmsv_sourcenet_win64.dll` — Windows x64 client/server modules
+- `gmcl_sourcenet_linux32.dll` / `gmsv_sourcenet_linux32.dll` — Linux x86 client/server modules
+- `gmcl_sourcenet_linux64.dll` / `gmsv_sourcenet_linux64.dll` — Linux x64 client/server modules
+
 ## Compiling
 
 The only supported compilation platform for this project on Windows is **Visual Studio 2017** on **release** mode. However, it's possible it'll work with *Visual Studio 2015* and *Visual Studio 2019* because of the unified runtime.
